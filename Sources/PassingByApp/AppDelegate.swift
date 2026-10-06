@@ -1548,8 +1548,14 @@ private struct MarkdownTextView: NSViewRepresentable {
         editor.isAutomaticDashSubstitutionEnabled = settings.smartDashes
         (editor as? NoteEditorTextView)?.indentWidth = settings.indentWidth
         scroll.rulersVisible = settings.showLineNumbers
-        if editor.string != text {
+        // AppKit owns provisional text while a dead key or input method is composing.
+        // Replacing the string here ends composition and moves the insertion point.
+        if editor.string != text && !editor.hasMarkedText() {
+            let selection = editor.selectedRange()
             editor.string = text
+            let length = (text as NSString).length
+            let location = min(selection.location, length)
+            editor.setSelectedRange(NSRange(location: location, length: min(selection.length, length - location)))
             context.coordinator.highlight(editor)
             context.coordinator.updateStatus(editor)
             (scroll.verticalRulerView as? NoteLineNumberRuler)?.noteTextDidChange()
