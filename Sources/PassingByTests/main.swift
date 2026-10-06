@@ -57,6 +57,33 @@ func testPersistenceRoundTrip() throws {
         try? FileManager.default.removeItem(at: url)
 }
 
+func testZoomPersistenceAndLegacyDefaults() throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("PassingByZoom-\(UUID().uuidString).json")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let persistence = WorkspacePersistence(url: url)
+    var first = Note(title: "First")
+    first.zoomPercent = 150
+    let second = Note(title: "Second")
+    var workspace = Workspace(notes: [first, second])
+    workspace.settings.screenZoom = ["dashboard": 120, "tasks": 80]
+    try persistence.save(workspace)
+    let loaded = try persistence.load()
+    expect(loaded.notes.map(\.zoomPercent) == [150, 100], "Notes keep independent zoom, and new Notes start at default")
+    expect(loaded.settings.screenZoom == ["dashboard": 120, "tasks": 80], "screen zoom persists independently")
+
+    var encoded = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    var notes = encoded["notes"] as! [[String: Any]]
+    notes[0].removeValue(forKey: "zoomPercent")
+    encoded["notes"] = notes
+    var settings = encoded["settings"] as! [String: Any]
+    settings.removeValue(forKey: "screenZoom")
+    encoded["settings"] = settings
+    try JSONSerialization.data(withJSONObject: encoded).write(to: url)
+    let legacy = try persistence.load()
+    expect(legacy.notes[0].zoomPercent == 100 && legacy.settings.screenZoom.isEmpty, "older workspaces use default zoom")
+    expect(ZoomLevel.validated(20) == 100 && ZoomLevel.validated(105) == 100, "invalid saved zoom uses default")
+}
+
 func testWorkspaceDirectoryMigration() throws {
     let files = FileManager.default
     let root = files.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -691,6 +718,7 @@ testRetentionNeverDeletesOpenTasksOrFutureDates()
 testRetentionRemovesOnlyExpiredCompletedAndPassedItems()
 testGlobalContextMatchesAllAndOneLabel()
 try testPersistenceRoundTrip()
+try testZoomPersistenceAndLegacyDefaults()
 try testWorkspaceDirectoryMigration()
 try testWorkspaceMigrationFailureKeepsLegacyData()
 try testNoteIconPersistenceAndLegacyFallback()

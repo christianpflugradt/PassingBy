@@ -7,6 +7,17 @@ import UniformTypeIdentifiers
 
 private enum Destination: Hashable {
     case dashboard, tasks, appointments, note(UUID), help, settings
+
+    var zoomKey: String? {
+        switch self {
+        case .dashboard: "dashboard"
+        case .tasks: "tasks"
+        case .appointments: "appointments"
+        case .help: "help"
+        case .settings: "settings"
+        case .note: nil
+        }
+    }
 }
 
 @MainActor private final class WorkspaceState: ObservableObject {
@@ -50,6 +61,8 @@ private enum Destination: Hashable {
     @Published var showCompleted = false
     @Published var showPast = false
     @Published var expanded: Set<String> = []
+    @Published private(set) var zoomNotice: String?
+    private var zoomNoticeTask: _Concurrency.Task<Void, Never>?
     private var currentDay = Calendar.current.startOfDay(for: Date())
     private let store: AppStore
 
@@ -86,6 +99,46 @@ private enum Destination: Hashable {
     var appointments: [DateItem] { workspace.matchingDates(showPast: showPast) }
     var label: PassingByCore.Label? { workspace.labels.first { $0.id == labelID } }
     func note(_ id: UUID) -> Note? { workspace.notes.first { $0.id == id } }
+    var currentZoom: Int {
+        switch destination {
+        case .note(let id): note(id)?.zoomPercent ?? 100
+        default: workspace.settings.screenZoom[destination.zoomKey ?? ""] ?? 100
+        }
+    }
+    func changeZoom(by delta: Int) {
+        guard !isLocked else { return }
+        let current = currentZoom
+        let next = min(ZoomLevel.maximum, max(ZoomLevel.minimum, current + delta))
+        if next == current {
+            showZoomNotice(delta > 0 ? "Maximum size · \(ZoomLevel.maximum)%" : "Minimum size · \(ZoomLevel.minimum)%")
+            return
+        }
+        change { workspace in
+            switch destination {
+            case .note(let id):
+                if let index = workspace.notes.firstIndex(where: { $0.id == id }) { workspace.notes[index].zoomPercent = next }
+            default:
+                if let key = destination.zoomKey { workspace.settings.screenZoom[key] = next }
+            }
+        }
+        if next == ZoomLevel.minimum || next == ZoomLevel.maximum {
+            showZoomNotice(next == ZoomLevel.maximum ? "Maximum size · \(next)%" : "Minimum size · \(next)%")
+        }
+    }
+    func resetAllZoom() {
+        change { workspace in
+            for index in workspace.notes.indices { workspace.notes[index].zoomPercent = 100 }
+            workspace.settings.screenZoom.removeAll()
+        }
+    }
+    private func showZoomNotice(_ message: String) {
+        zoomNoticeTask?.cancel()
+        zoomNotice = message
+        zoomNoticeTask = _Concurrency.Task { @MainActor in
+            try? await _Concurrency.Task.sleep(for: .seconds(1.5))
+            if !_Concurrency.Task.isCancelled { zoomNotice = nil }
+        }
+    }
     func task(_ id: UUID) -> Task? { workspace.tasks.first { $0.id == id } }
     func appointment(_ id: UUID) -> DateItem? { workspace.dates.first { $0.id == id } }
 
@@ -302,6 +355,8 @@ private struct AppShortcut {
     static let find = Self(key: "f", modifiers: .command, display: "⌘F", description: "Find in open Note")
     static let findNext = Self(key: "g", modifiers: .command, display: "⌘G", description: "Find next")
     static let findPrevious = Self(key: "g", modifiers: [.command, .shift], display: "⇧⌘G", description: "Find previous")
+    static let zoomIn = Self(key: "+", modifiers: .command, display: "⌘+", description: "Increase current screen size")
+    static let zoomOut = Self(key: "-", modifiers: .command, display: "⌘−", description: "Decrease current screen size")
 
     static func note(_ index: Int, title: String) -> Self {
         let number = index + 4
@@ -355,6 +410,14 @@ private struct AppShortcut {
                     Button("Lock Passing By") { startup.state?.lockNow() }
                         .keyboardShortcut(AppShortcut.lock.key, modifiers: AppShortcut.lock.modifiers)
                         .disabled(!(startup.state?.workspace.settings.appLockEnabled ?? false) || (startup.state?.isLocked ?? true))
+                }
+                CommandMenu("View") {
+                    Button("Increase Size") { startup.state?.changeZoom(by: ZoomLevel.step) }
+                        .keyboardShortcut(AppShortcut.zoomIn.key, modifiers: AppShortcut.zoomIn.modifiers)
+                        .disabled(startup.state?.isLocked ?? true)
+                    Button("Decrease Size") { startup.state?.changeZoom(by: -ZoomLevel.step) }
+                        .keyboardShortcut(AppShortcut.zoomOut.key, modifiers: AppShortcut.zoomOut.modifiers)
+                        .disabled(startup.state?.isLocked ?? true)
                 }
                 CommandGroup(after: .textEditing) {
                     Divider()
@@ -459,11 +522,22 @@ private struct WorkspaceView: View {
                 case .tasks: TasksView(state: state)
                 case .appointments: AppointmentsView(state: state)
                 case .note(let id): NoteView(state: state, id: id)
-                case .help: HelpView(notes: state.workspace.shortcutNotes)
+                case .help: HelpView(state: state, notes: state.workspace.shortcutNotes)
                 case .settings: SettingsView(state: state)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .topTrailing) {
+                if let notice = state.zoomNotice {
+                    Text(notice)
+                        .font(.callout)
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9))
+                        .padding(16)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+            }
         }
         .frame(minWidth: 650, minHeight: 410)
         .sheet(isPresented: $state.showReorderNotes) { ReorderNotesView(state: state) }
@@ -577,10 +651,11 @@ private struct ItemLabelPicker: View {
 
 private struct PageHeader<Trailing: View>: View {
     let title: String
+    let scale: CGFloat
     @ViewBuilder let trailing: Trailing
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 16) {
-            Text(title).font(.largeTitle.weight(.semibold))
+            Text(title).font(.system(size: 34 * scale, weight: .semibold))
             Spacer()
             trailing
         }
@@ -590,6 +665,7 @@ private struct PageHeader<Trailing: View>: View {
 
 private struct DashboardView: View {
     @ObservedObject var state: WorkspaceState
+    private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
     private var openTasks: [Task] { Array(state.workspace.tasks.filter { $0.completedAt == nil && state.workspace.matches($0.labelID) }.sorted { $0.createdAt < $1.createdAt }.prefix(state.workspace.settings.maximumDashboardTasks)) }
     private var upcoming: [DateItem] { Array(state.workspace.upcomingDates().prefix(state.workspace.settings.maximumDashboardAppointments)) }
     private var statisticsText: String {
@@ -602,11 +678,11 @@ private struct DashboardView: View {
         VStack(spacing: 0) {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                PageHeader(title: "Dashboard") { LabelFilter(state: state) }
+                PageHeader(title: "Dashboard", scale: scale) { LabelFilter(state: state) }
                 HStack(alignment: .top, spacing: 52) {
                     VStack(alignment: .leading, spacing: 0) {
                         Button("To-dos") { state.destination = .tasks }
-                            .font(.title2.weight(.semibold)).buttonStyle(.plain)
+                            .font(.system(size: 22 * scale, weight: .semibold)).buttonStyle(.plain)
                             .padding(.bottom, 20)
                         if openTasks.isEmpty {
                             Text("No open To-dos").foregroundStyle(.secondary).padding(.top, 12)
@@ -614,10 +690,10 @@ private struct DashboardView: View {
                         ForEach(openTasks) { task in
                             HStack(spacing: 12) {
                                 Button { state.editTask(task.id) { $0.completedAt = Date() } } label: { Image(systemName: AppSymbol.incomplete) }
-                                    .font(.title3).buttonStyle(.plain).foregroundStyle(.secondary)
+                                    .font(.system(size: 20 * scale)).buttonStyle(.plain).foregroundStyle(.secondary)
                                     .accessibilityLabel("Complete \(task.title)")
                                 categoryDot(task.labelID, state.workspace.labels)
-                                Text(task.title).font(.system(size: 16)).frame(maxWidth: .infinity, alignment: .leading)
+                                Text(task.title).font(.system(size: 16 * scale)).frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .padding(.vertical, 15)
                             Divider()
@@ -626,7 +702,7 @@ private struct DashboardView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     VStack(alignment: .leading, spacing: 0) {
                         Button("Appointments") { state.destination = .appointments }
-                            .font(.title2.weight(.semibold)).buttonStyle(.plain)
+                            .font(.system(size: 22 * scale, weight: .semibold)).buttonStyle(.plain)
                             .padding(.bottom, 20)
                         if upcoming.isEmpty {
                             Text("No upcoming Appointments").foregroundStyle(.secondary).padding(.top, 12)
@@ -641,8 +717,8 @@ private struct DashboardView: View {
                                         Text("·").foregroundStyle(.secondary)
                                         Text(item.date.formatted(.dateTime.day().month(.abbreviated)))
                                             .foregroundStyle(.secondary)
-                                    }.font(.callout)
-                                    Text(item.title).font(.system(size: 16))
+                                    }.font(.system(size: 13 * scale))
+                                    Text(item.title).font(.system(size: 16 * scale))
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 DescriptionInfoButton(description: item.itemDescription, isPresented: Binding(
@@ -663,7 +739,7 @@ private struct DashboardView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         Text(statisticsText)
-            .font(.system(size: 11))
+            .font(.system(size: 11 * scale))
             .foregroundStyle(.secondary)
             .frame(maxWidth: 900, alignment: .leading)
             .padding(.horizontal, 34)
@@ -671,15 +747,17 @@ private struct DashboardView: View {
             .frame(height: 35)
             .overlay(alignment: .top) { Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1) }
         }
+        .environment(\.font, .system(size: 13 * scale))
         .onAppear { state.refreshIfDayChanged() }
     }
 }
 
 private struct TasksView: View {
     @ObservedObject var state: WorkspaceState
+    private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PageHeader(title: "To-dos") {
+            PageHeader(title: "To-dos", scale: scale) {
                 LabelFilter(state: state)
                 Button { state.editingTaskID = state.createTask() } label: { Image(systemName: AppSymbol.add) }
                     .help("New To-do")
@@ -697,11 +775,11 @@ private struct TasksView: View {
                                     state.editTask(task.id) { $0.completedAt = task.completedAt == nil ? Date() : nil }
                                 } label: {
                                     Image(systemName: task.completedAt == nil ? AppSymbol.incomplete : AppSymbol.complete)
-                                        .font(.title3).foregroundStyle(task.completedAt == nil ? .secondary : .tertiary)
+                                        .font(.system(size: 20 * scale)).foregroundStyle(task.completedAt == nil ? .secondary : .tertiary)
                                 }.buttonStyle(.plain).accessibilityLabel(task.completedAt == nil ? "Complete \(task.title)" : "Restore \(task.title)")
                                 categoryDot(task.labelID, state.workspace.labels)
                                 Text(task.title.isEmpty ? "New To-do" : task.title)
-                                    .font(.system(size: 16))
+                                    .font(.system(size: 16 * scale))
                                     .foregroundStyle(task.completedAt == nil ? .primary : .secondary)
                                     .strikethrough(task.completedAt != nil)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -729,6 +807,7 @@ private struct TasksView: View {
         .frame(maxWidth: 850, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, 34).padding(.top, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .environment(\.font, .system(size: 13 * scale))
         .sheet(isPresented: Binding(get: { state.editingTaskID != nil }, set: { if !$0 { state.editingTaskID = nil } })) {
             if let id = state.editingTaskID { TaskEditor(state: state, id: id) }
         }
@@ -785,10 +864,11 @@ private struct TaskEditor: View {
 
 private struct AppointmentsView: View {
     @ObservedObject var state: WorkspaceState
+    private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
     private var groups: [DateGroup] { state.workspace.dateGroups(showPast: state.showPast, expanded: state.expanded) }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PageHeader(title: "Appointments") {
+            PageHeader(title: "Appointments", scale: scale) {
                 LabelFilter(state: state)
                 Button { state.editingAppointmentID = state.createAppointment() } label: { Image(systemName: AppSymbol.add) }
                     .help("New Appointment")
@@ -814,7 +894,7 @@ private struct AppointmentsView: View {
                                     categoryDot(UUID(uuidString: group.id), state.workspace.labels)
                                     Text(group.id == "unlabelled" ? "Uncategorized" : group.name)
                                 }
-                                .font(.title2.weight(.semibold))
+                                .font(.system(size: 22 * scale, weight: .semibold))
                                 .padding(.top, 24).padding(.bottom, 10)
                                 ForEach(group.items) { item in row(item) }
                                 if group.hiddenUpcomingCount > 0 {
@@ -832,6 +912,7 @@ private struct AppointmentsView: View {
         .frame(maxWidth: 850, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, 34).padding(.top, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .environment(\.font, .system(size: 13 * scale))
         .sheet(isPresented: Binding(get: { state.editingAppointmentID != nil }, set: { if !$0 { state.editingAppointmentID = nil } })) {
             if let id = state.editingAppointmentID { AppointmentEditor(state: state, id: id) }
         }
@@ -847,7 +928,7 @@ private struct AppointmentsView: View {
           HStack(spacing: 16) {
             categoryDot(item.labelID, state.workspace.labels)
             VStack(alignment: .leading, spacing: 5) {
-                Text(item.title.isEmpty ? "New Appointment" : item.title).font(.system(size: 16))
+                Text(item.title.isEmpty ? "New Appointment" : item.title).font(.system(size: 16 * scale))
                 HStack(spacing: 8) {
                     Text(item.date.formatted(date: .abbreviated, time: .omitted))
                     Text("·")
@@ -855,7 +936,7 @@ private struct AppointmentsView: View {
                     if let label = state.workspace.labels.first(where: { $0.id == item.labelID }) {
                         Text("·"); Text(label.name)
                     }
-                }.font(.callout).foregroundStyle(.secondary)
+                }.font(.system(size: 13 * scale)).foregroundStyle(.secondary)
             }
             .foregroundStyle(state.workspace.isPassed(item) ? .secondary : .primary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -898,6 +979,7 @@ private struct AppointmentEditor: View {
 private struct NoteView: View {
     @ObservedObject var state: WorkspaceState
     let id: UUID
+    private var scale: CGFloat { CGFloat(state.note(id)?.zoomPercent ?? 100) / 100 }
     @FocusState private var titleFocused: Bool
     @FocusState private var categoryFocused: Bool
     @StateObject private var editorStatus = NoteEditorStatusModel()
@@ -907,7 +989,7 @@ private struct NoteView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .center, spacing: 12) {
                         Button { state.iconPickerNoteID = id } label: {
-                            Image(systemName: availableNoteIcon(note.iconName)).font(.system(size: 20)).frame(width: 32, height: 32)
+                            Image(systemName: availableNoteIcon(note.iconName)).font(.system(size: 20 * scale)).frame(width: 32 * scale, height: 32 * scale)
                         }
                         .buttonStyle(.plain).help("Choose Note Icon")
                         .focusable(false)
@@ -924,7 +1006,7 @@ private struct NoteView: View {
                             }.padding(12)
                         }
                         TextField("Title", text: Binding(get: { state.note(id)?.title ?? "" }, set: { value in state.editNote(id) { $0.title = value } }))
-                            .font(.title2.weight(.semibold)).textFieldStyle(.plain)
+                            .font(.system(size: 22 * scale, weight: .semibold)).textFieldStyle(.plain)
                             .frame(minWidth: 120, maxWidth: 400, alignment: .leading)
                             .focused($titleFocused)
                             .onKeyPress(.tab) { categoryFocused = true; return .handled }
@@ -936,20 +1018,21 @@ private struct NoteView: View {
                         Button { state.confirmNoteDeletion = true } label: { Image(systemName: AppSymbol.delete) }
                             .buttonStyle(.plain).foregroundStyle(.secondary).help("Delete Note").focusable(false)
                     }
-                    MarkdownTextView(text: Binding(get: { state.note(id)?.contentMarkdown ?? "" }, set: { value in state.editNote(id) { $0.contentMarkdown = value } }), settings: state.workspace.settings, status: editorStatus, focusRequest: state.focusNoteEditorID == id ? state.editorFocusNonce : nil)
+                    MarkdownTextView(text: Binding(get: { state.note(id)?.contentMarkdown ?? "" }, set: { value in state.editNote(id) { $0.contentMarkdown = value } }), settings: state.workspace.settings, status: editorStatus, focusRequest: state.focusNoteEditorID == id ? state.editorFocusNonce : nil, zoomPercent: note.zoomPercent)
                         .id(id).frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
                     HStack {
                         Text("Ln \(editorStatus.value.line.formatted()), Col \(editorStatus.value.column.formatted())")
                         Spacer()
                         Text("\(editorStatus.value.words.formatted()) \(editorStatus.value.words == 1 ? "word" : "words") · \(editorStatus.value.characters.formatted()) \(editorStatus.value.characters == 1 ? "character" : "characters")")
                     }
-                    .font(.system(size: 11))
+                    .font(.system(size: 11 * scale))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .frame(height: 26)
                     .overlay(alignment: .top) { Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1) }
                 }
                 .padding(.horizontal, 34).padding(.top, 28).padding(.bottom, 20)
+                .environment(\.font, .system(size: 13 * scale))
                 .onAppear { if state.focusNoteTitleID == id { titleFocused = true; state.focusNoteTitleID = nil } }
                 .onChange(of: state.titleFocusNonce) { _, _ in if state.focusNoteTitleID == id { titleFocused = true; state.focusNoteTitleID = nil } }
                 .confirmationDialog("Delete \(note.title.isEmpty ? "Untitled Note" : note.title)?", isPresented: $state.confirmNoteDeletion) {
@@ -963,33 +1046,35 @@ private struct NoteView: View {
 }
 
 private struct HelpView: View {
+    @ObservedObject var state: WorkspaceState
     let notes: [Note]
+    private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
     private var shortcuts: [AppShortcut] {
         [AppShortcut.dashboard, .tasks, .appointments] +
         Array(notes.prefix(6).enumerated()).map { AppShortcut.note($0.offset, title: $0.element.title) } +
-        [.help, .settings, .newItem, .newNote, .reorderNotes, .noteTitle, .delete, .lock, .find, .findNext, .findPrevious]
+        [.help, .settings, .newItem, .newNote, .reorderNotes, .noteTitle, .delete, .lock, .find, .findNext, .findPrevious, .zoomIn, .zoomOut]
     }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text("Help").font(.largeTitle.weight(.semibold))
+                Text("Help").font(.system(size: 34 * scale, weight: .semibold))
                 Text("Passing By keeps everyday notes, to-dos, and appointments close at hand. Your information stays locally on this Mac, and changes are saved automatically.")
                 section("Categories", "Create Categories in Settings to organize To-dos, Appointments, and Notes. Work, Personal, and Sports are examples you might create. A Default Category applies to new items; a Scheduled Default can use another Category on selected weekdays and times.")
                 section("To-dos", "Create To-dos and assign them to Categories. Mark one complete to remove it from the open list. Turn on Show Completed To-dos to see completed items and restore one if you checked it off by mistake.")
                 section("Appointments", "Create Appointments and assign them to Categories. Upcoming Appointments appear on the Dashboard alongside open To-dos. The Appointments view can also show past items.")
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Bulk Import").font(.title2.weight(.semibold))
+                    Text("Bulk Import").font(.system(size: 22 * scale, weight: .semibold))
                     Text("Settings → Appointments → Bulk Import adds multiple Appointments at once, such as a training plan, schedule, or list of planned dates. Use one tab-separated line per Appointment:")
                     Text("DD.MM.YYYY<TAB>Title<TAB>Description")
-                        .font(.system(.callout, design: .monospaced))
+                        .font(.system(size: 13 * scale, design: .monospaced))
                         .textSelection(.enabled)
                     Text("Description is optional.").foregroundStyle(.secondary)
                 }
-                section("Notes", "Create individual Notes and assign them to Categories. Edit Markdown source with syntax highlighting, optional line numbers, word and character counts, Find, Undo and Redo, spell checking, and space-based indentation. Standard Cut, Copy, Paste, and Select All also work.")
+                section("Notes", "Create individual Notes and assign them to Categories. Edit Markdown source with syntax highlighting, optional line numbers, word and character counts, Find, Undo and Redo, spell checking, and space-based indentation. Standard Cut, Copy, Paste, and Select All also work. Each Note remembers its own text size.")
                 section("Dashboard", "See a compact view of open To-dos and upcoming Appointments. The Category filter narrows the view to one context.")
                 section("App Lock", "Enable App Lock in Settings to prevent casual access through Passing By. Unlock with macOS authentication, including Touch ID when available. You can also set the app to lock after it becomes inactive. App Lock does not encrypt the workspace file on disk.")
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Keyboard Shortcuts").font(.title2.weight(.semibold))
+                    Text("Keyboard Shortcuts").font(.system(size: 22 * scale, weight: .semibold))
                     Text("⌘N creates a To-do or Appointment in those views, and a Note elsewhere. Note shortcuts follow the first six Notes currently shown in the sidebar.")
                         .foregroundStyle(.secondary)
                     Grid(alignment: .leading, horizontalSpacing: 30, verticalSpacing: 7) {
@@ -997,20 +1082,20 @@ private struct HelpView: View {
                             let shortcut = shortcuts[index]
                             GridRow {
                                 Text(shortcut.display)
-                                    .font(.system(.callout, design: .monospaced))
+                                    .font(.system(size: 13 * scale, design: .monospaced))
                                     .foregroundStyle(.secondary)
                                     .frame(minWidth: 80, alignment: .leading)
                                 Text(shortcut.description)
                             }
                         }
                         GridRow {
-                            Text("⌘Z / ⇧⌘Z").font(.system(.callout, design: .monospaced)).foregroundStyle(.secondary)
+                            Text("⌘Z / ⇧⌘Z").font(.system(size: 13 * scale, design: .monospaced)).foregroundStyle(.secondary)
                             Text("Undo / Redo in the Note editor")
                         }
                     }
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("More").font(.title2.weight(.semibold))
+                    Text("More").font(.system(size: 22 * scale, weight: .semibold))
                     Text("Passing By is open source. Visit the project on GitHub for source code, issues, and further information.")
                     Link("Open GitHub Repository", destination: URL(string: "https://github.com/christianpflugradt/PassingBy")!)
                 }
@@ -1019,10 +1104,11 @@ private struct HelpView: View {
             .padding(.horizontal, 34).padding(.vertical, 28)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+        .environment(\.font, .system(size: 13 * scale))
     }
     private func section(_ heading: String, _ copy: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(heading).font(.title2.weight(.semibold))
+            Text(heading).font(.system(size: 22 * scale, weight: .semibold))
             Text(copy)
         }
     }
@@ -1045,6 +1131,7 @@ private struct ImportPreview: Identifiable {
 private struct SettingsView: View {
     private enum ScheduledChoice: Hashable { case unconfigured, uncategorized, label(UUID) }
     @ObservedObject var state: WorkspaceState
+    private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
     @StateObject private var importFlow = AppointmentImportFlow()
     private let weekdays: [(Int, String)] = [(2, "Mon"), (3, "Tue"), (4, "Wed"), (5, "Thu"), (6, "Fri"), (7, "Sat"), (1, "Sun")]
     private var settings: AppSettings { state.workspace.settings }
@@ -1076,7 +1163,12 @@ private struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                Text("Settings").font(.largeTitle.weight(.semibold))
+                Text("Settings").font(.system(size: 34 * scale, weight: .semibold))
+                VStack(alignment: .leading, spacing: 12) {
+                    sectionHeading("Display")
+                    Button("Reset All Zoom Levels") { state.resetAllZoom() }
+                    Text("Restores the default size for every Note and screen.").foregroundStyle(.secondary)
+                }
                 VStack(alignment: .leading, spacing: 12) {
                     sectionHeading("Dashboard")
                     HStack(spacing: 12) {
@@ -1209,6 +1301,7 @@ private struct SettingsView: View {
             .padding(.horizontal, 34).padding(.vertical, 28)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+        .environment(\.font, .system(size: 13 * scale))
         .fileImporter(isPresented: $importFlow.selectingFile, allowedContentTypes: [.plainText, UTType(filenameExtension: "tsv") ?? .plainText]) { result in
             switch result {
             case .success(let url):
@@ -1228,7 +1321,7 @@ private struct SettingsView: View {
             Button("OK") { importFlow.fileError = nil }
         } message: { Text(importFlow.fileError ?? "The selected file could not be read.") }
     }
-    private func sectionHeading(_ title: String) -> some View { Text(title).font(.title2.weight(.semibold)) }
+    private func sectionHeading(_ title: String) -> some View { Text(title).font(.system(size: 22 * scale, weight: .semibold)) }
     private func setting<Value>(_ keyPath: WritableKeyPath<AppSettings, Value>) -> Binding<Value> {
         Binding(get: { state.workspace.settings[keyPath: keyPath] }, set: { value in state.change { $0.settings[keyPath: keyPath] = value } })
     }
@@ -1504,6 +1597,8 @@ private struct MarkdownTextView: NSViewRepresentable {
     let settings: AppSettings
     let status: NoteEditorStatusModel
     let focusRequest: Int?
+    let zoomPercent: Int
+    private var fontSize: CGFloat { 13 * CGFloat(zoomPercent) / 100 }
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
@@ -1525,7 +1620,8 @@ private struct MarkdownTextView: NSViewRepresentable {
         editor.textContainer?.widthTracksTextView = true
         editor.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
         editor.textContainerInset = NSSize(width: 8, height: 8)
-        editor.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        editor.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        editor.zoomPercent = zoomPercent
         editor.linkTextAttributes = [:]
         editor.delegate = context.coordinator
         editor.string = text
@@ -1535,6 +1631,7 @@ private struct MarkdownTextView: NSViewRepresentable {
         scroll.verticalRulerView = ruler
         scroll.hasVerticalRuler = true
         scroll.rulersVisible = settings.showLineNumbers
+        ruler.noteTextDidChange()
         context.coordinator.highlight(editor)
         context.coordinator.updateStatus(editor)
         return scroll
@@ -1548,6 +1645,11 @@ private struct MarkdownTextView: NSViewRepresentable {
         editor.isAutomaticDashSubstitutionEnabled = settings.smartDashes
         (editor as? NoteEditorTextView)?.indentWidth = settings.indentWidth
         scroll.rulersVisible = settings.showLineNumbers
+        if let noteEditor = editor as? NoteEditorTextView, noteEditor.zoomPercent != zoomPercent {
+            noteEditor.zoomPercent = zoomPercent
+            context.coordinator.highlight(editor)
+            (scroll.verticalRulerView as? NoteLineNumberRuler)?.noteTextDidChange()
+        }
         // AppKit owns provisional text while a dead key or input method is composing.
         // Replacing the string here ends composition and moves the insertion point.
         if editor.string != text && !editor.hasMarkedText() {
@@ -1594,7 +1696,8 @@ private struct MarkdownTextView: NSViewRepresentable {
             undo?.disableUndoRegistration()
             defer { undo?.enableUndoRegistration() }
             storage.beginEditing()
-            storage.setAttributes([.font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular), .foregroundColor: NSColor.labelColor], range: range)
+            let fontSize = parent.fontSize
+            storage.setAttributes([.font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular), .foregroundColor: NSColor.labelColor], range: range)
             for span in parsed.spans where NSMaxRange(span.range) <= range.length {
                 switch span.style {
                 case .heading(let level):
@@ -1615,7 +1718,7 @@ private struct MarkdownTextView: NSViewRepresentable {
             }
             storage.endEditing()
             if editor.selectedRanges != selection { editor.selectedRanges = selection }
-            editor.typingAttributes = [.font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular), .foregroundColor: NSColor.labelColor]
+            editor.typingAttributes = [.font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular), .foregroundColor: NSColor.labelColor]
             if let noteEditor = editor as? NoteEditorTextView {
                 noteEditor.markdownLinks = parsed.links
                 noteEditor.markdownCheckboxes = parsed.checkboxes
@@ -1624,7 +1727,7 @@ private struct MarkdownTextView: NSViewRepresentable {
         private func addTrait(_ trait: NSFontTraitMask, to range: NSRange, storage: NSTextStorage) {
             var changes: [(NSFont, NSRange)] = []
             storage.enumerateAttribute(.font, in: range) { value, part, _ in
-                let font = (value as? NSFont) ?? .monospacedSystemFont(ofSize: 13, weight: .regular)
+                let font = (value as? NSFont) ?? .monospacedSystemFont(ofSize: parent.fontSize, weight: .regular)
                 changes.append((NSFontManager.shared.convert(font, toHaveTrait: trait), part))
             }
             for (font, part) in changes { storage.addAttribute(.font, value: font, range: part) }
@@ -1650,7 +1753,8 @@ private final class NoteLineNumberRuler: NSRulerView {
         guard let editor = clientView as? NSTextView else { return }
         let lineCount = editor.string.reduce(1) { $0 + ($1.isNewline ? 1 : 0) }
         let digits = String(lineCount).count
-        ruleThickness = max(42, CGFloat(digits) * 8 + 18)
+        let scale = CGFloat((editor as? NoteEditorTextView)?.zoomPercent ?? 100) / 100
+        ruleThickness = max(42, CGFloat(digits) * 8 * scale + 18)
         needsDisplay = true
     }
 
@@ -1674,7 +1778,7 @@ private final class NoteLineNumberRuler: NSRulerView {
             lineNumber += 1
         }
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11 * CGFloat((editor as? NoteEditorTextView)?.zoomPercent ?? 100) / 100, weight: .regular),
             .foregroundColor: NSColor.secondaryLabelColor
         ]
         while lineStart <= source.length {
@@ -1707,6 +1811,7 @@ private final class NoteLineNumberRuler: NSRulerView {
 }
 
 private final class NoteEditorTextView: NSTextView {
+    var zoomPercent = 100
     var markdownLinks: [MarkdownHighlight.Link] = []
     var markdownCheckboxes: [MarkdownHighlight.Checkbox] = [] {
         didSet {
@@ -1725,11 +1830,12 @@ private final class NoteEditorTextView: NSTextView {
         super.draw(dirtyRect)
         for checkbox in markdownCheckboxes {
             guard let rect = checkboxRect(for: checkbox), rect.intersects(dirtyRect) else { continue }
-            let size: CGFloat = 13
+            let scale = CGFloat(zoomPercent) / 100
+            let size: CGFloat = 13 * scale
             let square = NSRect(x: rect.midX - size / 2, y: rect.midY - size / 2, width: size, height: size)
-            let outline = NSBezierPath(roundedRect: square, xRadius: 3, yRadius: 3)
+            let outline = NSBezierPath(roundedRect: square, xRadius: 3 * scale, yRadius: 3 * scale)
             (checkbox.checked ? NSColor.controlAccentColor : NSColor.secondaryLabelColor).setStroke()
-            outline.lineWidth = 1.5
+            outline.lineWidth = 1.5 * scale
             if checkbox.checked {
                 NSColor.controlAccentColor.setFill()
                 outline.fill()
@@ -1737,12 +1843,12 @@ private final class NoteEditorTextView: NSTextView {
             outline.stroke()
             if checkbox.checked {
                 let check = NSBezierPath()
-                let bottom = isFlipped ? square.maxY - 3 : square.minY + 3
-                let top = isFlipped ? square.minY + 3 : square.maxY - 3
-                check.move(to: NSPoint(x: square.minX + 3, y: square.midY))
-                check.line(to: NSPoint(x: square.minX + 5.5, y: bottom))
-                check.line(to: NSPoint(x: square.maxX - 2.5, y: top))
-                check.lineWidth = 1.5
+                let bottom = isFlipped ? square.maxY - 3 * scale : square.minY + 3 * scale
+                let top = isFlipped ? square.minY + 3 * scale : square.maxY - 3 * scale
+                check.move(to: NSPoint(x: square.minX + 3 * scale, y: square.midY))
+                check.line(to: NSPoint(x: square.minX + 5.5 * scale, y: bottom))
+                check.line(to: NSPoint(x: square.maxX - 2.5 * scale, y: top))
+                check.lineWidth = 1.5 * scale
                 check.lineCapStyle = .round
                 check.lineJoinStyle = .round
                 NSColor.selectedControlTextColor.setStroke()

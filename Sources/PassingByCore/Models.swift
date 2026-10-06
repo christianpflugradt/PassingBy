@@ -17,6 +17,17 @@ public enum DateDisplayMode: String, Codable, CaseIterable, Identifiable {
     public var id: String { rawValue }
 }
 
+public enum ZoomLevel {
+    public static let minimum = 70
+    public static let maximum = 180
+    public static let step = 10
+
+    public static func validated(_ percent: Int) -> Int {
+        guard (minimum...maximum).contains(percent), percent.isMultiple(of: step) else { return 100 }
+        return percent
+    }
+}
+
 public enum NoteIcon {
     public static let defaultName = "doc.text"
     // Ordered for the seven-column picker. Move removed choices to legacyNames to preserve saved Notes.
@@ -84,8 +95,9 @@ public struct Note: Codable, Identifiable, Hashable {
     public var createdAt = Date()
     public var updatedAt = Date()
     public var iconName: String = NoteIcon.defaultName
+    public var zoomPercent = 100
     public init(id: UUID = UUID(), title: String, contentMarkdown: String = "", labelID: UUID? = nil, createdAt: Date = Date(), updatedAt: Date = Date(), iconName: String = NoteIcon.defaultName) { self.id = id; self.title = title; self.contentMarkdown = contentMarkdown; self.labelID = labelID; self.createdAt = createdAt; self.updatedAt = updatedAt; self.iconName = NoteIcon.safeName(iconName) }
-    private enum CodingKeys: String, CodingKey { case id, title, contentMarkdown, labelID, createdAt, updatedAt, iconName }
+    private enum CodingKeys: String, CodingKey { case id, title, contentMarkdown, labelID, createdAt, updatedAt, iconName, zoomPercent }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(UUID.self, forKey: .id)
@@ -95,6 +107,7 @@ public struct Note: Codable, Identifiable, Hashable {
         createdAt = try values.decode(Date.self, forKey: .createdAt)
         updatedAt = try values.decode(Date.self, forKey: .updatedAt)
         iconName = NoteIcon.safeName(try values.decodeIfPresent(String.self, forKey: .iconName) ?? NoteIcon.defaultName)
+        zoomPercent = ZoomLevel.validated(try values.decodeIfPresent(Int.self, forKey: .zoomPercent) ?? 100)
     }
 }
 
@@ -153,6 +166,7 @@ public struct AppSettings: Codable, Hashable {
     public var automaticCorrection = false
     public var smartQuotes = false
     public var smartDashes = false
+    public var screenZoom: [String: Int] = [:]
     public var appLockEnabled = false
     public var lockWhenInactive = false
     public var inactivityMinutes = 5
@@ -167,7 +181,7 @@ public struct AppSettings: Codable, Hashable {
         case labelContext, dateDisplayMode, taskRetention, dateRetention, maximumUpcomingDatesPerLabel, upcomingHorizonDays
         case maximumDashboardTasks, maximumDashboardAppointments
         case defaultLabelID, scheduledDefaultEnabled, scheduledCategoryConfigured, scheduledLabelID, scheduledWeekdays, scheduledStartMinute, scheduledEndMinute
-        case showLineNumbers, indentWidth, checkSpelling, automaticCorrection, smartQuotes, smartDashes
+        case showLineNumbers, indentWidth, checkSpelling, automaticCorrection, smartQuotes, smartDashes, screenZoom
         case appLockEnabled, lockWhenInactive, inactivityMinutes
     }
     public init(from decoder: Decoder) throws {
@@ -197,6 +211,7 @@ public struct AppSettings: Codable, Hashable {
         automaticCorrection = try values.decodeIfPresent(Bool.self, forKey: .automaticCorrection) ?? false
         smartQuotes = try values.decodeIfPresent(Bool.self, forKey: .smartQuotes) ?? false
         smartDashes = try values.decodeIfPresent(Bool.self, forKey: .smartDashes) ?? false
+        screenZoom = (try values.decodeIfPresent([String: Int].self, forKey: .screenZoom) ?? [:]).mapValues(ZoomLevel.validated)
         appLockEnabled = try values.decodeIfPresent(Bool.self, forKey: .appLockEnabled) ?? false
         lockWhenInactive = try values.decodeIfPresent(Bool.self, forKey: .lockWhenInactive) ?? false
         let minutes = try values.decodeIfPresent(Int.self, forKey: .inactivityMinutes) ?? 5
