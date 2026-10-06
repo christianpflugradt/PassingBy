@@ -182,6 +182,14 @@ Version 1 has:
 
 The application must remain fully functional offline.
 
+## 7.1 Saved-data compatibility
+
+An app update must load workspace data saved by older versions without requiring user action or losing existing items or settings. Every newly added persisted field must have a sensible default when absent. Fields the current app does not recognize must not prevent loading otherwise valid data.
+
+After loading older data, the app must continue saving it normally, including any new values the user sets. A missing field must not cause unrelated saved content to be reset or discarded. If a file is genuinely unreadable, the app must report the failure rather than silently replace it with an empty workspace.
+
+Changes to persisted models must be checked with tests that load representative older data and verify that existing content survives a save and reload.
+
 ---
 
 # 8. Primary navigation
@@ -1218,6 +1226,9 @@ A reviewer should explicitly verify all of the following.
 
 ## Persistence
 
+- [ ] Workspaces saved by older versions load with sensible defaults for fields added later, while preserving existing content and settings.
+- [ ] Unrecognized saved fields do not prevent an otherwise valid workspace from loading; unreadable files are not silently replaced.
+- [ ] After loading older data, new values persist through a save and reload without losing existing content.
 - [ ] No Save button is required.
 - [ ] Notes auto-save.
 - [ ] To-dos auto-save.

@@ -64,7 +64,7 @@ func testZoomPersistenceAndLegacyDefaults() throws {
     var first = Note(title: "First")
     first.zoomPercent = 150
     let second = Note(title: "Second")
-    var workspace = Workspace(notes: [first, second])
+    var workspace = Workspace(notes: [first, second], tasks: [Task(title: "Existing To-do")], dates: [DateItem(title: "Existing Appointment", date: Date())])
     workspace.settings.screenZoom = ["dashboard": 120, "tasks": 80]
     try persistence.save(workspace)
     let loaded = try persistence.load()
@@ -72,15 +72,32 @@ func testZoomPersistenceAndLegacyDefaults() throws {
     expect(loaded.settings.screenZoom == ["dashboard": 120, "tasks": 80], "screen zoom persists independently")
 
     var encoded = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    encoded["futureWorkspaceField"] = "ignored"
     var notes = encoded["notes"] as! [[String: Any]]
     notes[0].removeValue(forKey: "zoomPercent")
+    notes[0]["futureNoteField"] = "ignored"
     encoded["notes"] = notes
     var settings = encoded["settings"] as! [String: Any]
     settings.removeValue(forKey: "screenZoom")
+    settings["futureSettingsField"] = "ignored"
     encoded["settings"] = settings
+    var tasks = encoded["tasks"] as! [[String: Any]]
+    tasks[0]["futureTaskField"] = "ignored"
+    encoded["tasks"] = tasks
+    var dates = encoded["dates"] as! [[String: Any]]
+    dates[0]["futureAppointmentField"] = "ignored"
+    encoded["dates"] = dates
     try JSONSerialization.data(withJSONObject: encoded).write(to: url)
     let legacy = try persistence.load()
     expect(legacy.notes[0].zoomPercent == 100 && legacy.settings.screenZoom.isEmpty, "older workspaces use default zoom")
+    expect(legacy.notes.map(\.title) == ["First", "Second"] && legacy.tasks[0].title == "Existing To-do" && legacy.dates[0].title == "Existing Appointment", "unknown fields do not discard existing items")
+    var updated = legacy
+    updated.notes[0].zoomPercent = 130
+    updated.settings.screenZoom["dashboard"] = 110
+    try persistence.save(updated)
+    let reloaded = try persistence.load()
+    expect(reloaded.notes[0].zoomPercent == 130 && reloaded.settings.screenZoom["dashboard"] == 110, "new zoom values persist after loading older data")
+    expect(reloaded.notes.map(\.title) == ["First", "Second"] && reloaded.tasks[0].title == "Existing To-do" && reloaded.dates[0].title == "Existing Appointment", "older content survives subsequent saves")
     expect(ZoomLevel.validated(20) == 100 && ZoomLevel.validated(105) == 100, "invalid saved zoom uses default")
 }
 
