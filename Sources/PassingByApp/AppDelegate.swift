@@ -714,7 +714,7 @@ private struct DashboardView: View {
                         }
                         ForEach(Array(openTasks.enumerated()), id: \.element.id) { index, task in
                             HStack(spacing: 12) {
-                                KeyboardButton(symbol: AppSymbol.incomplete, pointSize: 20 * scale, dashboardOrder: 20 + index * 2, advancesFocus: true, accessibilityLabel: "Complete \(task.title)") {
+                                KeyboardButton(symbol: AppSymbol.incomplete, pointSize: 20 * scale, dashboardOrder: 20 + index * 2, advancesFocus: true, completionConfirmation: state.workspace.settings.todoCompletionConfirmation, taskTitle: task.title, accessibilityLabel: "Complete \(task.title)") {
                                     state.editTask(task.id) { $0.completedAt = Date() }
                                 }
                                 .fixedSize()
@@ -802,12 +802,15 @@ private struct TasksView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(state.tasks) { task in
                             HStack(spacing: 15) {
-                                Button {
+                                KeyboardButton(
+                                    symbol: task.completedAt == nil ? AppSymbol.incomplete : AppSymbol.complete,
+                                    pointSize: 20 * scale,
+                                    completionConfirmation: state.workspace.settings.todoCompletionConfirmation,
+                                    taskTitle: task.completedAt == nil ? task.title : nil,
+                                    accessibilityLabel: task.completedAt == nil ? "Complete \(task.title)" : "Restore \(task.title)"
+                                ) {
                                     state.editTask(task.id) { $0.completedAt = task.completedAt == nil ? Date() : nil }
-                                } label: {
-                                    Image(systemName: task.completedAt == nil ? AppSymbol.incomplete : AppSymbol.complete)
-                                        .font(.system(size: 20 * scale)).foregroundStyle(task.completedAt == nil ? .secondary : .tertiary)
-                                }.buttonStyle(.plain).accessibilityLabel(task.completedAt == nil ? "Complete \(task.title)" : "Restore \(task.title)")
+                                }.fixedSize()
                                 categoryDot(task.labelID, state.workspace.labels)
                                 Text(task.title.isEmpty ? "New To-do" : task.title)
                                     .font(.system(size: 16 * scale))
@@ -1283,6 +1286,13 @@ private struct SettingsView: View {
                 }
                 VStack(alignment: .leading, spacing: 12) {
                     sectionHeading("To-dos")
+                    Picker("Confirm completion", selection: setting(\.todoCompletionConfirmation)) {
+                        ForEach(TodoCompletionConfirmation.allCases, id: \.self) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                    Text("Applies to Dashboard and To-dos. Keyboard only confirms Return and Space; All interactions also confirms mouse clicks. Restoring a To-do never requires confirmation.")
+                        .font(.caption).foregroundStyle(.secondary)
                     Picker("Keep completed To-dos", selection: setting(\.taskRetention)) {
                         ForEach(RetentionPeriod.allCases) { period in Text(period.title).tag(period) }
                     }

@@ -138,9 +138,30 @@ public struct DateGroup: Identifiable {
     public let hiddenUpcomingCount: Int
 }
 
+public enum TodoCompletionConfirmation: String, Codable, CaseIterable {
+    case off, keyboardOnly, allInteractions
+
+    public var title: String {
+        switch self {
+        case .off: "Off"
+        case .keyboardOnly: "Keyboard only"
+        case .allInteractions: "All interactions"
+        }
+    }
+
+    public func requiresConfirmation(isKeyboard: Bool) -> Bool {
+        switch self {
+        case .off: false
+        case .keyboardOnly: isKeyboard
+        case .allInteractions: true
+        }
+    }
+}
+
 public struct AppSettings: Codable, Hashable {
     public var labelContext: LabelContext = .all
     public var dateDisplayMode: DateDisplayMode = .chronological
+    public var todoCompletionConfirmation: TodoCompletionConfirmation = .off
     public var taskRetention: RetentionPeriod = .thirty
     public var dateRetention: RetentionPeriod = .thirty
     public var maximumDashboardTasks = 4 {
@@ -179,7 +200,7 @@ public struct AppSettings: Codable, Hashable {
     }
     private enum CodingKeys: String, CodingKey {
         case labelContext, dateDisplayMode, taskRetention, dateRetention, maximumUpcomingDatesPerLabel, upcomingHorizonDays
-        case maximumDashboardTasks, maximumDashboardAppointments
+        case maximumDashboardTasks, maximumDashboardAppointments, todoCompletionConfirmation
         case defaultLabelID, scheduledDefaultEnabled, scheduledCategoryConfigured, scheduledLabelID, scheduledWeekdays, scheduledStartMinute, scheduledEndMinute
         case showLineNumbers, indentWidth, checkSpelling, automaticCorrection, smartQuotes, smartDashes, screenZoom
         case appLockEnabled, lockWhenInactive, inactivityMinutes
@@ -188,6 +209,7 @@ public struct AppSettings: Codable, Hashable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         labelContext = try values.decodeIfPresent(LabelContext.self, forKey: .labelContext) ?? .all
         dateDisplayMode = try values.decodeIfPresent(DateDisplayMode.self, forKey: .dateDisplayMode) ?? .chronological
+        todoCompletionConfirmation = try values.decodeIfPresent(TodoCompletionConfirmation.self, forKey: .todoCompletionConfirmation) ?? .off
         taskRetention = try values.decodeIfPresent(RetentionPeriod.self, forKey: .taskRetention) ?? .thirty
         dateRetention = try values.decodeIfPresent(RetentionPeriod.self, forKey: .dateRetention) ?? .thirty
         let dashboardTasks = try values.decodeIfPresent(Int.self, forKey: .maximumDashboardTasks) ?? 4

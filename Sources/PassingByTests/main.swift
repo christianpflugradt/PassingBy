@@ -772,6 +772,52 @@ func testCreationDraftsOnlyPersistWhenAccepted() throws {
     expect(workspace.tasks.last?.labelID == nil && workspace.dates.last?.labelID == nil, "accepting drafts cannot retain a removed Category")
 }
 
+func testTodoCompletionConfirmationPolicy() {
+    expect(!TodoCompletionConfirmation.off.requiresConfirmation(isKeyboard: false), "Off keeps mouse completion immediate")
+    expect(!TodoCompletionConfirmation.off.requiresConfirmation(isKeyboard: true), "Off keeps keyboard completion immediate")
+    expect(!TodoCompletionConfirmation.keyboardOnly.requiresConfirmation(isKeyboard: false), "Keyboard only does not confirm mouse completion")
+    expect(TodoCompletionConfirmation.keyboardOnly.requiresConfirmation(isKeyboard: true), "Keyboard only confirms keyboard completion")
+    expect(TodoCompletionConfirmation.allInteractions.requiresConfirmation(isKeyboard: false), "All interactions confirms mouse completion")
+    expect(TodoCompletionConfirmation.allInteractions.requiresConfirmation(isKeyboard: true), "All interactions confirms keyboard completion")
+}
+
+func testTodoCompletionConfirmationPersistenceAndLegacyDefaults() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let persistence = WorkspacePersistence(url: directory.appendingPathComponent("workspace.json"))
+    let label = Label(name: "Personal")
+    var workspace = Workspace(
+        labels: [label],
+        notes: [Note(title: "Existing Note", contentMarkdown: "# Keep this", labelID: label.id)],
+        tasks: [Task(title: "Open", labelID: label.id), Task(title: "Completed", completedAt: Date())],
+        dates: [DateItem(title: "Appointment", date: Date(), itemDescription: "Details", labelID: label.id)]
+    )
+    workspace.settings.labelContext = .label(label.id)
+    workspace.settings.taskRetention = .ninety
+    expect(workspace.settings.todoCompletionConfirmation == .off, "new workspaces default to immediate completion")
+    for mode in TodoCompletionConfirmation.allCases {
+        workspace.settings.todoCompletionConfirmation = mode
+        try persistence.save(workspace)
+        let loaded = try persistence.load()
+        expect(loaded == workspace, "completion confirmation mode \(mode) persists without changing other content or settings")
+    }
+    var legacy = try JSONSerialization.jsonObject(with: Data(contentsOf: persistence.url)) as! [String: Any]
+    var settings = legacy["settings"] as! [String: Any]
+    settings.removeValue(forKey: "todoCompletionConfirmation")
+    settings["futureSetting"] = true
+    legacy["settings"] = settings
+    try JSONSerialization.data(withJSONObject: legacy).write(to: persistence.url)
+    var loaded = try persistence.load()
+    workspace.settings.todoCompletionConfirmation = .off
+    expect(loaded == workspace, "older workspaces default to Off and preserve all existing items and settings")
+    loaded.settings.todoCompletionConfirmation = .keyboardOnly
+    try persistence.save(loaded)
+    let reloaded = try persistence.load()
+    expect(reloaded == loaded, "older workspace retains its content after saving the new preference and reopening")
+}
+
+testTodoCompletionConfirmationPolicy()
+try testTodoCompletionConfirmationPersistenceAndLegacyDefaults()
 try testCreationDraftsOnlyPersistWhenAccepted()
 testDeletingLabelUnlabelsEveryItemAndResetsFilter()
 testRetentionNeverDeletesOpenTasksOrFutureDates()

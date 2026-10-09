@@ -10,6 +10,8 @@ struct KeyboardButton: NSViewRepresentable {
     var bold = false
     var dashboardOrder: Int? = nil
     var advancesFocus = false
+    var completionConfirmation: TodoCompletionConfirmation = .off
+    var taskTitle: String? = nil
     var accessibilityLabel: String
     var action: () -> Void
 
@@ -20,8 +22,13 @@ struct KeyboardButton: NSViewRepresentable {
         button.setContentHuggingPriority(.required, for: .horizontal)
         return button
     }
+    static func dismantleNSView(_ button: KeyboardActionButton, coordinator: Coordinator) {
+        coordinator.cancelConfirmation()
+    }
     func updateNSView(_ button: KeyboardActionButton, context: Context) {
         context.coordinator.action = action
+        context.coordinator.completionConfirmation = completionConfirmation
+        context.coordinator.taskTitle = taskTitle
         button.title = title
         button.identifier = dashboardOrder.map { NSUserInterfaceItemIdentifier("dashboard-\($0)") }
         button.advancesFocus = advancesFocus
@@ -34,8 +41,44 @@ struct KeyboardButton: NSViewRepresentable {
     @MainActor final class Coordinator: NSObject {
         var action: () -> Void
         init(_ action: @escaping () -> Void) { self.action = action }
+        var completionConfirmation: TodoCompletionConfirmation = .off
+        var taskTitle: String?
+        private weak var confirmationAlert: NSAlert?
+        private var isActive = true
+        func cancelConfirmation() {
+            isActive = false
+            if let alert = confirmationAlert, let window = alert.window.sheetParent {
+                window.endSheet(alert.window, returnCode: .alertSecondButtonReturn)
+            }
+            confirmationAlert = nil
+        }
         @objc func activate(_ sender: KeyboardActionButton) {
             let next = sender.advancesFocus && sender.window?.firstResponder === sender ? sender.focusAfterActivation : nil
+            guard let taskTitle, completionConfirmation.requiresConfirmation(isKeyboard: sender.isKeyboardActivation), let window = sender.window else {
+                performAction(focusing: next)
+                return
+            }
+            guard window.attachedSheet == nil else { return }
+            let alert = NSAlert()
+            alert.messageText = "Complete this To-do?"
+            alert.informativeText = taskTitle.isEmpty ? "New To-do" : taskTitle
+            alert.addButton(withTitle: "Complete")
+            alert.addButton(withTitle: "Cancel")
+            confirmationAlert = alert
+            alert.beginSheetModal(for: window) { [self, weak sender, weak next] response in
+                confirmationAlert = nil
+                guard isActive else { return }
+                if response == .alertFirstButtonReturn {
+                    performAction(focusing: next)
+                } else if let sender {
+                    DispatchQueue.main.async { [weak sender] in
+                        guard let sender, let window = sender.window else { return }
+                        window.makeFirstResponder(sender)
+                    }
+                }
+            }
+        }
+        private func performAction(focusing next: NSView?) {
             action()
             if let next {
                 DispatchQueue.main.async { [weak next] in
@@ -52,13 +95,18 @@ struct KeyboardButton: NSViewRepresentable {
     weak var orderedPrevious: NSView?
     weak var focusAfterActivation: NSView?
     var advancesFocus = false
+    private(set) var isKeyboardActivation = false
     override var acceptsFirstResponder: Bool { true }
     override var needsPanelToBecomeKey: Bool { true }
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 48, let target = event.modifierFlags.contains(.shift) ? orderedPrevious : orderedNext {
             window?.makeFirstResponder(target)
-        } else if event.charactersIgnoringModifiers == "\r" { if !event.isARepeat { performClick(nil) } }
-        else { super.keyDown(with: event) }
+        } else if event.charactersIgnoringModifiers == "\r" || event.charactersIgnoringModifiers == " " {
+            guard !event.isARepeat else { return }
+            isKeyboardActivation = true
+            defer { isKeyboardActivation = false }
+            performClick(nil)
+        } else { super.keyDown(with: event) }
     }
 }
 
