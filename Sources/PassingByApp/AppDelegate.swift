@@ -653,11 +653,12 @@ private struct ReorderNotesView: View {
 
 private struct LabelFilter: View {
     @ObservedObject var state: WorkspaceState
+    var keyboardScope = "dashboard"
     private var selection: Binding<LabelContext> {
         Binding(get: { state.context }, set: { value in state.change { $0.settings.labelContext = value } })
     }
     var body: some View {
-        KeyboardCategoryFilter(labels: state.workspace.labels, selection: selection)
+        KeyboardCategoryFilter(labels: state.workspace.labels, selection: selection, scope: keyboardScope)
             .id((1...4).contains(state.workspace.labels.count))
             .fixedSize()
     }
@@ -779,7 +780,7 @@ private struct DashboardView: View {
         }
         .environment(\.font, .system(size: 13 * scale))
         .onAppear { state.refreshIfDayChanged() }
-        .background(DashboardKeyLoop())
+        .background(ScreenKeyLoop(itemIDs: openTasks.map(\.id) + upcoming.map(\.id), descriptionPresence: openTasks.map { !$0.taskDescription.isEmpty } + upcoming.map { !$0.itemDescription.isEmpty }))
     }
 }
 
@@ -789,22 +790,26 @@ private struct TasksView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             PageHeader(title: "To-dos", scale: scale) {
-                LabelFilter(state: state)
-                Button { state.editingTaskID = state.createTask() } label: { Image(systemName: AppSymbol.add) }
-                    .help("New To-do")
+                LabelFilter(state: state, keyboardScope: "todos")
+                KeyboardButton(symbol: AppSymbol.add, pointSize: 13 * scale, todoOrder: 1, bordered: true, accessibilityLabel: "New To-do") {
+                    state.editingTaskID = state.createTask()
+                }.fixedSize().help("New To-do")
             }
-            Toggle("Show Completed To-dos", isOn: $state.showCompleted).toggleStyle(.checkbox)
-                .foregroundStyle(.secondary).padding(.bottom, 16)
+            KeyboardButton(title: "Show Completed To-dos", pointSize: 13 * scale, todoOrder: 2, checked: state.showCompleted, accessibilityLabel: "Show Completed To-dos") {
+                state.showCompleted.toggle()
+            }.fixedSize().padding(.bottom, 16)
             if state.tasks.isEmpty {
                 EmptyItems(kind: "To-dos", context: state.contextName)
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(state.tasks) { task in
+                    VStack(spacing: 0) {
+                        ForEach(Array(state.tasks.enumerated()), id: \.element.id) { index, task in
                             HStack(spacing: 15) {
                                 KeyboardButton(
                                     symbol: task.completedAt == nil ? AppSymbol.incomplete : AppSymbol.complete,
                                     pointSize: 20 * scale,
+                                    todoOrder: 10 + index * 4,
+                                    advancesFocus: !state.showCompleted,
                                     completionConfirmation: state.workspace.settings.todoCompletionConfirmation,
                                     taskTitle: task.completedAt == nil ? task.title : nil,
                                     accessibilityLabel: task.completedAt == nil ? "Complete \(task.title)" : "Restore \(task.title)"
@@ -820,11 +825,11 @@ private struct TasksView: View {
                                 DescriptionInfoButton(description: task.taskDescription, isPresented: Binding(
                                     get: { state.describingTaskID == task.id },
                                     set: { state.describingTaskID = $0 ? task.id : nil }
-                                ))
-                                KeyboardButton(symbol: AppSymbol.edit, accessibilityLabel: "Edit To-do") {
+                                ), todoOrder: 11 + index * 4)
+                                KeyboardButton(symbol: AppSymbol.edit, todoOrder: 12 + index * 4, accessibilityLabel: "Edit To-do") {
                                     state.editingTaskID = task.id
                                 }.fixedSize().help("Edit To-do")
-                                KeyboardButton(symbol: AppSymbol.delete, accessibilityLabel: "Delete To-do") {
+                                KeyboardButton(symbol: AppSymbol.delete, todoOrder: 13 + index * 4, advancesFocus: true, accessibilityLabel: "Delete To-do") {
                                     state.change { $0.tasks.removeAll { $0.id == task.id } }
                                 }.fixedSize().help("Delete To-do")
                             }
@@ -843,6 +848,7 @@ private struct TasksView: View {
         .padding(.horizontal, 34).padding(.top, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.font, .system(size: 13 * scale))
+        .background(ScreenKeyLoop(scope: "todos", itemIDs: state.tasks.map(\.id), descriptionPresence: state.tasks.map { !$0.taskDescription.isEmpty }))
         .sheet(isPresented: Binding(get: { state.editingTaskID != nil }, set: { if !$0 { state.closeTaskEditing() } })) {
             if let id = state.editingTaskID { TaskEditor(state: state, id: id) }
         }
@@ -853,6 +859,7 @@ private struct DescriptionInfoButton: View {
     let description: String
     @Binding var isPresented: Bool
     var dashboardOrder: Int? = nil
+    var todoOrder: Int? = nil
 
     private var popoverHeight: CGFloat {
         let text = NSAttributedString(string: description, attributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize)])
@@ -865,7 +872,7 @@ private struct DescriptionInfoButton: View {
 
     var body: some View {
         if !description.isEmpty {
-            KeyboardButton(symbol: AppSymbol.details, dashboardOrder: dashboardOrder, accessibilityLabel: "Show description") { isPresented = true }
+            KeyboardButton(symbol: AppSymbol.details, dashboardOrder: dashboardOrder, todoOrder: todoOrder, accessibilityLabel: "Show description") { isPresented = true }
                 .fixedSize()
                 .help("Show description")
                 .popover(isPresented: $isPresented) {
@@ -1116,6 +1123,8 @@ private struct HelpView: View {
                     Text("In To-do and Appointment dialogs, Tab and Shift-Tab move between fields, including Category. Return in the title or ⌘Return activates Done; Return in the description adds a new line. Escape discards a new item, or closes an existing item while keeping its changes.")
                         .foregroundStyle(.secondary)
                     Text("On Dashboard, Tab follows the Category filter, To-dos, then Appointments. Left and Right switch categories in the segmented filter; Space opens a category menu. Return or Space activates a focused action. Escape closes a description.")
+                        .foregroundStyle(.secondary)
+                    Text("On To-dos, Tab follows Category, New To-do, Show Completed To-dos, then each row’s Complete or Restore, Description when present, Edit, and Delete actions. Shift-Tab reverses this order.")
                         .foregroundStyle(.secondary)
                     Grid(alignment: .leading, horizontalSpacing: 30, verticalSpacing: 7) {
                         ForEach(shortcuts.indices, id: \.self) { index in

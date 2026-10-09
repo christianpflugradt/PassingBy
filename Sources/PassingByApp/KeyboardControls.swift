@@ -9,6 +9,9 @@ struct KeyboardButton: NSViewRepresentable {
     var pointSize: CGFloat = 13
     var bold = false
     var dashboardOrder: Int? = nil
+    var todoOrder: Int? = nil
+    var checked: Bool? = nil
+    var bordered = false
     var advancesFocus = false
     var completionConfirmation: TodoCompletionConfirmation = .off
     var taskTitle: String? = nil
@@ -18,7 +21,9 @@ struct KeyboardButton: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(action) }
     func makeNSView(context: Context) -> KeyboardActionButton {
         let button = KeyboardActionButton(title: title, target: context.coordinator, action: #selector(Coordinator.activate(_:)))
-        button.isBordered = false
+        button.setButtonType(checked == nil ? .momentaryPushIn : .switch)
+        button.isBordered = bordered
+        button.bezelStyle = .rounded
         button.setContentHuggingPriority(.required, for: .horizontal)
         return button
     }
@@ -30,11 +35,17 @@ struct KeyboardButton: NSViewRepresentable {
         context.coordinator.completionConfirmation = completionConfirmation
         context.coordinator.taskTitle = taskTitle
         button.title = title
-        button.identifier = dashboardOrder.map { NSUserInterfaceItemIdentifier("dashboard-\($0)") }
+        if let checked { button.state = checked ? .on : .off }
+        button.identifier = todoOrder.map { NSUserInterfaceItemIdentifier("todos-\($0)") } ?? dashboardOrder.map { NSUserInterfaceItemIdentifier("dashboard-\($0)") }
         button.advancesFocus = advancesFocus
         button.font = .systemFont(ofSize: pointSize, weight: bold ? .semibold : .regular)
-        button.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }?.withSymbolConfiguration(.init(pointSize: pointSize, weight: .regular))
-        button.imagePosition = symbol == nil ? .noImage : .imageOnly
+        if checked != nil {
+            button.attributedTitle = NSAttributedString(string: title, attributes: [.font: button.font!, .foregroundColor: NSColor.secondaryLabelColor])
+        }
+        if checked == nil {
+            button.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }?.withSymbolConfiguration(.init(pointSize: pointSize, weight: .regular))
+            button.imagePosition = symbol == nil ? .noImage : .imageOnly
+        }
         button.contentTintColor = symbol == nil ? .labelColor : .secondaryLabelColor
         button.setAccessibilityLabel(accessibilityLabel)
     }
@@ -83,6 +94,7 @@ struct KeyboardButton: NSViewRepresentable {
             if let next {
                 DispatchQueue.main.async { [weak next] in
                     guard let next, let window = next.window else { return }
+                    next.scrollToVisible(next.bounds.insetBy(dx: 0, dy: -16))
                     window.makeFirstResponder(next)
                 }
             }
@@ -95,11 +107,18 @@ struct KeyboardButton: NSViewRepresentable {
     weak var orderedPrevious: NSView?
     weak var focusAfterActivation: NSView?
     var advancesFocus = false
+    var onFocus: ((NSView) -> Void)?
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted { onFocus?(self) }
+        return accepted
+    }
     private(set) var isKeyboardActivation = false
     override var acceptsFirstResponder: Bool { true }
     override var needsPanelToBecomeKey: Bool { true }
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 48, let target = event.modifierFlags.contains(.shift) ? orderedPrevious : orderedNext {
+            target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
             window?.makeFirstResponder(target)
         } else if event.charactersIgnoringModifiers == "\r" || event.charactersIgnoringModifiers == " " {
             guard !event.isARepeat else { return }
@@ -113,6 +132,7 @@ struct KeyboardButton: NSViewRepresentable {
 struct KeyboardCategoryFilter: NSViewRepresentable {
     let labels: [PassingByCore.Label]
     @Binding var selection: LabelContext
+    var scope = "dashboard"
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSView {
@@ -126,7 +146,7 @@ struct KeyboardCategoryFilter: NSViewRepresentable {
         }
         control.target = context.coordinator
         control.action = #selector(Coordinator.changed(_:))
-        control.identifier = NSUserInterfaceItemIdentifier("dashboard-0")
+        control.identifier = NSUserInterfaceItemIdentifier("\(scope)-0")
         control.setAccessibilityLabel("Category")
         control.toolTip = "Filter by category"
         control.setContentHuggingPriority(.required, for: .horizontal)
@@ -165,12 +185,19 @@ struct KeyboardCategoryFilter: NSViewRepresentable {
 }
 
 @MainActor private final class KeyboardCategorySegments: NSSegmentedControl {
+    var onFocus: ((NSView) -> Void)?
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted { onFocus?(self) }
+        return accepted
+    }
     override var acceptsFirstResponder: Bool { true }
     override var needsPanelToBecomeKey: Bool { true }
     weak var orderedNext: NSView?
     weak var orderedPrevious: NSView?
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 48, let target = event.modifierFlags.contains(.shift) ? orderedPrevious : orderedNext {
+            target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
             window?.makeFirstResponder(target)
             return
         }
@@ -186,49 +213,99 @@ struct KeyboardCategoryFilter: NSViewRepresentable {
 }
 
 @MainActor private final class KeyboardCategoryMenu: NSPopUpButton {
+    var onFocus: ((NSView) -> Void)?
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted { onFocus?(self) }
+        return accepted
+    }
     weak var orderedNext: NSView?
     weak var orderedPrevious: NSView?
     override var acceptsFirstResponder: Bool { true }
     override var needsPanelToBecomeKey: Bool { true }
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 48, let target = event.modifierFlags.contains(.shift) ? orderedPrevious : orderedNext {
+            target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
             window?.makeFirstResponder(target)
         } else { super.keyDown(with: event) }
     }
 }
 
-/// Dashboard follows its two columns in reading order rather than jumping across rows.
-struct DashboardKeyLoop: NSViewRepresentable {
+/// Each screen supplies a reading order without rebuilding its native controls.
+struct ScreenKeyLoop: NSViewRepresentable {
+    var scope = "dashboard"
+    // Explicit inputs ensure SwiftUI refreshes this otherwise constant representable as rows change.
+    var itemIDs: [UUID] = []
+    var descriptionPresence: [Bool] = []
+    func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> NSView { NSView() }
     func updateNSView(_ view: NSView, context: Context) {
-        DispatchQueue.main.async { [weak view] in
+        let coordinator = context.coordinator
+        DispatchQueue.main.async { [weak view, coordinator] in
             guard let root = view?.window?.contentView else { return }
+            let prefix = "\(scope)-"
             @MainActor func controls(in parent: NSView) -> [NSView] {
                 var result: [NSView] = []
-                if parent.identifier?.rawValue.hasPrefix("dashboard-") == true { result.append(parent) }
+                if parent.identifier?.rawValue.hasPrefix(prefix) == true { result.append(parent) }
                 for child in parent.subviews { result += controls(in: child) }
                 return result
             }
-            @MainActor func order(_ control: NSView) -> Int { Int(control.identifier!.rawValue.dropFirst("dashboard-".count))! }
+            @MainActor func order(_ control: NSView) -> Int { Int(control.identifier!.rawValue.dropFirst(prefix.count))! }
             let ordered = controls(in: root).sorted { order($0) < order($1) }
             guard !ordered.isEmpty else { return }
+            let completions = ordered.filter { scope == "todos" && order($0) >= 10 && (order($0) - 10).isMultiple(of: 4) }
             for (index, control) in ordered.enumerated() {
                 let next = ordered[(index + 1) % ordered.count]
                 let previous = ordered[(index + ordered.count - 1) % ordered.count]
                 if let button = control as? KeyboardActionButton {
                     button.orderedNext = next
                     button.orderedPrevious = previous
-                    if button.advancesFocus {
+                    if scope == "todos" {
+                        let rowStart = 10 + max(0, (order(control) - 10) / 4) * 4
+                        button.focusAfterActivation = completions.first { order($0) > rowStart } ?? completions.last { order($0) < rowStart } ?? ordered.first { order($0) == 1 }
+                        let isRow = order(control) >= 10
+                        button.onFocus = { [weak coordinator, weak button] _ in
+                            coordinator?.recordFocus(button, isRow: isRow, fallback: button?.focusAfterActivation)
+                        }
+                    } else if button.advancesFocus {
                         button.focusAfterActivation = ordered.dropFirst(index + 1).first { ($0 as? KeyboardActionButton)?.advancesFocus == true } ?? ordered.first { order($0) == 100 }
                     }
                 } else if let segments = control as? KeyboardCategorySegments {
                     segments.orderedNext = next
                     segments.orderedPrevious = previous
+                    segments.onFocus = { [weak coordinator] view in coordinator?.recordFocus(view, isRow: false, fallback: nil) }
                 } else if let menu = control as? KeyboardCategoryMenu {
                     menu.orderedNext = next
                     menu.orderedPrevious = previous
+                    menu.onFocus = { [weak coordinator] view in coordinator?.recordFocus(view, isRow: false, fallback: nil) }
                 }
             }
+            if scope == "todos", !coordinator.didSetInitialFocus {
+                coordinator.didSetInitialFocus = true
+                if root.window?.attachedSheet == nil { root.window?.makeFirstResponder(ordered.first) }
+            }
+            if let focused = coordinator.focused as? KeyboardActionButton, focused.window != nil {
+                coordinator.fallback = focused.focusAfterActivation
+            }
+            if scope == "todos", coordinator.rowWasFocused, coordinator.focused?.window == nil {
+                let target = coordinator.fallback?.window != nil ? coordinator.fallback : ordered.first { order($0) == 1 }
+                if let target {
+                    target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
+                    target.window?.makeFirstResponder(target)
+                }
+            }
+        }
+    }
+
+    @MainActor final class Coordinator {
+        weak var focused: NSView?
+        weak var fallback: NSView?
+        var rowWasFocused = false
+        var didSetInitialFocus = false
+        func recordFocus(_ view: NSView?, isRow: Bool, fallback: NSView?) {
+            focused = view
+            self.fallback = fallback
+            rowWasFocused = isRow
         }
     }
 }
