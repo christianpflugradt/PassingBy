@@ -888,6 +888,8 @@ Users may optionally lock after Passing By has remained inactive for a configure
 
 The dedicated Help screen is informational and lists all supported application shortcuts. `Cmd+0` opens it. Shortcuts appear in the native macOS menu where applicable.
 
+`F1` (or `Fn+F1` on some Mac keyboards) and Help → Keyboard Shortcuts for This View open a native floating help panel for the current screen or dialog. It lists the relevant keyboard commands, including sidebar and global category filter commands. An open item editor takes priority and explains Done from Title, `Cmd+Enter` from any field, Description line breaks, and Escape’s draft-discard or existing-item close behaviour. Commands unavailable until the dialog closes are labelled accordingly. The panel omits Tab traversal instructions but includes Note indentation and commands for leaving the editor. Escape, F1 again, or the close button dismisses help and restores the previous focus and text selection. The panel does not execute underlying item commands. `Cmd+?` retains the native macOS Help-menu behaviour.
+
 `Cmd+N` creates a To-do on To-dos, an Appointment on Appointments, and a Note on Dashboard, Help, Settings, or an open Note. `Shift+Cmd+N` creates a Note from anywhere. The sidebar New Note button has the same action.
 
 `Cmd+Delete` deletes a current or selected item only when its target is unambiguous. Note and Appointment deletion always require confirmation. `Shift+Cmd+T` focuses the open Note title.

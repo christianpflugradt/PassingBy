@@ -572,20 +572,26 @@ struct ScreenKeyLoop: NSViewRepresentable {
 
 struct WorkspaceKeyboardBridge: NSViewRepresentable {
     let navigation: WorkspaceKeyboardNavigation
-    func makeCoordinator() -> Coordinator { Coordinator(navigation) }
+    let contextHelp: ContextHelpController
+    var onHelp: () -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(navigation, contextHelp: contextHelp, onHelp: onHelp) }
     func makeNSView(context: Context) -> NSView {
         let view = ContentAnchor()
         view.navigation = navigation
         return view
     }
     func updateNSView(_ view: NSView, context: Context) {
+        context.coordinator.onHelp = onHelp
         DispatchQueue.main.async { [weak view, navigation] in
             navigation.window = view?.window
             navigation.contentAnchor = view
+            if let helpMenu = NSApp.mainMenu?.items.first(where: { $0.title == "Help" })?.submenu,
+               NSApp.helpMenu !== helpMenu { NSApp.helpMenu = helpMenu }
         }
     }
     static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
         if let monitor = coordinator.monitor { NSEvent.removeMonitor(monitor) }
+        coordinator.contextHelp.close(restoringFocus: false)
         coordinator.navigation.window = nil
     }
     @MainActor final class ContentAnchor: NSView {
@@ -599,12 +605,21 @@ struct WorkspaceKeyboardBridge: NSViewRepresentable {
     }
     @MainActor final class Coordinator {
         let navigation: WorkspaceKeyboardNavigation
+        let contextHelp: ContextHelpController
+        var onHelp: () -> Void
         var monitor: Any?
-        init(_ navigation: WorkspaceKeyboardNavigation) {
+        init(_ navigation: WorkspaceKeyboardNavigation, contextHelp: ContextHelpController, onHelp: @escaping () -> Void) {
             self.navigation = navigation
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak navigation] event in
-                guard let navigation else { return event }
-                return navigation.handle(event)
+            self.contextHelp = contextHelp
+            self.onHelp = onHelp
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self else { return event }
+                if event.keyCode == 122, event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty {
+                    if !event.isARepeat { self.onHelp() }
+                    return nil
+                }
+                guard let event = self.contextHelp.handle(event) else { return nil }
+                return self.navigation.handle(event)
             }
         }
     }

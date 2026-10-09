@@ -40,10 +40,12 @@ private enum Destination: Hashable {
     private var lockTimer: Timer?
     private var authenticationContext: LAContext?
     private var authenticationAttempt = 0
+    let contextHelp = ContextHelpController()
     let keyboardNavigation = WorkspaceKeyboardNavigation()
     private var itemDeletionAlert: NSAlert?
     @Published var destination: Destination {
         didSet {
+            contextHelp.close(restoringFocus: false)
             cancelItemDeletion()
             switch destination {
             case .dashboard: UserDefaults.standard.set("dashboard", forKey: "area")
@@ -58,10 +60,10 @@ private enum Destination: Hashable {
         }
     }
     @Published var labelID: UUID?
-    @Published var editingTaskID: UUID?
+    @Published var editingTaskID: UUID? { didSet { contextHelp.close(restoringFocus: false) } }
     @Published var taskDraft: Task?
     @Published var describingTaskID: UUID?
-    @Published var editingAppointmentID: UUID?
+    @Published var editingAppointmentID: UUID? { didSet { contextHelp.close(restoringFocus: false) } }
     @Published var appointmentDraft: DateItem?
     @Published var describingAppointmentID: UUID?
     @Published var showReorderNotes = false
@@ -189,6 +191,7 @@ private enum Destination: Hashable {
         authenticationContext = nil
         isAuthenticating = false
         isLocked = true
+        contextHelp.close(restoringFocus: false)
         cancelItemDeletion()
         cancelPendingLock()
     }
@@ -525,6 +528,107 @@ private struct AppShortcut {
     }
 }
 
+@MainActor private extension WorkspaceState {
+    func toggleContextHelp() {
+        guard !isLocked, let main = keyboardNavigation.window else { return }
+        let source = NSApp.keyWindow === contextHelp.panel ? main : (NSApp.keyWindow ?? main.attachedSheet ?? main)
+        contextHelp.toggle(contextHelpDocument, from: source)
+    }
+    var contextHelpDocument: ContextHelpDocument {
+        func row(_ shortcut: AppShortcut) -> ContextHelpRow { .init(shortcut.display, shortcut.description) }
+        var navigation = [row(.sidebar), .init("↑ / ↓; Enter", "In the sidebar: move between entries, then open one."),
+                          .init("Escape", "Leave the sidebar and return to your previous control."), row(.categoryFilter),
+                          .init("↑ / ↓; Enter", "In the global filter: choose a category, then apply it."),
+                          .init("Escape", "Cancel the category chooser and return to your previous control."),
+                          row(.dashboard), row(.tasks), row(.appointments)]
+        navigation += workspace.shortcutNotes.prefix(6).enumerated().map { row(.note($0.offset, title: $0.element.title)) }
+        navigation += [row(.help), row(.settings), row(.newNote)]
+        if workspace.notes.count >= 2 { navigation.append(row(.reorderNotes)) }
+        if workspace.settings.appLockEnabled { navigation.append(row(.lock)) }
+        let editing: [ContextHelpRow] = [
+            .init("⌘Z / ⇧⌘Z", "Undo / Redo in the text field or editor."),
+            .init("⌘X / ⌘C / ⌘V", "Cut / Copy / Paste text."), .init("⌘A", "Select all text."),
+            .init("Arrow keys", "Move the caret; hold Shift to select text."),
+            .init("⌥← / ⌥→", "Move by word; hold Shift to select."),
+            .init("⌘← / ⌘→", "Move to the start / end of the line; hold Shift to select."),
+            .init("⌘↑ / ⌘↓", "Move to the start / end of the text; hold Shift to select."),
+            .init("⌫ / ⌥⌫", "Delete the previous character / word.")]
+        let category: [ContextHelpRow] = [.init("Space", "Open the focused item Category picker."),
+                                          .init("↑ / ↓; Enter", "Choose a category, then assign it to the item."),
+                                          .init("Escape", "Cancel the Category menu.")]
+        let panelHelp = ContextHelpSection(title: "Help", rows: [.init("F1", "Show or close these contextual shortcuts (Fn+F1 on some keyboards)."),
+                                                               .init("⌘?", "Open the macOS Help menu.")])
+        if editingTaskID != nil || editingAppointmentID != nil {
+            let appointment = editingAppointmentID != nil
+            let isNew = appointment ? appointmentDraft != nil : taskDraft != nil
+            var commands: [ContextHelpRow] = [.init("Enter in Title", "Done: " + (isNew ? "create the item and close the dialog." : "finish editing and close the dialog.")),
+                                              .init("⌘Enter", "Done from any field, including Description and Category" + (appointment ? ", or Date." : ".")),
+                                              .init("Enter / Space on Done", "Activate the focused Done button."),
+                                              .init("Enter in Description", "Insert a line break."),
+                                              .init("Escape", isNew ? "Cancel and discard this draft; no item is created." : "Close the editor, keeping your changes.")]
+            if appointment { commands += [.init("← / → in Date", "Move between day, month, and year."),
+                                           .init("↑ / ↓ in Date", "Increase / decrease the selected date component."),
+                                           .init("Digits in Date", "Replace the selected date component.")] }
+            return ContextHelpDocument(title: (isNew ? "New " : "Edit ") + (appointment ? "Appointment" : "To-do") + " Shortcuts", sections: [
+                .init(title: "This dialog", rows: commands), .init(title: "Assign Category", rows: category),
+                .init(title: "Text editing", rows: editing), panelHelp,
+                .init(title: "After closing this dialog", rows: navigation)])
+        }
+        if itemDeletionAlert != nil || keyboardNavigation.window?.attachedSheet != nil && !showReorderNotes {
+            return .init(title: "Confirmation Shortcuts", sections: [
+                .init(title: "This confirmation", rows: [.init("Enter / Space", "Activate the focused choice."), .init("Escape", "Cancel without changing the item.")]),
+                panelHelp, .init(title: "After closing this dialog", rows: navigation)])
+        }
+        var title: String
+        var commands: [ContextHelpRow]
+        var sections: [ContextHelpSection] = []
+        switch destination {
+        case .dashboard:
+            title = "Dashboard"
+            commands = [.init("⌘N", "Create a Note."), .init("Enter / Space", "Open the focused section or description, or complete a focused To-do."),
+                        .init("Escape", "Close the description popover.")]
+        case .tasks:
+            title = "To-do"
+            commands = [.init("⌘N", "Create a To-do."), .init("Enter / Space", "Activate the focused Complete / Restore, Description, Edit, Delete, or Show Completed control."),
+                        .init("⌘⌫", "Delete the selected To-do, with confirmation, when the target is unambiguous."),
+                        .init("Escape", "Close the description popover.")]
+        case .appointments:
+            title = "Appointment"
+            commands = [.init("⌘N", "Create an Appointment."), .init("Enter / Space", "Activate the focused Description, Edit, Delete, Show past, or Show more / fewer control."),
+                        .init("← / →", "Change the focused Display mode control."),
+                        .init("⌘⌫", "Delete the selected Appointment, with confirmation, when the target is unambiguous."),
+                        .init("Escape", "Close the description popover.")]
+        case .note:
+            title = "Note"
+            commands = [.init("⌘N", "Create a Note."), row(.noteTitle), .init("⌘⌫", "Delete this Note, with confirmation."),
+                        row(.find), row(.findNext), row(.findPrevious),
+                        .init("Ctrl+Tab", "Leave the editor forwards, retaining your caret and selection."),
+                        .init("Ctrl+Shift+Tab", "Leave the editor backwards, retaining your caret and selection."),
+                        .init("Tab / Shift+Tab", "Indent / outdent in the editor using the configured spaces."),
+                        .init("Enter in Editor", "Insert a line break."),
+                        .init("Enter / Space", "Open the focused icon picker, choose a focused icon, or activate Delete."),
+                        .init("Escape", "Close the icon picker; inside the editor, retain focus.")]
+            sections = [.init(title: "Assign Category", rows: category), .init(title: "Text editing", rows: editing)]
+        case .help:
+            title = "Help"
+            commands = [.init("⌘N", "Create a Note."), .init("↑ / ↓", "Scroll the main content."), .init("Page Up / Down", "Scroll one page."),
+                        .init("Home / End", "Scroll to the start / end.")]
+        case .settings:
+            title = "Settings"
+            commands = [.init("⌘N", "Create a Note."), .init("Space", "Activate the focused checkbox or open a focused picker."),
+                        .init("↑ / ↓; Enter", "Choose and apply an option in an open picker."), .init("Escape", "Cancel an open picker.")]
+        }
+        if showReorderNotes {
+            return .init(title: "Reorder Notes Shortcuts", sections: [.init(title: "This dialog", rows: [.init("Enter", "Activate Done and close the dialog.")]),
+                                                                   panelHelp, .init(title: "After closing this dialog", rows: navigation)])
+        }
+        commands += [row(.zoomIn), row(.zoomOut)]
+        return .init(title: title + " Shortcuts", sections: [.init(title: "This view", rows: commands)] + sections + [
+            .init(title: "Navigation and global commands", rows: navigation), panelHelp,
+            .init(title: "Window", rows: [.init("⌘W", "Close the app window."), .init("⌘Q", "Quit Passing By.")])])
+    }
+}
+
 @main struct PassingByApp: App {
     @StateObject private var startup = Startup()
     private var shortcutNotes: [Note] {
@@ -574,6 +678,10 @@ private struct AppShortcut {
                         .disabled((startup.state?.workspace.notes.count ?? 0) < 2 || (startup.state?.isLocked ?? true))
                 }
                 CommandGroup(replacing: .help) {
+                    Button("Keyboard Shortcuts for This View") { startup.state?.toggleContextHelp() }
+                        .keyboardShortcut(KeyEquivalent("\u{f704}"), modifiers: [])
+                        .disabled(startup.state?.isLocked ?? true)
+                    Divider()
                     Button("Passing By Help") { startup.state?.destination = .help }
                         .keyboardShortcut(AppShortcut.help.key, modifiers: AppShortcut.help.modifiers)
                         .disabled(startup.state?.isLocked ?? true)
@@ -718,7 +826,7 @@ private struct WorkspaceView: View {
             }
         }
         .frame(minWidth: 650, minHeight: 410)
-        .background(WorkspaceKeyboardBridge(navigation: state.keyboardNavigation))
+        .background(WorkspaceKeyboardBridge(navigation: state.keyboardNavigation, contextHelp: state.contextHelp, onHelp: state.toggleContextHelp))
         .sheet(isPresented: $state.showReorderNotes) { ReorderNotesView(state: state) }
         .alert("Could Not Save Changes", isPresented: Binding(get: { state.error != nil }, set: { if !$0 { state.error = nil } })) {
             Button("Retry") { state.flush() }
@@ -1293,6 +1401,8 @@ private struct HelpView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Keyboard Shortcuts").font(.system(size: 22 * scale, weight: .semibold))
                     Text("⌘N creates a To-do or Appointment in those views, and a Note elsewhere. Note shortcuts follow the first six Notes currently shown in the sidebar.")
+                        .foregroundStyle(.secondary)
+                    Text("F1 opens keyboard shortcuts for the current screen or dialog. On some Mac keyboards, use Fn+F1. Escape or F1 again closes the floating help panel and restores your previous focus. ⌘? opens the macOS Help menu.")
                         .foregroundStyle(.secondary)
                     Text("⌥⌘F opens the global category filter: use Up/Down, Enter to apply, or Escape to cancel. Focus then returns to your previous control. ⌥⌘S focuses the sidebar: Up/Down moves, Enter opens, and Escape returns. The global filter and sidebar are outside the main content Tab sequence.")
                     Text("In To-do and Appointment dialogs, Tab and Shift-Tab move between fields, including Category. Return in the title or ⌘Return activates Done; Return in the description adds a new line. Escape discards a new item, or closes an existing item while keeping its changes.")
