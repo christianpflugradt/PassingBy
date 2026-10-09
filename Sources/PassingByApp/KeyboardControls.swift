@@ -119,14 +119,98 @@ struct KeyboardButton: NSViewRepresentable {
     override var needsPanelToBecomeKey: Bool { true }
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 48, let target = event.modifierFlags.contains(.shift) ? orderedPrevious : orderedNext {
-            target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
-            window?.makeFirstResponder(target)
+            focusKeyboardControl(target)
         } else if event.charactersIgnoringModifiers == "\r" || event.charactersIgnoringModifiers == " " {
             guard !event.isARepeat else { return }
             isKeyboardActivation = true
             defer { isKeyboardActivation = false }
             performClick(nil)
         } else { super.keyDown(with: event) }
+    }
+}
+
+@MainActor func focusKeyboardControl(_ view: NSView) {
+    // Entering the document must not scroll away from the user's caret or selection.
+    if !(view is NSTextView) { view.scrollToVisible(view.bounds.insetBy(dx: 0, dy: -16)) }
+    view.window?.makeFirstResponder(view)
+}
+
+struct KeyboardNoteTitle: NSViewRepresentable {
+    @Binding var title: String
+    var pointSize: CGFloat
+    var focusRequest: Int?
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeNSView(context: Context) -> NSTextField {
+        let field = NSTextField(string: title)
+        field.isBordered = false
+        field.drawsBackground = false
+        field.identifier = NSUserInterfaceItemIdentifier("note-title")
+        field.setAccessibilityLabel("Note title")
+        field.delegate = context.coordinator
+        return field
+    }
+    func updateNSView(_ field: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        field.font = .systemFont(ofSize: pointSize, weight: .semibold)
+        if field.stringValue != title { field.stringValue = title }
+        if let focusRequest, context.coordinator.lastFocusRequest != focusRequest {
+            context.coordinator.lastFocusRequest = focusRequest
+            DispatchQueue.main.async { [weak field] in
+                guard let field else { return }
+                field.window?.makeFirstResponder(field)
+            }
+        }
+    }
+    @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: KeyboardNoteTitle
+        var lastFocusRequest: Int?
+        init(_ parent: KeyboardNoteTitle) { self.parent = parent }
+        func controlTextDidChange(_ notification: Notification) {
+            guard let field = notification.object as? NSTextField else { return }
+            parent.title = field.stringValue
+        }
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy command: Selector) -> Bool {
+            let target: NSView?
+            if command == #selector(NSResponder.insertTab(_:)) { target = control.nextKeyView }
+            else if command == #selector(NSResponder.insertBacktab(_:)) { target = control.previousKeyView }
+            else { return false }
+            guard let target else { return false }
+            focusKeyboardControl(target)
+            return true
+        }
+    }
+}
+
+struct KeyboardNoteCategory: NSViewRepresentable {
+    let labels: [PassingByCore.Label]
+    @Binding var categoryID: UUID?
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeNSView(context: Context) -> NSPopUpButton {
+        let picker = KeyboardCategoryMenu()
+        picker.identifier = NSUserInterfaceItemIdentifier("note-category")
+        picker.setAccessibilityLabel("Note category")
+        picker.target = context.coordinator
+        picker.action = #selector(Coordinator.changed(_:))
+        return picker
+    }
+    func updateNSView(_ picker: NSPopUpButton, context: Context) {
+        context.coordinator.parent = self
+        let titles = ["Uncategorized"] + labels.map(\.name)
+        if context.coordinator.titles != titles {
+            picker.removeAllItems()
+            picker.addItems(withTitles: titles)
+            context.coordinator.titles = titles
+        }
+        picker.selectItem(at: labels.firstIndex { $0.id == categoryID }.map { $0 + 1 } ?? 0)
+    }
+    @MainActor final class Coordinator: NSObject {
+        var parent: KeyboardNoteCategory
+        var titles: [String] = []
+        init(_ parent: KeyboardNoteCategory) { self.parent = parent }
+        @objc func changed(_ picker: NSPopUpButton) {
+            let index = picker.indexOfSelectedItem - 1
+            parent.categoryID = parent.labels.indices.contains(index) ? parent.labels[index].id : nil
+        }
     }
 }
 
@@ -226,8 +310,7 @@ struct KeyboardAppointmentDisplay: NSViewRepresentable {
     weak var orderedPrevious: NSView?
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 48, let target = event.modifierFlags.contains(.shift) ? orderedPrevious : orderedNext {
-            target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
-            window?.makeFirstResponder(target)
+            focusKeyboardControl(target)
             return
         }
         switch event.keyCode {
@@ -254,8 +337,7 @@ struct KeyboardAppointmentDisplay: NSViewRepresentable {
     override var needsPanelToBecomeKey: Bool { true }
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 48, let target = event.modifierFlags.contains(.shift) ? orderedPrevious : orderedNext {
-            target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
-            window?.makeFirstResponder(target)
+            focusKeyboardControl(target)
         } else { super.keyDown(with: event) }
     }
 }
@@ -289,6 +371,7 @@ struct ScreenKeyLoop: NSViewRepresentable {
             for (index, control) in ordered.enumerated() {
                 let next = ordered[(index + 1) % ordered.count]
                 let previous = ordered[(index + ordered.count - 1) % ordered.count]
+                control.nextKeyView = next
                 if let button = control as? KeyboardActionButton {
                     button.orderedNext = next
                     button.orderedPrevious = previous
@@ -322,14 +405,18 @@ struct ScreenKeyLoop: NSViewRepresentable {
                     menu.onFocus = { [weak coordinator] view in coordinator?.recordFocus(view, isRow: false, fallback: nil) }
                 }
             }
-            if (scope == "todos" || scope == "appointments"), !coordinator.didSetInitialFocus {
+            if scope == "note", coordinator.noteID != itemIDs.first {
+                coordinator.noteID = itemIDs.first
+                coordinator.didSetInitialFocus = false
+            }
+            if (scope == "todos" || scope == "appointments" || scope == "note"), !coordinator.didSetInitialFocus {
                 coordinator.didSetInitialFocus = true
                 if root.window?.attachedSheet == nil { root.window?.makeFirstResponder(ordered.first) }
             }
             if let focused = coordinator.focused as? KeyboardActionButton, focused.window != nil {
                 coordinator.fallback = focused.focusAfterActivation
             }
-            if scope == "appointments", coordinator.lastFocusRequest != focusRequest, root.window?.attachedSheet == nil {
+            if (scope == "appointments" || scope == "note-icons"), coordinator.lastFocusRequest != focusRequest, root.window?.attachedSheet == nil {
                 if let target = ordered.first(where: { $0.identifier?.rawValue == requestedFocusID }) {
                     coordinator.lastFocusRequest = focusRequest
                     target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
@@ -351,6 +438,7 @@ struct ScreenKeyLoop: NSViewRepresentable {
         weak var fallback: NSView?
         var rowWasFocused = false
         var didSetInitialFocus = false
+        var noteID: UUID?
         var lastFocusRequest = 0
         func recordFocus(_ view: NSView?, isRow: Bool, fallback: NSView?) {
             focused = view

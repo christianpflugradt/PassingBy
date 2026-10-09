@@ -52,7 +52,6 @@ private enum Destination: Hashable {
     @Published var editingAppointmentID: UUID?
     @Published var appointmentDraft: DateItem?
     @Published var describingAppointmentID: UUID?
-    @Published var confirmNoteDeletion = false
     @Published var showReorderNotes = false
     @Published var iconPickerNoteID: UUID?
     @Published var focusNoteTitleID: UUID?
@@ -344,13 +343,20 @@ private enum Destination: Hashable {
         }
     }
     func confirmTaskDeletion(_ id: UUID, fromCurrentItem: Bool = false) {
-        confirmDeletion(id, appointment: false, fromCurrentItem: fromCurrentItem)
+        confirmDeletion(id, kind: .task, fromCurrentItem: fromCurrentItem)
     }
     func confirmAppointmentDeletion(_ id: UUID, fromCurrentItem: Bool = false) {
-        confirmDeletion(id, appointment: true, fromCurrentItem: fromCurrentItem)
+        confirmDeletion(id, kind: .appointment, fromCurrentItem: fromCurrentItem)
     }
-    private func confirmDeletion(_ id: UUID, appointment: Bool, fromCurrentItem: Bool) {
-        let title = appointment ? workspace.dates.first { $0.id == id }?.title : workspace.tasks.first { $0.id == id }?.title
+    private enum DeletionKind { case task, appointment, note }
+    func confirmNoteDeletion(_ id: UUID, fromCurrentItem: Bool = false) {
+        confirmDeletion(id, kind: .note, fromCurrentItem: fromCurrentItem)
+    }
+    private func confirmDeletion(_ id: UUID, kind: DeletionKind, fromCurrentItem: Bool) {
+        let appointment = kind == .appointment
+        let isNote = kind == .note
+        let expectedDestination: Destination = isNote ? .note(id) : (appointment ? .appointments : .tasks)
+        let title = isNote ? note(id)?.title : (appointment ? workspace.dates.first { $0.id == id }?.title : workspace.tasks.first { $0.id == id }?.title)
         guard !isLocked, itemDeletionAlert == nil, let title,
               let window = NSApp.keyWindow, window.attachedSheet == nil else { return }
         let currentResponder = window.firstResponder as? NSView
@@ -368,14 +374,14 @@ private enum Destination: Hashable {
             return nil
         }
         let content = window.sheetParent?.contentView ?? window.contentView
-        let rowButton = rowIndex.flatMap { index in content.flatMap { control(appointment ? "appointments-\(id)-delete" : "todos-\(13 + index * 4)", in: $0) } }
+        let rowButton = isNote ? content.flatMap { control("note-delete", in: $0) } : rowIndex.flatMap { index in content.flatMap { control(appointment ? "appointments-\(id)-delete" : "todos-\(13 + index * 4)", in: $0) } }
         let source = fromCurrentItem ? currentResponder : rowButton ?? currentResponder
         let alert = NSAlert()
         alert.alertStyle = .warning
-        let kind = appointment ? "Appointment" : "To-do"
-        alert.messageText = "Delete this \(kind)?"
-        alert.informativeText = "\(title.isEmpty ? "New " + kind : title)\nThis cannot be undone."
-        alert.addButton(withTitle: "Delete " + kind)
+        let itemName = isNote ? "Note" : (appointment ? "Appointment" : "To-do")
+        alert.messageText = "Delete this \(itemName)?"
+        alert.informativeText = "\(title.isEmpty ? (isNote ? "Untitled Note" : "New " + itemName) : title)\nThis cannot be undone."
+        alert.addButton(withTitle: "Delete " + itemName)
         alert.addButton(withTitle: "Cancel")
         alert.buttons[0].hasDestructiveAction = true
         itemDeletionAlert = alert
@@ -402,9 +408,11 @@ private enum Destination: Hashable {
             if let keyboardMonitor { NSEvent.removeMonitor(keyboardMonitor) }
             guard let self, self.itemDeletionAlert === alert else { return }
             self.itemDeletionAlert = nil
-            guard !self.isLocked, self.destination == (appointment ? .appointments : .tasks) else { return }
+            guard !self.isLocked, self.destination == expectedDestination else { return }
             if response == .alertFirstButtonReturn {
-                if appointment {
+                if isNote {
+                    self.change { $0.notes.removeAll { $0.id == id } }
+                } else if appointment {
                     if self.editingAppointmentID == id { self.closeAppointmentEditing() }
                     self.change { $0.dates.removeAll { $0.id == id } }
                     if self.selectedAppointmentID == id { self.selectedAppointmentID = nil }
@@ -415,11 +423,13 @@ private enum Destination: Hashable {
                 }
             }
             DispatchQueue.main.async { [weak self, weak source, weak content] in
-                guard let self, !self.isLocked, self.destination == (appointment ? .appointments : .tasks) else { return }
+                guard let self, !self.isLocked, self.destination == (isNote && response == .alertFirstButtonReturn ? .dashboard : expectedDestination) else { return }
                 let target: NSView?
                 if response == .alertFirstButtonReturn, let content {
                     let identifier: String
-                    if appointment {
+                    if isNote {
+                        identifier = "dashboard-0"
+                    } else if appointment {
                         identifier = self.visibleAppointments.first { $0.id == neighbourID }.map { "appointments-\($0.id)-edit" } ?? "appointments-1"
                     } else {
                         identifier = self.tasks.firstIndex { $0.id == neighbourID }.map { "todos-\(10 + $0 * 4)" } ?? "todos-1"
@@ -435,7 +445,7 @@ private enum Destination: Hashable {
     func deleteCurrentItem() {
         guard taskDraft == nil, appointmentDraft == nil else { return }
         switch destination {
-        case .note: confirmNoteDeletion = true
+        case .note(let id): confirmNoteDeletion(id, fromCurrentItem: true)
         case .tasks:
             if let id = editingTaskID ?? selectedTaskID, tasks.contains(where: { $0.id == id }) {
                 confirmTaskDeletion(id, fromCurrentItem: true)
@@ -1163,43 +1173,35 @@ private struct NoteView: View {
     @ObservedObject var state: WorkspaceState
     let id: UUID
     private var scale: CGFloat { CGFloat(state.note(id)?.zoomPercent ?? 100) / 100 }
-    @FocusState private var titleFocused: Bool
-    @FocusState private var categoryFocused: Bool
     @StateObject private var editorStatus = NoteEditorStatusModel()
     var body: some View {
         Group {
             if let note = state.note(id) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .center, spacing: 12) {
-                        Button { state.iconPickerNoteID = id } label: {
-                            Image(systemName: availableNoteIcon(note.iconName)).font(.system(size: 20 * scale)).frame(width: 32 * scale, height: 32 * scale)
-                        }
-                        .buttonStyle(.plain).help("Choose Note Icon")
-                        .focusable(false)
+                        KeyboardButton(symbol: availableNoteIcon(note.iconName), pointSize: 20 * scale, keyLoopID: "note-icon", accessibilityLabel: "Choose Note Icon") {
+                            state.iconPickerNoteID = id
+                        }.fixedSize().frame(width: 32 * scale, height: 32 * scale).help("Choose Note Icon")
                         .popover(isPresented: Binding(get: { state.iconPickerNoteID == id }, set: { if !$0 { state.iconPickerNoteID = nil } }), arrowEdge: .leading) {
                             LazyVGrid(columns: Array(repeating: GridItem(.fixed(38)), count: 7), spacing: 8) {
                                 ForEach(NoteIcon.choices, id: \.self) { name in
-                                    Button {
+                                    KeyboardButton(symbol: name, pointSize: 18, keyLoopID: "note-icons-" + name, accessibilityLabel: name) {
                                         state.editNote(id) { $0.iconName = name }
                                         state.iconPickerNoteID = nil
-                                    } label: { Image(systemName: name).font(.system(size: 18)).frame(width: 34, height: 34) }
-                                        .buttonStyle(.plain).help(name)
+                                    }.fixedSize().frame(width: 34, height: 34).help(name)
                                         .background(note.iconName == name ? Color.accentColor.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 6))
                                 }
                             }.padding(12)
+                                .background(ScreenKeyLoop(scope: "note-icons", controlIDs: NoteIcon.choices.map { "note-icons-" + $0 }, requestedFocusID: "note-icons-" + (NoteIcon.choices.contains(note.iconName) ? note.iconName : NoteIcon.defaultName), focusRequest: 1))
                         }
-                        TextField("Title", text: Binding(get: { state.note(id)?.title ?? "" }, set: { value in state.editNote(id) { $0.title = value } }))
-                            .font(.system(size: 22 * scale, weight: .semibold)).textFieldStyle(.plain)
-                            .frame(minWidth: 120, maxWidth: 400, alignment: .leading)
-                            .focused($titleFocused)
-                            .onKeyPress(.tab) { categoryFocused = true; return .handled }
-                        ItemLabelPicker(labels: state.workspace.labels, id: Binding(get: { state.note(id)?.labelID }, set: { value in state.editNote(id) { $0.labelID = value } }))
-                            .labelsHidden().frame(width: 155).focusable(true)
-                            .focused($categoryFocused)
-                            .onKeyPress(.tab) { state.focusNoteEditor(id); return .handled }
+                        KeyboardNoteTitle(title: Binding(get: { state.note(id)?.title ?? "" }, set: { value in state.editNote(id) { $0.title = value } }), pointSize: 22 * scale, focusRequest: state.focusNoteTitleID == id ? state.titleFocusNonce : nil)
+                            .frame(minWidth: 120, maxWidth: 400)
+                        KeyboardNoteCategory(labels: state.workspace.labels, categoryID: Binding(get: { state.note(id)?.labelID }, set: { value in state.editNote(id) { $0.labelID = value } }))
+                            .frame(width: 155)
                         Spacer(minLength: 0)
-                        Button { state.confirmNoteDeletion = true } label: { Image(systemName: AppSymbol.delete) }
-                            .buttonStyle(.plain).foregroundStyle(.secondary).help("Delete Note").focusable(false)
+                        KeyboardButton(symbol: AppSymbol.delete, keyLoopID: "note-delete", accessibilityLabel: "Delete Note") {
+                            state.confirmNoteDeletion(id)
+                        }.fixedSize().help("Delete Note")
                     }
                     MarkdownTextView(text: Binding(get: { state.note(id)?.contentMarkdown ?? "" }, set: { value in state.editNote(id) { $0.contentMarkdown = value } }), settings: state.workspace.settings, status: editorStatus, focusRequest: state.focusNoteEditorID == id ? state.editorFocusNonce : nil, zoomPercent: note.zoomPercent)
                         .id(id).frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
@@ -1216,11 +1218,7 @@ private struct NoteView: View {
                 }
                 .padding(.horizontal, 34).padding(.top, 28).padding(.bottom, 20)
                 .environment(\.font, .system(size: 13 * scale))
-                .onAppear { if state.focusNoteTitleID == id { titleFocused = true; state.focusNoteTitleID = nil } }
-                .onChange(of: state.titleFocusNonce) { _, _ in if state.focusNoteTitleID == id { titleFocused = true; state.focusNoteTitleID = nil } }
-                .confirmationDialog("Delete \(note.title.isEmpty ? "Untitled Note" : note.title)?", isPresented: $state.confirmNoteDeletion) {
-                    Button("Delete Note", role: .destructive) { state.change { $0.notes.removeAll { $0.id == id } } }
-                } message: { Text("This cannot be undone.") }
+                .background(ScreenKeyLoop(scope: "note", itemIDs: [id], controlIDs: ["note-title", "note-category", "note-editor", "note-delete", "note-icon"]))
             } else {
                 ContentUnavailableView("Note Unavailable", systemImage: AppSymbol.unavailableNote)
             }
@@ -1267,6 +1265,8 @@ private struct HelpView: View {
                     Text("On To-dos, Tab follows Category, New To-do, Show Completed To-dos, then each row’s Complete or Restore, Description when present, Edit, and Delete actions. Shift-Tab reverses this order.")
                         .foregroundStyle(.secondary)
                     Text("On Appointments, Tab follows Category, New Appointment, Display mode, Show past, then each row’s Description when present, Edit, and Delete. In By Category mode, each group’s Show more or Show fewer follows its rows. Left and Right change the display mode; Shift-Tab reverses the tab order.")
+                        .foregroundStyle(.secondary)
+                    Text("On Notes, focus follows Title, Category, Editor, Delete, and Icon. Tab and Shift-Tab indent and outdent inside the editor using spaces; Control-Tab leaves it forwards and Control-Shift-Tab backwards. The icon picker supports Tab, Shift-Tab, and Return or Space to choose an icon; Escape closes it.")
                         .foregroundStyle(.secondary)
                     Grid(alignment: .leading, horizontalSpacing: 30, verticalSpacing: 7) {
                         ForEach(shortcuts.indices, id: \.self) { index in
@@ -1802,6 +1802,8 @@ private struct MarkdownTextView: NSViewRepresentable {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         let editor = NoteEditorTextView(frame: .zero)
+        editor.identifier = NSUserInterfaceItemIdentifier("note-editor")
+        editor.setAccessibilityLabel("Note editor")
         editor.isRichText = false
         editor.allowsUndo = true
         editor.usesFindBar = true
@@ -2009,6 +2011,12 @@ private final class NoteLineNumberRuler: NSRulerView {
 }
 
 private final class NoteEditorTextView: NSTextView {
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 48, event.modifierFlags.contains(.control), !event.modifierFlags.contains(.command), !event.modifierFlags.contains(.option),
+           let target = event.modifierFlags.contains(.shift) ? previousKeyView : nextKeyView {
+            focusKeyboardControl(target)
+        } else { super.keyDown(with: event) }
+    }
     var zoomPercent = 100
     var markdownLinks: [MarkdownHighlight.Link] = []
     var markdownCheckboxes: [MarkdownHighlight.Checkbox] = [] {
