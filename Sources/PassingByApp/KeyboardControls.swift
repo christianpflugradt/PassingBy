@@ -10,6 +10,7 @@ struct KeyboardButton: NSViewRepresentable {
     var bold = false
     var dashboardOrder: Int? = nil
     var todoOrder: Int? = nil
+    var keyLoopID: String? = nil
     var checked: Bool? = nil
     var bordered = false
     var advancesFocus = false
@@ -36,7 +37,7 @@ struct KeyboardButton: NSViewRepresentable {
         context.coordinator.taskTitle = taskTitle
         button.title = title
         if let checked { button.state = checked ? .on : .off }
-        button.identifier = todoOrder.map { NSUserInterfaceItemIdentifier("todos-\($0)") } ?? dashboardOrder.map { NSUserInterfaceItemIdentifier("dashboard-\($0)") }
+        button.identifier = keyLoopID.map { NSUserInterfaceItemIdentifier($0) } ?? todoOrder.map { NSUserInterfaceItemIdentifier("todos-\($0)") } ?? dashboardOrder.map { NSUserInterfaceItemIdentifier("dashboard-\($0)") }
         button.advancesFocus = advancesFocus
         button.font = .systemFont(ofSize: pointSize, weight: bold ? .semibold : .regular)
         if checked != nil {
@@ -138,7 +139,7 @@ struct KeyboardCategoryFilter: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let control: NSControl
         if (1...4).contains(labels.count) {
-            let segments = KeyboardCategorySegments()
+            let segments = KeyboardSegments()
             segments.trackingMode = .selectOne
             control = segments
         } else {
@@ -184,7 +185,35 @@ struct KeyboardCategoryFilter: NSViewRepresentable {
     }
 }
 
-@MainActor private final class KeyboardCategorySegments: NSSegmentedControl {
+struct KeyboardAppointmentDisplay: NSViewRepresentable {
+    @Binding var selection: DateDisplayMode
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = KeyboardSegments()
+        control.segmentCount = 2
+        control.setLabel("Chronological", forSegment: 0)
+        control.setLabel("By Category", forSegment: 1)
+        control.trackingMode = .selectOne
+        control.identifier = NSUserInterfaceItemIdentifier("appointments-2")
+        control.setAccessibilityLabel("Appointment display mode")
+        control.target = context.coordinator
+        control.action = #selector(Coordinator.changed(_:))
+        return control
+    }
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        context.coordinator.parent = self
+        control.selectedSegment = selection == .chronological ? 0 : 1
+    }
+    @MainActor final class Coordinator: NSObject {
+        var parent: KeyboardAppointmentDisplay
+        init(_ parent: KeyboardAppointmentDisplay) { self.parent = parent }
+        @objc func changed(_ sender: NSSegmentedControl) {
+            parent.selection = sender.selectedSegment == 0 ? .chronological : .byLabel
+        }
+    }
+}
+
+@MainActor private final class KeyboardSegments: NSSegmentedControl {
     var onFocus: ((NSView) -> Void)?
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
@@ -202,7 +231,7 @@ struct KeyboardCategoryFilter: NSViewRepresentable {
             return
         }
         switch event.keyCode {
-        case 123, 124: // Left and Right switch categories within this one native filter.
+        case 123, 124: // Left and Right change the selection within this one Tab stop.
             selectedSegment = min(segmentCount - 1, max(0, selectedSegment + (event.keyCode == 123 ? -1 : 1)))
             sendAction(action, to: target)
         case 36, 49:
@@ -237,6 +266,9 @@ struct ScreenKeyLoop: NSViewRepresentable {
     // Explicit inputs ensure SwiftUI refreshes this otherwise constant representable as rows change.
     var itemIDs: [UUID] = []
     var descriptionPresence: [Bool] = []
+    var controlIDs: [String] = []
+    var requestedFocusID: String? = nil
+    var focusRequest = 0
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> NSView { NSView() }
     func updateNSView(_ view: NSView, context: Context) {
@@ -246,11 +278,11 @@ struct ScreenKeyLoop: NSViewRepresentable {
             let prefix = "\(scope)-"
             @MainActor func controls(in parent: NSView) -> [NSView] {
                 var result: [NSView] = []
-                if parent.identifier?.rawValue.hasPrefix(prefix) == true { result.append(parent) }
+                if let id = parent.identifier?.rawValue, id.hasPrefix(prefix), controlIDs.isEmpty || controlIDs.contains(id) { result.append(parent) }
                 for child in parent.subviews { result += controls(in: child) }
                 return result
             }
-            @MainActor func order(_ control: NSView) -> Int { Int(control.identifier!.rawValue.dropFirst(prefix.count))! }
+            @MainActor func order(_ control: NSView) -> Int { controlIDs.isEmpty ? Int(control.identifier!.rawValue.dropFirst(prefix.count))! : controlIDs.firstIndex(of: control.identifier!.rawValue)! }
             let ordered = controls(in: root).sorted { order($0) < order($1) }
             guard !ordered.isEmpty else { return }
             let completions = ordered.filter { scope == "todos" && order($0) >= 10 && (order($0) - 10).isMultiple(of: 4) }
@@ -267,10 +299,20 @@ struct ScreenKeyLoop: NSViewRepresentable {
                         button.onFocus = { [weak coordinator, weak button] _ in
                             coordinator?.recordFocus(button, isRow: isRow, fallback: button?.focusAfterActivation)
                         }
+                    } else if scope == "appointments" {
+                        let edits = ordered.filter { $0.identifier?.rawValue.hasSuffix("-edit") == true }
+                        let rowID = control.identifier!.rawValue.components(separatedBy: "-").dropLast().joined(separator: "-")
+                        let rowEdit = edits.first { $0.identifier?.rawValue == rowID + "-edit" }
+                        let rowOrder = rowEdit.map(order) ?? order(control)
+                        button.focusAfterActivation = edits.first { order($0) > rowOrder } ?? edits.last { order($0) < rowOrder } ?? ordered.first { $0.identifier?.rawValue == "appointments-1" }
+                        let isRow = control.identifier!.rawValue.hasSuffix("-edit") || control.identifier!.rawValue.hasSuffix("-delete") || control.identifier!.rawValue.hasSuffix("-description")
+                        button.onFocus = { [weak coordinator, weak button] _ in
+                            coordinator?.recordFocus(button, isRow: isRow, fallback: button?.focusAfterActivation)
+                        }
                     } else if button.advancesFocus {
                         button.focusAfterActivation = ordered.dropFirst(index + 1).first { ($0 as? KeyboardActionButton)?.advancesFocus == true } ?? ordered.first { order($0) == 100 }
                     }
-                } else if let segments = control as? KeyboardCategorySegments {
+                } else if let segments = control as? KeyboardSegments {
                     segments.orderedNext = next
                     segments.orderedPrevious = previous
                     segments.onFocus = { [weak coordinator] view in coordinator?.recordFocus(view, isRow: false, fallback: nil) }
@@ -280,15 +322,22 @@ struct ScreenKeyLoop: NSViewRepresentable {
                     menu.onFocus = { [weak coordinator] view in coordinator?.recordFocus(view, isRow: false, fallback: nil) }
                 }
             }
-            if scope == "todos", !coordinator.didSetInitialFocus {
+            if (scope == "todos" || scope == "appointments"), !coordinator.didSetInitialFocus {
                 coordinator.didSetInitialFocus = true
                 if root.window?.attachedSheet == nil { root.window?.makeFirstResponder(ordered.first) }
             }
             if let focused = coordinator.focused as? KeyboardActionButton, focused.window != nil {
                 coordinator.fallback = focused.focusAfterActivation
             }
-            if scope == "todos", coordinator.rowWasFocused, coordinator.focused?.window == nil {
-                let target = coordinator.fallback?.window != nil ? coordinator.fallback : ordered.first { order($0) == 1 }
+            if scope == "appointments", coordinator.lastFocusRequest != focusRequest, root.window?.attachedSheet == nil {
+                if let target = ordered.first(where: { $0.identifier?.rawValue == requestedFocusID }) {
+                    coordinator.lastFocusRequest = focusRequest
+                    target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
+                    target.window?.makeFirstResponder(target)
+                }
+            }
+            if (scope == "todos" || scope == "appointments"), root.window?.attachedSheet == nil, coordinator.rowWasFocused, coordinator.focused?.window == nil {
+                let target = coordinator.fallback?.window != nil ? coordinator.fallback : ordered.first { $0.identifier?.rawValue == "\(scope)-1" }
                 if let target {
                     target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
                     target.window?.makeFirstResponder(target)
@@ -302,6 +351,7 @@ struct ScreenKeyLoop: NSViewRepresentable {
         weak var fallback: NSView?
         var rowWasFocused = false
         var didSetInitialFocus = false
+        var lastFocusRequest = 0
         func recordFocus(_ view: NSView?, isRow: Bool, fallback: NSView?) {
             focused = view
             self.fallback = fallback

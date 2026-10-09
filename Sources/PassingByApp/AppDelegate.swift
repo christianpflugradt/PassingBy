@@ -29,10 +29,10 @@ private enum Destination: Hashable {
     private var lockTimer: Timer?
     private var authenticationContext: LAContext?
     private var authenticationAttempt = 0
-    private var taskDeletionAlert: NSAlert?
+    private var itemDeletionAlert: NSAlert?
     @Published var destination: Destination {
         didSet {
-            cancelTaskDeletion()
+            cancelItemDeletion()
             switch destination {
             case .dashboard: UserDefaults.standard.set("dashboard", forKey: "area")
             case .tasks: UserDefaults.standard.set("tasks", forKey: "area")
@@ -52,7 +52,6 @@ private enum Destination: Hashable {
     @Published var editingAppointmentID: UUID?
     @Published var appointmentDraft: DateItem?
     @Published var describingAppointmentID: UUID?
-    @Published var deletingAppointmentID: UUID?
     @Published var confirmNoteDeletion = false
     @Published var showReorderNotes = false
     @Published var iconPickerNoteID: UUID?
@@ -101,6 +100,9 @@ private enum Destination: Hashable {
     var notes: [Note] { workspace.visibleNotes }
     var tasks: [Task] { workspace.tasks.filter { workspace.matches($0.labelID) && (showCompleted || $0.completedAt == nil) }.sorted { $0.createdAt < $1.createdAt } }
     var appointments: [DateItem] { workspace.matchingDates(showPast: showPast) }
+    var visibleAppointments: [DateItem] {
+        workspace.settings.dateDisplayMode == .chronological ? appointments : workspace.dateGroups(showPast: showPast, expanded: expanded).flatMap(\.items)
+    }
     var label: PassingByCore.Label? { workspace.labels.first { $0.id == labelID } }
     func note(_ id: UUID) -> Note? { workspace.notes.first { $0.id == id } }
     var currentZoom: Int {
@@ -176,7 +178,7 @@ private enum Destination: Hashable {
         authenticationContext = nil
         isAuthenticating = false
         isLocked = true
-        cancelTaskDeletion()
+        cancelItemDeletion()
         cancelPendingLock()
     }
     func unlock() {
@@ -334,23 +336,29 @@ private enum Destination: Hashable {
     }
     func focusNoteTitle() { if case .note(let id) = destination { focusNoteTitleID = id; titleFocusNonce += 1 } }
     func focusNoteEditor(_ id: UUID) { focusNoteEditorID = id; editorFocusNonce += 1 }
-    private func cancelTaskDeletion() {
-        guard let alert = taskDeletionAlert else { return }
-        taskDeletionAlert = nil
+    private func cancelItemDeletion() {
+        guard let alert = itemDeletionAlert else { return }
+        itemDeletionAlert = nil
         if let parent = alert.window.sheetParent {
             parent.endSheet(alert.window, returnCode: .alertSecondButtonReturn)
         }
     }
     func confirmTaskDeletion(_ id: UUID, fromCurrentItem: Bool = false) {
-        guard !isLocked, taskDeletionAlert == nil,
-              let task = workspace.tasks.first(where: { $0.id == id }),
+        confirmDeletion(id, appointment: false, fromCurrentItem: fromCurrentItem)
+    }
+    func confirmAppointmentDeletion(_ id: UUID, fromCurrentItem: Bool = false) {
+        confirmDeletion(id, appointment: true, fromCurrentItem: fromCurrentItem)
+    }
+    private func confirmDeletion(_ id: UUID, appointment: Bool, fromCurrentItem: Bool) {
+        let title = appointment ? workspace.dates.first { $0.id == id }?.title : workspace.tasks.first { $0.id == id }?.title
+        guard !isLocked, itemDeletionAlert == nil, let title,
               let window = NSApp.keyWindow, window.attachedSheet == nil else { return }
         let currentResponder = window.firstResponder as? NSView
         // Resolve the deleted row's neighbour even when Cmd+Delete targets a mouse-selected row.
-        let visibleTasks = tasks
-        let rowIndex = visibleTasks.firstIndex { $0.id == id }
+        let itemIDs = appointment ? visibleAppointments.map(\.id) : tasks.map(\.id)
+        let rowIndex = itemIDs.firstIndex { $0 == id }
         let neighbourID = rowIndex.flatMap { index in
-            index + 1 < visibleTasks.count ? visibleTasks[index + 1].id : (index > 0 ? visibleTasks[index - 1].id : nil)
+            index + 1 < itemIDs.count ? itemIDs[index + 1] : (index > 0 ? itemIDs[index - 1] : nil)
         }
         func control(_ identifier: String, in view: NSView) -> NSView? {
             if view.identifier?.rawValue == identifier { return view }
@@ -360,16 +368,17 @@ private enum Destination: Hashable {
             return nil
         }
         let content = window.sheetParent?.contentView ?? window.contentView
-        let rowButton = rowIndex.flatMap { index in content.flatMap { control("todos-\(13 + index * 4)", in: $0) } }
+        let rowButton = rowIndex.flatMap { index in content.flatMap { control(appointment ? "appointments-\(id)-delete" : "todos-\(13 + index * 4)", in: $0) } }
         let source = fromCurrentItem ? currentResponder : rowButton ?? currentResponder
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Delete this To-do?"
-        alert.informativeText = "\(task.title.isEmpty ? "New To-do" : task.title)\nThis cannot be undone."
-        alert.addButton(withTitle: "Delete To-do")
+        let kind = appointment ? "Appointment" : "To-do"
+        alert.messageText = "Delete this \(kind)?"
+        alert.informativeText = "\(title.isEmpty ? "New " + kind : title)\nThis cannot be undone."
+        alert.addButton(withTitle: "Delete " + kind)
         alert.addButton(withTitle: "Cancel")
         alert.buttons[0].hasDestructiveAction = true
-        taskDeletionAlert = alert
+        itemDeletionAlert = alert
         // NSAlert normally omits button Tab stops when system keyboard navigation is off.
         let keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak alert] event in
             guard let alert, event.window === alert.window else { return event }
@@ -391,19 +400,30 @@ private enum Destination: Hashable {
         }
         alert.beginSheetModal(for: window) { [weak self, weak alert, weak source, weak content] response in
             if let keyboardMonitor { NSEvent.removeMonitor(keyboardMonitor) }
-            guard let self, self.taskDeletionAlert === alert else { return }
-            self.taskDeletionAlert = nil
-            guard !self.isLocked, self.destination == .tasks else { return }
+            guard let self, self.itemDeletionAlert === alert else { return }
+            self.itemDeletionAlert = nil
+            guard !self.isLocked, self.destination == (appointment ? .appointments : .tasks) else { return }
             if response == .alertFirstButtonReturn {
-                if self.editingTaskID == id { self.closeTaskEditing() }
-                self.change { $0.tasks.removeAll { $0.id == id } }
-                if self.selectedTaskID == id { self.selectedTaskID = nil }
+                if appointment {
+                    if self.editingAppointmentID == id { self.closeAppointmentEditing() }
+                    self.change { $0.dates.removeAll { $0.id == id } }
+                    if self.selectedAppointmentID == id { self.selectedAppointmentID = nil }
+                } else {
+                    if self.editingTaskID == id { self.closeTaskEditing() }
+                    self.change { $0.tasks.removeAll { $0.id == id } }
+                    if self.selectedTaskID == id { self.selectedTaskID = nil }
+                }
             }
             DispatchQueue.main.async { [weak self, weak source, weak content] in
-                guard let self, !self.isLocked, self.destination == .tasks else { return }
+                guard let self, !self.isLocked, self.destination == (appointment ? .appointments : .tasks) else { return }
                 let target: NSView?
                 if response == .alertFirstButtonReturn, let content {
-                    let identifier = self.tasks.firstIndex { $0.id == neighbourID }.map { "todos-\(10 + $0 * 4)" } ?? "todos-1"
+                    let identifier: String
+                    if appointment {
+                        identifier = self.visibleAppointments.first { $0.id == neighbourID }.map { "appointments-\($0.id)-edit" } ?? "appointments-1"
+                    } else {
+                        identifier = self.tasks.firstIndex { $0.id == neighbourID }.map { "todos-\(10 + $0 * 4)" } ?? "todos-1"
+                    }
                     target = control(identifier, in: content)
                 } else { target = source }
                 guard let target, let window = target.window else { return }
@@ -422,8 +442,7 @@ private enum Destination: Hashable {
             }
         case .appointments:
             if let id = editingAppointmentID ?? selectedAppointmentID, appointments.contains(where: { $0.id == id }) {
-                editingAppointmentID = nil
-                deletingAppointmentID = id
+                confirmAppointmentDeletion(id, fromCurrentItem: true)
             }
         default: break
         }
@@ -940,6 +959,7 @@ private struct DescriptionInfoButton: View {
     @Binding var isPresented: Bool
     var dashboardOrder: Int? = nil
     var todoOrder: Int? = nil
+    var keyLoopID: String? = nil
 
     private var popoverHeight: CGFloat {
         let text = NSAttributedString(string: description, attributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize)])
@@ -952,7 +972,7 @@ private struct DescriptionInfoButton: View {
 
     var body: some View {
         if !description.isEmpty {
-            KeyboardButton(symbol: AppSymbol.details, dashboardOrder: dashboardOrder, todoOrder: todoOrder, accessibilityLabel: "Show description") { isPresented = true }
+            KeyboardButton(symbol: AppSymbol.details, dashboardOrder: dashboardOrder, todoOrder: todoOrder, keyLoopID: keyLoopID, accessibilityLabel: "Show description") { isPresented = true }
                 .fixedSize()
                 .help("Show description")
                 .popover(isPresented: $isPresented) {
@@ -985,30 +1005,67 @@ private struct TaskEditor: View {
     }
 }
 
+@MainActor private final class AppointmentFocusState: ObservableObject {
+    var editingOrigin: UUID?
+    var editingNeighbours: [UUID] = []
+    @Published var requestedID: String?
+    @Published var request = 0
+    func beganEditing(_ id: UUID, visibleIDs: [UUID]) {
+        editingOrigin = id
+        if let index = visibleIDs.firstIndex(of: id) {
+            editingNeighbours = Array(visibleIDs.dropFirst(index + 1)) + Array(visibleIDs.prefix(index).reversed())
+        } else { editingNeighbours = [] }
+    }
+    func restore(visibleIDs: [UUID]) {
+        let visible = Set(visibleIDs)
+        let target = editingOrigin.flatMap { visible.contains($0) ? $0 : nil } ?? editingNeighbours.first { visible.contains($0) }
+        requestedID = target.map { "appointments-\($0)-edit" } ?? "appointments-1"
+        request += 1
+    }
+}
+
 private struct AppointmentsView: View {
     @ObservedObject var state: WorkspaceState
     private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
     private var groups: [DateGroup] { state.workspace.dateGroups(showPast: state.showPast, expanded: state.expanded) }
+    @StateObject private var focus = AppointmentFocusState()
+    private func rowControlIDs(_ item: DateItem) -> [String] {
+        let prefix = "appointments-\(item.id)-"
+        return (item.itemDescription.isEmpty ? [] : [prefix + "description"]) + [prefix + "edit", prefix + "delete"]
+    }
+    private var controlIDs: [String] {
+        var ids = (0...3).map { "appointments-\($0)" }
+        if state.workspace.settings.dateDisplayMode == .chronological {
+            ids += state.appointments.flatMap(rowControlIDs)
+        } else {
+            for group in groups {
+                ids += group.items.flatMap(rowControlIDs)
+                if group.hiddenUpcomingCount > 0 { ids.append("appointments-group-" + group.id) }
+            }
+        }
+        return ids
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             PageHeader(title: "Appointments", scale: scale) {
-                LabelFilter(state: state)
-                Button { state.editingAppointmentID = state.createAppointment() } label: { Image(systemName: AppSymbol.add) }
-                    .help("New Appointment")
+                LabelFilter(state: state, keyboardScope: "appointments")
+                KeyboardButton(symbol: AppSymbol.add, pointSize: 13 * scale, keyLoopID: "appointments-1", bordered: true, accessibilityLabel: "New Appointment") {
+                    state.editingAppointmentID = state.createAppointment()
+                }.fixedSize().help("New Appointment")
             }
             HStack {
-                Picker("Display", selection: Binding(get: { state.workspace.settings.dateDisplayMode }, set: { value in state.change { $0.settings.dateDisplayMode = value } })) {
-                    Text("Chronological").tag(DateDisplayMode.chronological)
-                    Text("By Category").tag(DateDisplayMode.byLabel)
-                }.pickerStyle(.segmented).labelsHidden().frame(width: 240)
+                KeyboardAppointmentDisplay(selection: Binding(get: { state.workspace.settings.dateDisplayMode }, set: { value in state.change { $0.settings.dateDisplayMode = value } }))
+                    .frame(width: 240)
                 Spacer()
-                Toggle("Show past", isOn: $state.showPast).toggleStyle(.checkbox)
+                KeyboardButton(title: "Show past", pointSize: 13 * scale, keyLoopID: "appointments-3", checked: state.showPast, accessibilityLabel: "Show past Appointments") {
+                    state.showPast.toggle()
+                }.fixedSize()
             }.padding(.bottom, 16)
             if state.appointments.isEmpty || (state.workspace.settings.dateDisplayMode == .byLabel && groups.isEmpty) {
                 EmptyItems(kind: "appointments", context: state.contextName)
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
                         if state.workspace.settings.dateDisplayMode == .chronological {
                             ForEach(state.appointments) { item in row(item) }
                         } else {
@@ -1021,10 +1078,10 @@ private struct AppointmentsView: View {
                                 .padding(.top, 24).padding(.bottom, 10)
                                 ForEach(group.items) { item in row(item) }
                                 if group.hiddenUpcomingCount > 0 {
-                                    Button(state.expanded.contains(group.id) ? "Show fewer" : "Show \(group.hiddenUpcomingCount) more…") {
+                                    KeyboardButton(title: state.expanded.contains(group.id) ? "Show fewer" : "Show \(group.hiddenUpcomingCount) more…", pointSize: 13 * scale, keyLoopID: "appointments-group-" + group.id, accessibilityLabel: "\(state.expanded.contains(group.id) ? "Show fewer" : "Show more") in \(group.name)") {
                                         if state.expanded.contains(group.id) { state.expanded.remove(group.id) }
                                         else { state.expanded.insert(group.id) }
-                                    }.buttonStyle(.link).padding(.vertical, 10)
+                                    }.fixedSize().padding(.vertical, 10)
                                 }
                             }
                         }
@@ -1036,15 +1093,16 @@ private struct AppointmentsView: View {
         .padding(.horizontal, 34).padding(.top, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.font, .system(size: 13 * scale))
-        .sheet(isPresented: Binding(get: { state.editingAppointmentID != nil }, set: { if !$0 { state.closeAppointmentEditing() } })) {
+        .background(ScreenKeyLoop(scope: "appointments", controlIDs: controlIDs, requestedFocusID: focus.requestedID, focusRequest: focus.request))
+        .onChange(of: state.editingAppointmentID) { _, id in
+            guard let id else { return }
+            focus.beganEditing(id, visibleIDs: state.visibleAppointments.map(\.id))
+        }
+        .sheet(isPresented: Binding(get: { state.editingAppointmentID != nil }, set: { if !$0 { state.closeAppointmentEditing() } }), onDismiss: {
+            focus.restore(visibleIDs: state.visibleAppointments.map(\.id))
+        }) {
             if let id = state.editingAppointmentID { AppointmentEditor(state: state, id: id) }
         }
-        .confirmationDialog("Delete this appointment?", isPresented: Binding(get: { state.deletingAppointmentID != nil }, set: { if !$0 { state.deletingAppointmentID = nil } })) {
-            Button("Delete Appointment", role: .destructive) {
-                if let id = state.deletingAppointmentID { state.change { $0.dates.removeAll { $0.id == id } } }
-                state.deletingAppointmentID = nil
-            }
-        } message: { Text("This cannot be undone.") }
     }
     private func row(_ item: DateItem) -> some View {
         VStack(spacing: 0) {
@@ -1066,11 +1124,13 @@ private struct AppointmentsView: View {
             DescriptionInfoButton(description: item.itemDescription, isPresented: Binding(
                 get: { state.describingAppointmentID == item.id },
                 set: { state.describingAppointmentID = $0 ? item.id : nil }
-            ))
-            Button { state.editingAppointmentID = item.id } label: { Image(systemName: AppSymbol.edit) }
-                .buttonStyle(.plain).foregroundStyle(.secondary).help("Edit Appointment")
-            Button { state.deletingAppointmentID = item.id } label: { Image(systemName: AppSymbol.delete) }
-                .buttonStyle(.plain).foregroundStyle(.secondary).help("Delete Appointment")
+            ), keyLoopID: "appointments-\(item.id)-description")
+            KeyboardButton(symbol: AppSymbol.edit, keyLoopID: "appointments-\(item.id)-edit", accessibilityLabel: "Edit Appointment") {
+                state.editingAppointmentID = item.id
+            }.fixedSize().help("Edit Appointment")
+            KeyboardButton(symbol: AppSymbol.delete, keyLoopID: "appointments-\(item.id)-delete", accessibilityLabel: "Delete Appointment") {
+                state.confirmAppointmentDeletion(item.id)
+            }.fixedSize().help("Delete Appointment")
         }
           .padding(.vertical, 16)
           .padding(.horizontal, 8)
@@ -1205,6 +1265,8 @@ private struct HelpView: View {
                     Text("On Dashboard, Tab follows the Category filter, To-dos, then Appointments. Left and Right switch categories in the segmented filter; Space opens a category menu. Return or Space activates a focused action. Escape closes a description.")
                         .foregroundStyle(.secondary)
                     Text("On To-dos, Tab follows Category, New To-do, Show Completed To-dos, then each row’s Complete or Restore, Description when present, Edit, and Delete actions. Shift-Tab reverses this order.")
+                        .foregroundStyle(.secondary)
+                    Text("On Appointments, Tab follows Category, New Appointment, Display mode, Show past, then each row’s Description when present, Edit, and Delete. In By Category mode, each group’s Show more or Show fewer follows its rows. Left and Right change the display mode; Shift-Tab reverses the tab order.")
                         .foregroundStyle(.secondary)
                     Grid(alignment: .leading, horizontalSpacing: 30, verticalSpacing: 7) {
                         ForEach(shortcuts.indices, id: \.self) { index in
