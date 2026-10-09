@@ -730,6 +730,49 @@ func testLifetimeStatisticsPersistenceAndLegacyDefaults() throws {
     expect(secondStore.workspace.statisticsStartedAt == firstStart, "startup never resets persisted statistics start date")
 }
 
+func testCreationDraftsOnlyPersistWhenAccepted() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let persistence = WorkspacePersistence(url: directory.appendingPathComponent("workspace.json"))
+    let category = Label(name: "Work")
+    let existingTask = Task(title: "Existing")
+    let existingAppointment = DateItem(title: "Existing", date: Date())
+    var workspace = Workspace(labels: [category], tasks: [existingTask], dates: [existingAppointment])
+    workspace.settings.defaultLabelID = category.id
+    workspace.settings.labelContext = .label(category.id)
+    let before = workspace
+    var task = workspace.makeTaskDraft()
+    var appointment = workspace.makeAppointmentDraft()
+    expect(workspace == before, "opening creation leaves content and filter unchanged")
+    expect(task.labelID == category.id && appointment.labelID == category.id, "drafts inherit the default Category")
+    task.title = "Typed To-do"
+    task.taskDescription = "Line one\nLine two"
+    appointment.title = "Typed Appointment"
+    appointment.itemDescription = "Details"
+    appointment.date = Date(timeIntervalSinceReferenceDate: 123456)
+    try persistence.save(workspace)
+    let cancelled = try persistence.load()
+    expect(cancelled == before, "draft edits and cancellation do not persist new items")
+    workspace.addTaskDraft(task)
+    workspace.addAppointmentDraft(appointment)
+    workspace.addTaskDraft(task)
+    workspace.addAppointmentDraft(appointment)
+    try persistence.save(workspace)
+    let loaded = try persistence.load()
+    expect(loaded.tasks == [existingTask, task] && loaded.dates == [existingAppointment, appointment], "Done persists every draft field exactly once and preserves existing content")
+
+    var blankTask = workspace.makeTaskDraft()
+    var blankAppointment = workspace.makeAppointmentDraft()
+    blankTask.title = "  \n"
+    blankAppointment.title = "\t"
+    workspace.deleteLabel(category.id)
+    workspace.addTaskDraft(blankTask)
+    workspace.addAppointmentDraft(blankAppointment)
+    expect(workspace.tasks.last?.title == "New To-do" && workspace.dates.last?.title == "New Appointment", "accepted empty titles get valid defaults")
+    expect(workspace.tasks.last?.labelID == nil && workspace.dates.last?.labelID == nil, "accepting drafts cannot retain a removed Category")
+}
+
+try testCreationDraftsOnlyPersistWhenAccepted()
 testDeletingLabelUnlabelsEveryItemAndResetsFilter()
 testRetentionNeverDeletesOpenTasksOrFutureDates()
 testRetentionRemovesOnlyExpiredCompletedAndPassedItems()

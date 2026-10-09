@@ -297,9 +297,21 @@ public struct Workspace: Codable, Equatable {
         return note
     }
 
-    public mutating func createTask(at now: Date = Date(), calendar: Calendar = .current) -> Task {
-        let task = Task(title: "New To-do", labelID: settings.resolvedDefaultLabelID(at: now, calendar: calendar, validLabels: labels), createdAt: now)
+    public func makeTaskDraft(at now: Date = Date(), calendar: Calendar = .current) -> Task {
+        Task(title: "New To-do", labelID: settings.resolvedDefaultLabelID(at: now, calendar: calendar, validLabels: labels), createdAt: now)
+    }
+
+    public mutating func addTaskDraft(_ draft: Task) {
+        guard !tasks.contains(where: { $0.id == draft.id }) else { return }
+        var task = draft
+        if task.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { task.title = "New To-do" }
+        if !labels.contains(where: { $0.id == task.labelID }) { task.labelID = nil }
         tasks.append(task)
+    }
+
+    public mutating func createTask(at now: Date = Date(), calendar: Calendar = .current) -> Task {
+        let task = makeTaskDraft(at: now, calendar: calendar)
+        addTaskDraft(task)
         return task
     }
 
@@ -325,9 +337,21 @@ public struct Workspace: Codable, Equatable {
         return created
     }
 
-    public mutating func createAppointment(at now: Date = Date(), calendar: Calendar = .current) -> DateItem {
-        let appointment = DateItem(title: "New Appointment", date: calendar.startOfDay(for: now), labelID: settings.resolvedDefaultLabelID(at: now, calendar: calendar, validLabels: labels), createdAt: now)
+    public func makeAppointmentDraft(at now: Date = Date(), calendar: Calendar = .current) -> DateItem {
+        DateItem(title: "New Appointment", date: calendar.startOfDay(for: now), labelID: settings.resolvedDefaultLabelID(at: now, calendar: calendar, validLabels: labels), createdAt: now)
+    }
+
+    public mutating func addAppointmentDraft(_ draft: DateItem) {
+        guard !dates.contains(where: { $0.id == draft.id }) else { return }
+        var appointment = draft
+        if appointment.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { appointment.title = "New Appointment" }
+        if !labels.contains(where: { $0.id == appointment.labelID }) { appointment.labelID = nil }
         dates.append(appointment)
+    }
+
+    public mutating func createAppointment(at now: Date = Date(), calendar: Calendar = .current) -> DateItem {
+        let appointment = makeAppointmentDraft(at: now, calendar: calendar)
+        addAppointmentDraft(appointment)
         return appointment
     }
 

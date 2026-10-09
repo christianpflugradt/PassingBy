@@ -45,8 +45,10 @@ private enum Destination: Hashable {
     }
     @Published var labelID: UUID?
     @Published var editingTaskID: UUID?
+    @Published var taskDraft: Task?
     @Published var describingTaskID: UUID?
     @Published var editingAppointmentID: UUID?
+    @Published var appointmentDraft: DateItem?
     @Published var describingAppointmentID: UUID?
     @Published var deletingAppointmentID: UUID?
     @Published var confirmNoteDeletion = false
@@ -139,8 +141,8 @@ private enum Destination: Hashable {
             if !_Concurrency.Task.isCancelled { zoomNotice = nil }
         }
     }
-    func task(_ id: UUID) -> Task? { workspace.tasks.first { $0.id == id } }
-    func appointment(_ id: UUID) -> DateItem? { workspace.dates.first { $0.id == id } }
+    func task(_ id: UUID) -> Task? { taskDraft?.id == id ? taskDraft : workspace.tasks.first { $0.id == id } }
+    func appointment(_ id: UUID) -> DateItem? { appointmentDraft?.id == id ? appointmentDraft : workspace.dates.first { $0.id == id } }
 
     private func reconcile() {
         if workspace.settings.labelContext == .unlabelled {
@@ -260,22 +262,50 @@ private enum Destination: Hashable {
         titleFocusNonce += 1
     }
     func createTask() -> UUID {
-        var item: Task!
-        change { workspace in
-            item = workspace.createTask()
-            if case .label(let id) = workspace.settings.labelContext, id != item.labelID { workspace.settings.labelContext = .all }
-        }
-        selectedTaskID = item.id
-        return item.id
+        if let id = editingTaskID { return id }
+        let draft = workspace.makeTaskDraft()
+        taskDraft = draft
+        return draft.id
     }
     func createAppointment() -> UUID {
-        var item: DateItem!
-        change { workspace in
-            item = workspace.createAppointment()
-            if case .label(let id) = workspace.settings.labelContext, id != item.labelID { workspace.settings.labelContext = .all }
+        if let id = editingAppointmentID { return id }
+        let draft = workspace.makeAppointmentDraft()
+        appointmentDraft = draft
+        return draft.id
+    }
+    func finishTaskEditing() {
+        if let draft = taskDraft {
+            change { workspace in
+                workspace.addTaskDraft(draft)
+                if case .label(let id) = workspace.settings.labelContext, id != draft.labelID { workspace.settings.labelContext = .all }
+            }
+            selectedTaskID = draft.id
+            taskDraft = nil
         }
-        selectedAppointmentID = item.id
-        return item.id
+        flush()
+        editingTaskID = nil
+    }
+    func finishAppointmentEditing() {
+        if let draft = appointmentDraft {
+            change { workspace in
+                workspace.addAppointmentDraft(draft)
+                if case .label(let id) = workspace.settings.labelContext, id != draft.labelID { workspace.settings.labelContext = .all }
+            }
+            selectedAppointmentID = draft.id
+            appointmentDraft = nil
+        }
+        flush()
+        editingAppointmentID = nil
+    }
+    func closeTaskEditing() {
+        taskDraft = nil
+        flush()
+        editingTaskID = nil
+    }
+    func closeAppointmentEditing() {
+        appointmentDraft = nil
+        flush()
+        editingAppointmentID = nil
     }
     func importAppointments(_ parsed: AppointmentTSVImport, categoryID: UUID?) throws {
         guard !isLocked else { throw AppointmentImportError.locked }
@@ -284,8 +314,14 @@ private enum Destination: Hashable {
         error = store.persistenceError
     }
     func editNote(_ id: UUID, _ edit: (inout Note) -> Void) { change { w in if let i = w.notes.firstIndex(where: { $0.id == id }) { edit(&w.notes[i]); w.notes[i].updatedAt = Date() } } }
-    func editTask(_ id: UUID, _ edit: (inout Task) -> Void) { change { w in if let i = w.tasks.firstIndex(where: { $0.id == id }) { edit(&w.tasks[i]) } } }
-    func editAppointment(_ id: UUID, _ edit: (inout DateItem) -> Void) { change { w in if let i = w.dates.firstIndex(where: { $0.id == id }) { edit(&w.dates[i]) } } }
+    func editTask(_ id: UUID, _ edit: (inout Task) -> Void) {
+        if taskDraft?.id == id { edit(&taskDraft!); return }
+        change { w in if let i = w.tasks.firstIndex(where: { $0.id == id }) { edit(&w.tasks[i]) } }
+    }
+    func editAppointment(_ id: UUID, _ edit: (inout DateItem) -> Void) {
+        if appointmentDraft?.id == id { edit(&appointmentDraft!); return }
+        change { w in if let i = w.dates.firstIndex(where: { $0.id == id }) { edit(&w.dates[i]) } }
+    }
     func createContextualItem() {
         switch destination {
         case .tasks: editingTaskID = createTask()
@@ -296,6 +332,7 @@ private enum Destination: Hashable {
     func focusNoteTitle() { if case .note(let id) = destination { focusNoteTitleID = id; titleFocusNonce += 1 } }
     func focusNoteEditor(_ id: UUID) { focusNoteEditorID = id; editorFocusNonce += 1 }
     func deleteCurrentItem() {
+        guard taskDraft == nil, appointmentDraft == nil else { return }
         switch destination {
         case .note: confirmNoteDeletion = true
         case .tasks:
@@ -620,21 +657,9 @@ private struct LabelFilter: View {
         Binding(get: { state.context }, set: { value in state.change { $0.settings.labelContext = value } })
     }
     var body: some View {
-        Group {
-            if (1...4).contains(state.workspace.labels.count) {
-                picker.pickerStyle(.segmented)
-            } else {
-                picker.pickerStyle(.menu).frame(width: 150)
-            }
-        }
-        .labelsHidden()
-        .help("Filter by category")
-    }
-    private var picker: some View {
-        Picker("Category", selection: selection) {
-            Text("All").tag(LabelContext.all)
-            ForEach(state.workspace.labels) { label in Text(label.name).tag(LabelContext.label(label.id)) }
-        }
+        KeyboardCategoryFilter(labels: state.workspace.labels, selection: selection)
+            .id((1...4).contains(state.workspace.labels.count))
+            .fixedSize()
     }
 }
 
@@ -681,19 +706,24 @@ private struct DashboardView: View {
                 PageHeader(title: "Dashboard", scale: scale) { LabelFilter(state: state) }
                 HStack(alignment: .top, spacing: 52) {
                     VStack(alignment: .leading, spacing: 0) {
-                        Button("To-dos") { state.destination = .tasks }
-                            .font(.system(size: 22 * scale, weight: .semibold)).buttonStyle(.plain)
+                        KeyboardButton(title: "To-dos", pointSize: 22 * scale, bold: true, dashboardOrder: 10, accessibilityLabel: "Open To-dos") { state.destination = .tasks }
+                            .fixedSize()
                             .padding(.bottom, 20)
                         if openTasks.isEmpty {
                             Text("No open To-dos").foregroundStyle(.secondary).padding(.top, 12)
                         }
-                        ForEach(openTasks) { task in
+                        ForEach(Array(openTasks.enumerated()), id: \.element.id) { index, task in
                             HStack(spacing: 12) {
-                                Button { state.editTask(task.id) { $0.completedAt = Date() } } label: { Image(systemName: AppSymbol.incomplete) }
-                                    .font(.system(size: 20 * scale)).buttonStyle(.plain).foregroundStyle(.secondary)
-                                    .accessibilityLabel("Complete \(task.title)")
+                                KeyboardButton(symbol: AppSymbol.incomplete, pointSize: 20 * scale, dashboardOrder: 20 + index * 2, advancesFocus: true, accessibilityLabel: "Complete \(task.title)") {
+                                    state.editTask(task.id) { $0.completedAt = Date() }
+                                }
+                                .fixedSize()
                                 categoryDot(task.labelID, state.workspace.labels)
                                 Text(task.title).font(.system(size: 16 * scale)).frame(maxWidth: .infinity, alignment: .leading)
+                                DescriptionInfoButton(description: task.taskDescription, isPresented: Binding(
+                                    get: { state.describingTaskID == task.id },
+                                    set: { state.describingTaskID = $0 ? task.id : nil }
+                                ), dashboardOrder: 21 + index * 2)
                             }
                             .padding(.vertical, 15)
                             Divider()
@@ -701,13 +731,13 @@ private struct DashboardView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     VStack(alignment: .leading, spacing: 0) {
-                        Button("Appointments") { state.destination = .appointments }
-                            .font(.system(size: 22 * scale, weight: .semibold)).buttonStyle(.plain)
+                        KeyboardButton(title: "Appointments", pointSize: 22 * scale, bold: true, dashboardOrder: 100, accessibilityLabel: "Open Appointments") { state.destination = .appointments }
+                            .fixedSize()
                             .padding(.bottom, 20)
                         if upcoming.isEmpty {
                             Text("No upcoming Appointments").foregroundStyle(.secondary).padding(.top, 12)
                         }
-                        ForEach(upcoming) { item in
+                        ForEach(Array(upcoming.enumerated()), id: \.element.id) { index, item in
                             HStack(alignment: .top, spacing: 12) {
                                 categoryDot(item.labelID, state.workspace.labels)
                                     .padding(.top, 6)
@@ -724,7 +754,7 @@ private struct DashboardView: View {
                                 DescriptionInfoButton(description: item.itemDescription, isPresented: Binding(
                                     get: { state.describingAppointmentID == item.id },
                                     set: { state.describingAppointmentID = $0 ? item.id : nil }
-                                ))
+                                ), dashboardOrder: 110 + index)
                                 .padding(.top, 2)
                             }
                             .padding(.vertical, 11)
@@ -749,6 +779,7 @@ private struct DashboardView: View {
         }
         .environment(\.font, .system(size: 13 * scale))
         .onAppear { state.refreshIfDayChanged() }
+        .background(DashboardKeyLoop())
     }
 }
 
@@ -808,7 +839,7 @@ private struct TasksView: View {
         .padding(.horizontal, 34).padding(.top, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.font, .system(size: 13 * scale))
-        .sheet(isPresented: Binding(get: { state.editingTaskID != nil }, set: { if !$0 { state.editingTaskID = nil } })) {
+        .sheet(isPresented: Binding(get: { state.editingTaskID != nil }, set: { if !$0 { state.closeTaskEditing() } })) {
             if let id = state.editingTaskID { TaskEditor(state: state, id: id) }
         }
     }
@@ -817,6 +848,7 @@ private struct TasksView: View {
 private struct DescriptionInfoButton: View {
     let description: String
     @Binding var isPresented: Bool
+    var dashboardOrder: Int? = nil
 
     private var popoverHeight: CGFloat {
         let text = NSAttributedString(string: description, attributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize)])
@@ -829,8 +861,8 @@ private struct DescriptionInfoButton: View {
 
     var body: some View {
         if !description.isEmpty {
-            Button { isPresented = true } label: { Image(systemName: AppSymbol.details) }
-                .buttonStyle(.plain).foregroundStyle(.secondary)
+            KeyboardButton(symbol: AppSymbol.details, dashboardOrder: dashboardOrder, accessibilityLabel: "Show description") { isPresented = true }
+                .fixedSize()
                 .help("Show description")
                 .popover(isPresented: $isPresented) {
                     ScrollView {
@@ -849,16 +881,16 @@ private struct DescriptionInfoButton: View {
 private struct TaskEditor: View {
     @ObservedObject var state: WorkspaceState
     let id: UUID
-    @Environment(\.dismiss) private var dismiss
     var body: some View {
-        Form {
-            TextField("Title", text: Binding(get: { state.task(id)?.title ?? "" }, set: { value in state.editTask(id) { $0.title = value } }))
-            TextField("Description", text: Binding(get: { state.task(id)?.taskDescription ?? "" }, set: { value in state.editTask(id) { $0.taskDescription = value } }), axis: .vertical).lineLimit(3...8)
-            ItemLabelPicker(labels: state.workspace.labels, id: Binding(get: { state.task(id)?.labelID }, set: { value in state.editTask(id) { $0.labelID = value } }))
-        }
-        .formStyle(.grouped)
-        .frame(width: 440)
-        .safeAreaInset(edge: .bottom) { HStack { Spacer(); Button("Done") { state.flush(); dismiss() } }.padding() }
+        NativeItemEditor(
+            title: Binding(get: { state.task(id)?.title ?? "" }, set: { value in state.editTask(id) { $0.title = value } }),
+            description: Binding(get: { state.task(id)?.taskDescription ?? "" }, set: { value in state.editTask(id) { $0.taskDescription = value } }),
+            labels: state.workspace.labels,
+            categoryID: Binding(get: { state.task(id)?.labelID }, set: { value in state.editTask(id) { $0.labelID = value } }),
+            onDone: state.finishTaskEditing,
+            onClose: state.closeTaskEditing
+        )
+        .frame(width: 440, height: 300)
     }
 }
 
@@ -913,7 +945,7 @@ private struct AppointmentsView: View {
         .padding(.horizontal, 34).padding(.top, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.font, .system(size: 13 * scale))
-        .sheet(isPresented: Binding(get: { state.editingAppointmentID != nil }, set: { if !$0 { state.editingAppointmentID = nil } })) {
+        .sheet(isPresented: Binding(get: { state.editingAppointmentID != nil }, set: { if !$0 { state.closeAppointmentEditing() } })) {
             if let id = state.editingAppointmentID { AppointmentEditor(state: state, id: id) }
         }
         .confirmationDialog("Delete this appointment?", isPresented: Binding(get: { state.deletingAppointmentID != nil }, set: { if !$0 { state.deletingAppointmentID = nil } })) {
@@ -962,17 +994,17 @@ private struct AppointmentsView: View {
 private struct AppointmentEditor: View {
     @ObservedObject var state: WorkspaceState
     let id: UUID
-    @Environment(\.dismiss) private var dismiss
     var body: some View {
-        Form {
-            TextField("Title", text: Binding(get: { state.appointment(id)?.title ?? "" }, set: { value in state.editAppointment(id) { $0.title = value } }))
-            DatePicker("Date", selection: Binding(get: { state.appointment(id)?.date ?? Date() }, set: { value in state.editAppointment(id) { $0.date = value } }), displayedComponents: .date)
-            TextField("Description", text: Binding(get: { state.appointment(id)?.itemDescription ?? "" }, set: { value in state.editAppointment(id) { $0.itemDescription = value } }), axis: .vertical).lineLimit(3...8)
-            ItemLabelPicker(labels: state.workspace.labels, id: Binding(get: { state.appointment(id)?.labelID }, set: { value in state.editAppointment(id) { $0.labelID = value } }))
-        }
-        .formStyle(.grouped)
-        .frame(width: 440)
-        .safeAreaInset(edge: .bottom) { HStack { Spacer(); Button("Done") { state.flush(); dismiss() } }.padding() }
+        NativeItemEditor(
+            title: Binding(get: { state.appointment(id)?.title ?? "" }, set: { value in state.editAppointment(id) { $0.title = value } }),
+            description: Binding(get: { state.appointment(id)?.itemDescription ?? "" }, set: { value in state.editAppointment(id) { $0.itemDescription = value } }),
+            labels: state.workspace.labels,
+            categoryID: Binding(get: { state.appointment(id)?.labelID }, set: { value in state.editAppointment(id) { $0.labelID = value } }),
+            date: Binding(get: { state.appointment(id)?.date ?? Date() }, set: { value in state.editAppointment(id) { $0.date = value } }),
+            onDone: state.finishAppointmentEditing,
+            onClose: state.closeAppointmentEditing
+        )
+        .frame(width: 440, height: 340)
     }
 }
 
@@ -1076,6 +1108,10 @@ private struct HelpView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Keyboard Shortcuts").font(.system(size: 22 * scale, weight: .semibold))
                     Text("⌘N creates a To-do or Appointment in those views, and a Note elsewhere. Note shortcuts follow the first six Notes currently shown in the sidebar.")
+                        .foregroundStyle(.secondary)
+                    Text("In To-do and Appointment dialogs, Tab and Shift-Tab move between fields, including Category. Return in the title or ⌘Return activates Done; Return in the description adds a new line. Escape discards a new item, or closes an existing item while keeping its changes.")
+                        .foregroundStyle(.secondary)
+                    Text("On Dashboard, Tab follows the Category filter, To-dos, then Appointments. Left and Right switch categories in the segmented filter; Space opens a category menu. Return or Space activates a focused action. Escape closes a description.")
                         .foregroundStyle(.secondary)
                     Grid(alignment: .leading, horizontalSpacing: 30, verticalSpacing: 7) {
                         ForEach(shortcuts.indices, id: \.self) { index in
