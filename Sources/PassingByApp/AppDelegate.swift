@@ -821,11 +821,12 @@ private struct TasksView: View {
                                     get: { state.describingTaskID == task.id },
                                     set: { state.describingTaskID = $0 ? task.id : nil }
                                 ))
-                                Menu {
-                                    Button("Edit") { state.editingTaskID = task.id }
-                                    Button("Delete", role: .destructive) { state.change { $0.tasks.removeAll { $0.id == task.id } } }
-                                } label: { Image(systemName: AppSymbol.more).frame(width: 22) }
-                                    .menuStyle(.borderlessButton).menuIndicator(.hidden).help("To-do actions")
+                                KeyboardButton(symbol: AppSymbol.edit, accessibilityLabel: "Edit To-do") {
+                                    state.editingTaskID = task.id
+                                }.fixedSize().help("Edit To-do")
+                                KeyboardButton(symbol: AppSymbol.delete, accessibilityLabel: "Delete To-do") {
+                                    state.change { $0.tasks.removeAll { $0.id == task.id } }
+                                }.fixedSize().help("Delete To-do")
                             }
                             .padding(.vertical, 17)
                             .padding(.horizontal, 8)
