@@ -29,8 +29,10 @@ private enum Destination: Hashable {
     private var lockTimer: Timer?
     private var authenticationContext: LAContext?
     private var authenticationAttempt = 0
+    private var taskDeletionAlert: NSAlert?
     @Published var destination: Destination {
         didSet {
+            cancelTaskDeletion()
             switch destination {
             case .dashboard: UserDefaults.standard.set("dashboard", forKey: "area")
             case .tasks: UserDefaults.standard.set("tasks", forKey: "area")
@@ -174,6 +176,7 @@ private enum Destination: Hashable {
         authenticationContext = nil
         isAuthenticating = false
         isLocked = true
+        cancelTaskDeletion()
         cancelPendingLock()
     }
     func unlock() {
@@ -331,14 +334,91 @@ private enum Destination: Hashable {
     }
     func focusNoteTitle() { if case .note(let id) = destination { focusNoteTitleID = id; titleFocusNonce += 1 } }
     func focusNoteEditor(_ id: UUID) { focusNoteEditorID = id; editorFocusNonce += 1 }
+    private func cancelTaskDeletion() {
+        guard let alert = taskDeletionAlert else { return }
+        taskDeletionAlert = nil
+        if let parent = alert.window.sheetParent {
+            parent.endSheet(alert.window, returnCode: .alertSecondButtonReturn)
+        }
+    }
+    func confirmTaskDeletion(_ id: UUID, fromCurrentItem: Bool = false) {
+        guard !isLocked, taskDeletionAlert == nil,
+              let task = workspace.tasks.first(where: { $0.id == id }),
+              let window = NSApp.keyWindow, window.attachedSheet == nil else { return }
+        let currentResponder = window.firstResponder as? NSView
+        // Resolve the deleted row's neighbour even when Cmd+Delete targets a mouse-selected row.
+        let visibleTasks = tasks
+        let rowIndex = visibleTasks.firstIndex { $0.id == id }
+        let neighbourID = rowIndex.flatMap { index in
+            index + 1 < visibleTasks.count ? visibleTasks[index + 1].id : (index > 0 ? visibleTasks[index - 1].id : nil)
+        }
+        func control(_ identifier: String, in view: NSView) -> NSView? {
+            if view.identifier?.rawValue == identifier { return view }
+            for child in view.subviews {
+                if let found = control(identifier, in: child) { return found }
+            }
+            return nil
+        }
+        let content = window.sheetParent?.contentView ?? window.contentView
+        let rowButton = rowIndex.flatMap { index in content.flatMap { control("todos-\(13 + index * 4)", in: $0) } }
+        let source = fromCurrentItem ? currentResponder : rowButton ?? currentResponder
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Delete this To-do?"
+        alert.informativeText = "\(task.title.isEmpty ? "New To-do" : task.title)\nThis cannot be undone."
+        alert.addButton(withTitle: "Delete To-do")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons[0].hasDestructiveAction = true
+        taskDeletionAlert = alert
+        // NSAlert normally omits button Tab stops when system keyboard navigation is off.
+        let keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak alert] event in
+            guard let alert, event.window === alert.window else { return event }
+            if event.keyCode == 48 {
+                let buttons = alert.buttons
+                let current = buttons.firstIndex { alert.window.firstResponder === $0 }
+                let reverse = event.modifierFlags.contains(.shift)
+                let index = current.map { ($0 + (reverse ? buttons.count - 1 : 1)) % buttons.count } ?? (reverse ? buttons.count - 1 : 0)
+                alert.window.makeFirstResponder(buttons[index])
+                return nil
+            }
+            if (event.keyCode == 36 || event.keyCode == 49),
+               let button = alert.buttons.first(where: { alert.window.firstResponder === $0 }) {
+                if !event.isARepeat { button.performClick(nil) }
+                return nil
+            }
+            if event.isARepeat && event.keyCode == 36 { return nil }
+            return event
+        }
+        alert.beginSheetModal(for: window) { [weak self, weak alert, weak source, weak content] response in
+            if let keyboardMonitor { NSEvent.removeMonitor(keyboardMonitor) }
+            guard let self, self.taskDeletionAlert === alert else { return }
+            self.taskDeletionAlert = nil
+            guard !self.isLocked, self.destination == .tasks else { return }
+            if response == .alertFirstButtonReturn {
+                if self.editingTaskID == id { self.closeTaskEditing() }
+                self.change { $0.tasks.removeAll { $0.id == id } }
+                if self.selectedTaskID == id { self.selectedTaskID = nil }
+            }
+            DispatchQueue.main.async { [weak self, weak source, weak content] in
+                guard let self, !self.isLocked, self.destination == .tasks else { return }
+                let target: NSView?
+                if response == .alertFirstButtonReturn, let content {
+                    let identifier = self.tasks.firstIndex { $0.id == neighbourID }.map { "todos-\(10 + $0 * 4)" } ?? "todos-1"
+                    target = control(identifier, in: content)
+                } else { target = source }
+                guard let target, let window = target.window else { return }
+                target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
+                window.makeFirstResponder(target)
+            }
+        }
+    }
     func deleteCurrentItem() {
         guard taskDraft == nil, appointmentDraft == nil else { return }
         switch destination {
         case .note: confirmNoteDeletion = true
         case .tasks:
             if let id = editingTaskID ?? selectedTaskID, tasks.contains(where: { $0.id == id }) {
-                editingTaskID = nil
-                change { $0.tasks.removeAll { $0.id == id } }; selectedTaskID = nil
+                confirmTaskDeletion(id, fromCurrentItem: true)
             }
         case .appointments:
             if let id = editingAppointmentID ?? selectedAppointmentID, appointments.contains(where: { $0.id == id }) {
@@ -829,8 +909,8 @@ private struct TasksView: View {
                                 KeyboardButton(symbol: AppSymbol.edit, todoOrder: 12 + index * 4, accessibilityLabel: "Edit To-do") {
                                     state.editingTaskID = task.id
                                 }.fixedSize().help("Edit To-do")
-                                KeyboardButton(symbol: AppSymbol.delete, todoOrder: 13 + index * 4, advancesFocus: true, accessibilityLabel: "Delete To-do") {
-                                    state.change { $0.tasks.removeAll { $0.id == task.id } }
+                                KeyboardButton(symbol: AppSymbol.delete, todoOrder: 13 + index * 4, accessibilityLabel: "Delete To-do") {
+                                    state.confirmTaskDeletion(task.id)
                                 }.fixedSize().help("Delete To-do")
                             }
                             .padding(.vertical, 17)
@@ -1103,7 +1183,7 @@ private struct HelpView: View {
                 Text("Help").font(.system(size: 34 * scale, weight: .semibold))
                 Text("Passing By keeps everyday notes, to-dos, and appointments close at hand. Your information stays locally on this Mac, and changes are saved automatically.")
                 section("Categories", "Create Categories in Settings to organize To-dos, Appointments, and Notes. Work, Personal, and Sports are examples you might create. A Default Category applies to new items; a Scheduled Default can use another Category on selected weekdays and times.")
-                section("To-dos", "Create To-dos and assign them to Categories. Mark one complete to remove it from the open list. Turn on Show Completed To-dos to see completed items and restore one if you checked it off by mistake.")
+                section("To-dos", "Create To-dos and assign them to Categories. Mark one complete to remove it from the open list. Turn on Show Completed To-dos to see completed items and restore one if you checked it off by mistake. Deleting a To-do always requires confirmation.")
                 section("Appointments", "Create Appointments and assign them to Categories. Upcoming Appointments appear on the Dashboard alongside open To-dos. The Appointments view can also show past items.")
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Bulk Import").font(.system(size: 22 * scale, weight: .semibold))
