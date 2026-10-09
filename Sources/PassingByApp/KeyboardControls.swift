@@ -231,9 +231,9 @@ struct KeyboardCategoryFilter: NSViewRepresentable {
         }
         control.target = context.coordinator
         control.action = #selector(Coordinator.changed(_:))
-        control.identifier = NSUserInterfaceItemIdentifier("\(scope)-0")
+        control.identifier = NSUserInterfaceItemIdentifier("global-category-filter")
         control.setAccessibilityLabel("Category")
-        control.toolTip = "Filter by category"
+        control.toolTip = "Filter by category · ⌥⌘F"
         control.setContentHuggingPriority(.required, for: .horizontal)
         return control
     }
@@ -409,7 +409,7 @@ struct ScreenKeyLoop: NSViewRepresentable {
                 coordinator.noteID = itemIDs.first
                 coordinator.didSetInitialFocus = false
             }
-            if (scope == "todos" || scope == "appointments" || scope == "note"), !coordinator.didSetInitialFocus {
+            if (scope == "dashboard" || scope == "todos" || scope == "appointments" || scope == "note"), !coordinator.didSetInitialFocus {
                 coordinator.didSetInitialFocus = true
                 if root.window?.attachedSheet == nil { root.window?.makeFirstResponder(ordered.first) }
             }
@@ -444,6 +444,168 @@ struct ScreenKeyLoop: NSViewRepresentable {
             focused = view
             self.fallback = fallback
             rowWasFocused = isRow
+        }
+    }
+}
+
+/// Keeps region navigation separate from the main content's Tab loop.
+@MainActor final class WorkspaceKeyboardNavigation: NSObject {
+    weak var window: NSWindow?
+    weak var contentAnchor: NSView?
+    private weak var returnResponder: NSResponder?
+    private var returnSelection: NSRange?
+    private var chosenCategory: Int?
+
+    private func views(in parent: NSView) -> [NSView] {
+        [parent] + parent.subviews.flatMap { views(in: $0) }
+    }
+    private var sidebar: [NSView] {
+        guard let root = window?.contentView else { return [] }
+        return views(in: root).filter { $0.identifier?.rawValue.hasPrefix("sidebar-") == true }
+    }
+    private func captureFocus() -> (NSResponder?, NSRange?) {
+        guard let window, let root = window.contentView else { return (nil, nil) }
+        if let editor = window.firstResponder as? NSTextView, editor.isFieldEditor,
+           let field = views(in: root).compactMap({ $0 as? NSTextField }).first(where: { $0.currentEditor() === editor }) {
+            return (field, editor.selectedRange())
+        }
+        return (window.firstResponder, nil)
+    }
+    private func restoreFocus(_ responder: NSResponder?, selection: NSRange?) {
+        guard let window else { return }
+        if let view = responder as? NSView, view.window !== window { focusContent(); return }
+        guard let responder, window.makeFirstResponder(responder) else { focusContent(); return }
+        if let field = responder as? NSTextField, let selection,
+           let editor = field.currentEditor() as? NSTextView { editor.setSelectedRange(selection) }
+    }
+    func focusSidebar(id: String) {
+        guard let window, window.attachedSheet == nil,
+              let target = sidebar.first(where: { $0.identifier?.rawValue == id }) else { return }
+        if !sidebar.contains(where: { $0 === window.firstResponder }) {
+            (returnResponder, returnSelection) = captureFocus()
+        }
+        focusKeyboardControl(target)
+    }
+    func handle(_ event: NSEvent) -> NSEvent? {
+        guard event.window === window, window?.attachedSheet == nil,
+              let index = sidebar.firstIndex(where: { $0 === window?.firstResponder }),
+              event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return event }
+        let entries = sidebar
+        switch event.keyCode {
+        case 125, 126, 48:
+            let backwards = event.keyCode == 126 || (event.keyCode == 48 && event.modifierFlags.contains(.shift))
+            focusKeyboardControl(entries[(index + (backwards ? entries.count - 1 : 1)) % entries.count])
+            return nil
+        case 53:
+            restoreFocus(returnResponder, selection: returnSelection)
+            return nil
+        default: return event
+        }
+    }
+    func focusContent() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let window = self.window, window.attachedSheet == nil,
+                  let root = window.contentView else { return }
+            let all = self.views(in: root)
+            let first = all.first { view in
+                guard let id = view.identifier?.rawValue else { return false }
+                return ["dashboard-10", "todos-1", "appointments-1", "note-title"].contains(id)
+            }
+            if let first { focusKeyboardControl(first) }
+            else { window.makeFirstResponder(self.contentAnchor) }
+        }
+    }
+    func scrollContent(keyCode: UInt16) -> Bool {
+        guard let root = window?.contentView,
+              let scroll = views(in: root).compactMap({ $0 as? NSScrollView }).first(where: { scroll in
+                  !views(in: scroll).contains { $0.identifier?.rawValue.hasPrefix("sidebar-") == true }
+              }), let document = scroll.documentView else { return false }
+        let clip = scroll.contentView
+        let maximum = max(0, document.bounds.height - clip.bounds.height)
+        let direction: CGFloat = document.isFlipped ? 1 : -1
+        var point = clip.bounds.origin
+        switch keyCode {
+        case 125: point.y += 40 * direction
+        case 126: point.y -= 40 * direction
+        case 121: point.y += clip.bounds.height * direction
+        case 116: point.y -= clip.bounds.height * direction
+        case 115: point.y = document.isFlipped ? 0 : maximum
+        case 119: point.y = document.isFlipped ? maximum : 0
+        default: return false
+        }
+        point.y = min(maximum, max(0, point.y))
+        clip.scroll(to: point)
+        scroll.reflectScrolledClipView(clip)
+        return true
+    }
+    func chooseCategory(labels: [PassingByCore.Label], selection: LabelContext, apply: (LabelContext) -> Void) {
+        guard let window, window.attachedSheet == nil, let root = window.contentView else { return }
+        let (previous, previousSelection) = captureFocus()
+        let menu = NSMenu(title: "Category Filter")
+        menu.autoenablesItems = false
+        let selected: Int
+        if case .label(let id) = selection { selected = labels.firstIndex { $0.id == id }.map { $0 + 1 } ?? 0 }
+        else { selected = 0 }
+        for (index, title) in (["All"] + labels.map(\.name)).enumerated() {
+            let item = NSMenuItem(title: title, action: #selector(selectCategory(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            item.state = index == selected ? .on : .off
+            menu.addItem(item)
+        }
+        chosenCategory = nil
+        // The contextual header is the anchor when present; Notes use the top of the content area.
+        let anchor = views(in: root).first { $0.identifier?.rawValue == "global-category-filter" }
+        let point = anchor.map { root.convert(NSPoint(x: 0, y: $0.bounds.maxY), from: $0) }
+            ?? NSPoint(x: 90, y: root.isFlipped ? 30 : root.bounds.height - 30)
+        menu.popUp(positioning: menu.item(at: selected), at: point, in: root)
+        if let index = chosenCategory {
+            apply(index > 0 ? .label(labels[index - 1].id) : .all)
+        }
+        DispatchQueue.main.async { [weak self, weak previous] in
+            guard let self, self.window === window, window.attachedSheet == nil else { return }
+            self.restoreFocus(previous, selection: previousSelection)
+        }
+    }
+    @objc private func selectCategory(_ item: NSMenuItem) { chosenCategory = item.tag }
+}
+
+struct WorkspaceKeyboardBridge: NSViewRepresentable {
+    let navigation: WorkspaceKeyboardNavigation
+    func makeCoordinator() -> Coordinator { Coordinator(navigation) }
+    func makeNSView(context: Context) -> NSView {
+        let view = ContentAnchor()
+        view.navigation = navigation
+        return view
+    }
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async { [weak view, navigation] in
+            navigation.window = view?.window
+            navigation.contentAnchor = view
+        }
+    }
+    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
+        if let monitor = coordinator.monitor { NSEvent.removeMonitor(monitor) }
+        coordinator.navigation.window = nil
+    }
+    @MainActor final class ContentAnchor: NSView {
+        weak var navigation: WorkspaceKeyboardNavigation?
+        override var acceptsFirstResponder: Bool { true }
+        override func keyDown(with event: NSEvent) {
+            if event.modifierFlags.intersection([.command, .option, .control]).isEmpty,
+               navigation?.scrollContent(keyCode: event.keyCode) == true { return }
+            super.keyDown(with: event)
+        }
+    }
+    @MainActor final class Coordinator {
+        let navigation: WorkspaceKeyboardNavigation
+        var monitor: Any?
+        init(_ navigation: WorkspaceKeyboardNavigation) {
+            self.navigation = navigation
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak navigation] event in
+                guard let navigation else { return event }
+                return navigation.handle(event)
+            }
         }
     }
 }

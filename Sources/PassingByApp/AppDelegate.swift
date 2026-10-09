@@ -8,6 +8,17 @@ import UniformTypeIdentifiers
 private enum Destination: Hashable {
     case dashboard, tasks, appointments, note(UUID), help, settings
 
+    var sidebarID: String {
+        switch self {
+        case .dashboard: "sidebar-dashboard"
+        case .tasks: "sidebar-tasks"
+        case .appointments: "sidebar-appointments"
+        case .note(let id): "sidebar-" + id.uuidString
+        case .help: "sidebar-help"
+        case .settings: "sidebar-settings"
+        }
+    }
+
     var zoomKey: String? {
         switch self {
         case .dashboard: "dashboard"
@@ -29,6 +40,7 @@ private enum Destination: Hashable {
     private var lockTimer: Timer?
     private var authenticationContext: LAContext?
     private var authenticationAttempt = 0
+    let keyboardNavigation = WorkspaceKeyboardNavigation()
     private var itemDeletionAlert: NSAlert?
     @Published var destination: Destination {
         didSet {
@@ -428,7 +440,7 @@ private enum Destination: Hashable {
                 if response == .alertFirstButtonReturn, let content {
                     let identifier: String
                     if isNote {
-                        identifier = "dashboard-0"
+                        identifier = "dashboard-10"
                     } else if appointment {
                         identifier = self.visibleAppointments.first { $0.id == neighbourID }.map { "appointments-\($0.id)-edit" } ?? "appointments-1"
                     } else {
@@ -487,6 +499,8 @@ private struct AppShortcut {
     let display: String
     let description: String
 
+    static let categoryFilter = Self(key: "f", modifiers: [.command, .option], display: "⌥⌘F", description: "Change global category filter")
+    static let sidebar = Self(key: "s", modifiers: [.command, .option], display: "⌥⌘S", description: "Focus sidebar")
     static let dashboard = Self(key: "1", modifiers: .command, display: "⌘1", description: "Dashboard")
     static let tasks = Self(key: "2", modifiers: .command, display: "⌘2", description: "To-dos")
     static let appointments = Self(key: "3", modifiers: .command, display: "⌘3", description: "Appointments")
@@ -539,6 +553,21 @@ private struct AppShortcut {
                         Button(note.title.isEmpty ? "Untitled Note" : note.title) { startup.state?.destination = .note(note.id) }
                         .keyboardShortcut(AppShortcut.note(index, title: note.title).key, modifiers: AppShortcut.note(index, title: note.title).modifiers)
                     }
+                    Divider()
+                    Button("Change Category Filter…") {
+                        guard let state = startup.state else { return }
+                        state.keyboardNavigation.chooseCategory(labels: state.workspace.labels, selection: state.context) { value in
+                            state.change { $0.settings.labelContext = value }
+                        }
+                    }
+                    .keyboardShortcut(AppShortcut.categoryFilter.key, modifiers: AppShortcut.categoryFilter.modifiers)
+                    .disabled(startup.state?.isLocked ?? true)
+                    Button("Focus Sidebar") {
+                        guard let state = startup.state else { return }
+                        state.keyboardNavigation.focusSidebar(id: state.destination.sidebarID)
+                    }
+                    .keyboardShortcut(AppShortcut.sidebar.key, modifiers: AppShortcut.sidebar.modifiers)
+                    .disabled(startup.state?.isLocked ?? true)
                     Divider()
                     Button("Reorder Notes…") { startup.state?.showReorderNotes = true }
                         .keyboardShortcut(AppShortcut.reorderNotes.key, modifiers: AppShortcut.reorderNotes.modifiers)
@@ -650,8 +679,11 @@ private struct WorkspaceView: View {
                             ForEach(state.notes) { note in
                                 sidebarButton(note.title.isEmpty ? "Untitled Note" : note.title, icon: availableNoteIcon(note.iconName), destination: .note(note.id), categoryID: note.labelID)
                             }
-                            Button(action: state.createNote) { Image(systemName: AppSymbol.add).font(.system(size: 17)).frame(width: 48, height: 44).contentShape(Rectangle()) }
-                                .buttonStyle(.plain).help("New Note").accessibilityLabel("New Note")
+                            KeyboardButton(symbol: AppSymbol.add, pointSize: 17, keyLoopID: "sidebar-new", accessibilityLabel: "New Note") {
+                                state.createNote()
+                                state.keyboardNavigation.focusContent()
+                            }
+                            .frame(width: 48, height: 44).help("New Note · Focus sidebar: ⌥⌘S")
                         }
                         .padding(.top, 12)
                     }
@@ -686,28 +718,32 @@ private struct WorkspaceView: View {
             }
         }
         .frame(minWidth: 650, minHeight: 410)
+        .background(WorkspaceKeyboardBridge(navigation: state.keyboardNavigation))
         .sheet(isPresented: $state.showReorderNotes) { ReorderNotesView(state: state) }
         .alert("Could Not Save Changes", isPresented: Binding(get: { state.error != nil }, set: { if !$0 { state.error = nil } })) {
             Button("Retry") { state.flush() }
             Button("Keep Editing", role: .cancel) { }
         } message: { Text(state.error ?? "Your changes remain in memory. Retry saving before quitting.") }
         .onChange(of: scenePhase) { _, phase in if phase == .active { state.refresh() } else { state.flush() } }
-        .onChange(of: state.destination) { _, _ in state.flush() }
+        .onChange(of: state.destination) { _, _ in
+            state.flush()
+            state.keyboardNavigation.focusContent()
+        }
         .onDisappear { state.flush() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in state.flush() }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in state.refreshIfDayChanged() }
     }
     private func sidebarButton(_ title: String, icon: String, destination: Destination, categoryID: UUID? = nil) -> some View {
-        Button { state.destination = destination } label: {
-            ZStack(alignment: .bottomTrailing) {
-                Image(systemName: icon).font(.system(size: 19)).frame(width: 48, height: 44)
-                if categoryID != nil { categoryDot(categoryID, state.workspace.labels).offset(x: -6, y: -5) }
-            }
-            .frame(width: 48, height: 44)
-            .background(state.destination == destination ? Color.accentColor.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 9))
-            .contentShape(Rectangle())
+        KeyboardButton(symbol: icon, pointSize: 19, keyLoopID: destination.sidebarID, accessibilityLabel: title) {
+            state.destination = destination
+            state.keyboardNavigation.focusContent()
         }
-        .buttonStyle(.plain).help(title).accessibilityLabel(title)
+        .frame(width: 48, height: 44)
+        .background(state.destination == destination ? Color.accentColor.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 9))
+        .overlay(alignment: .bottomTrailing) {
+            if categoryID != nil { categoryDot(categoryID, state.workspace.labels).offset(x: -6, y: -5).allowsHitTesting(false) }
+        }
+        .help("\(title) · Focus sidebar: ⌥⌘S")
     }
 }
 
@@ -1044,7 +1080,7 @@ private struct AppointmentsView: View {
         return (item.itemDescription.isEmpty ? [] : [prefix + "description"]) + [prefix + "edit", prefix + "delete"]
     }
     private var controlIDs: [String] {
-        var ids = (0...3).map { "appointments-\($0)" }
+        var ids = (1...3).map { "appointments-\($0)" }
         if state.workspace.settings.dateDisplayMode == .chronological {
             ids += state.appointments.flatMap(rowControlIDs)
         } else {
@@ -1233,7 +1269,7 @@ private struct HelpView: View {
     private var shortcuts: [AppShortcut] {
         [AppShortcut.dashboard, .tasks, .appointments] +
         Array(notes.prefix(6).enumerated()).map { AppShortcut.note($0.offset, title: $0.element.title) } +
-        [.help, .settings, .newItem, .newNote, .reorderNotes, .noteTitle, .delete, .lock, .find, .findNext, .findPrevious, .zoomIn, .zoomOut]
+        [.help, .settings, .categoryFilter, .sidebar, .newItem, .newNote, .reorderNotes, .noteTitle, .delete, .lock, .find, .findNext, .findPrevious, .zoomIn, .zoomOut]
     }
     var body: some View {
         ScrollView {
@@ -1258,13 +1294,14 @@ private struct HelpView: View {
                     Text("Keyboard Shortcuts").font(.system(size: 22 * scale, weight: .semibold))
                     Text("⌘N creates a To-do or Appointment in those views, and a Note elsewhere. Note shortcuts follow the first six Notes currently shown in the sidebar.")
                         .foregroundStyle(.secondary)
+                    Text("⌥⌘F opens the global category filter: use Up/Down, Enter to apply, or Escape to cancel. Focus then returns to your previous control. ⌥⌘S focuses the sidebar: Up/Down moves, Enter opens, and Escape returns. The global filter and sidebar are outside the main content Tab sequence.")
                     Text("In To-do and Appointment dialogs, Tab and Shift-Tab move between fields, including Category. Return in the title or ⌘Return activates Done; Return in the description adds a new line. Escape discards a new item, or closes an existing item while keeping its changes.")
                         .foregroundStyle(.secondary)
-                    Text("On Dashboard, Tab follows the Category filter, To-dos, then Appointments. Left and Right switch categories in the segmented filter; Space opens a category menu. Return or Space activates a focused action. Escape closes a description.")
+                    Text("On Dashboard, Tab follows To-dos, then Appointments. Return or Space activates a focused action. Escape closes a description.")
                         .foregroundStyle(.secondary)
-                    Text("On To-dos, Tab follows Category, New To-do, Show Completed To-dos, then each row’s Complete or Restore, Description when present, Edit, and Delete actions. Shift-Tab reverses this order.")
+                    Text("On To-dos, Tab follows New To-do, Show Completed To-dos, then each row’s Complete or Restore, Description when present, Edit, and Delete actions. Shift-Tab reverses this order.")
                         .foregroundStyle(.secondary)
-                    Text("On Appointments, Tab follows Category, New Appointment, Display mode, Show past, then each row’s Description when present, Edit, and Delete. In By Category mode, each group’s Show more or Show fewer follows its rows. Left and Right change the display mode; Shift-Tab reverses the tab order.")
+                    Text("On Appointments, Tab follows New Appointment, Display mode, Show past, then each row’s Description when present, Edit, and Delete. In By Category mode, each group’s Show more or Show fewer follows its rows. Left and Right change the display mode; Shift-Tab reverses the tab order.")
                         .foregroundStyle(.secondary)
                     Text("On Notes, focus follows Title, Category, Editor, Delete, and Icon. Tab and Shift-Tab indent and outdent inside the editor using spaces; Control-Tab leaves it forwards and Control-Shift-Tab backwards. The icon picker supports Tab, Shift-Tab, and Return or Space to choose an icon; Escape closes it.")
                         .foregroundStyle(.secondary)

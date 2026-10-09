@@ -209,7 +209,7 @@ Selecting a Note opens its dedicated editor in the full main content area. There
 
 The sidebar is a compact, icon-only navigation rail with tooltips for every destination and Note title. It has no Notes collapse control. Settings is anchored separately at the bottom. Icons are comfortably clickable, clearly indicate selection, and use native SF Symbols. Notes may have a restrained category-color dot.
 
-Primary navigation is keyboard-first: `Cmd+1` opens Dashboard, `Cmd+2` To-dos, `Cmd+3` Appointments, `Cmd+4` through `Cmd+9` the first six Notes in sidebar order, `Cmd+0` Help, and `Cmd+,` Settings. Further Notes remain accessible from the sidebar. The native menu exposes these commands.
+Primary navigation is keyboard-first: `Cmd+1` opens Dashboard, `Cmd+2` To-dos, `Cmd+3` Appointments, `Cmd+4` through `Cmd+9` the first six Notes in sidebar order, `Cmd+0` Help, and `Cmd+,` Settings. Further Notes remain accessible from the sidebar. The native menu exposes these commands. `Option+Cmd+S` focuses the current sidebar destination; Up/Down moves between entries, Enter opens an entry and focuses its main content, and Escape returns to the previous control. The sidebar is outside the main content Tab sequence.
 
 Dashboard is the default starting view when no relevant navigation state can be restored. The application should restore the user's last relevant navigation state when practical.
 
@@ -250,6 +250,8 @@ When a category is selected, only items assigned to that category are shown.
 When `All` is selected, all items are shown, including uncategorized items. Uncategorized items are not shown when a configured category is selected.
 
 The currently selected global category context should be persisted and restored on application restart.
+
+`Option+Cmd+F` opens a native category chooser from any screen, including an individual Note. Up/Down moves through All and the configured Categories, Enter applies the selection, and Escape cancels. Focus returns to the previous control, or to the current main content if filtering removed that control. The global filter is outside the main content Tab sequence; item Category assignment controls remain in their forms’ Tab sequences.
 
 The UI must make an active filter obvious enough that the user does not mistakenly believe filtered-out items have disappeared.
 
