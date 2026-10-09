@@ -9,6 +9,10 @@ run = "./Scripts/build-release.sh"
 description = "Run the Swift unit tests"
 run = "swift run PassingByTests"
 
+[tasks.test-ui]
+description = "Run native Settings keyboard and UI tests (macOS desktop)"
+run = "./Scripts/test-settings-navigation.sh"
+
 [tasks.package]
 description = "Build and ZIP a versioned macOS release app (requires RELEASE_VERSION)"
 run = "./Scripts/package-release.sh"

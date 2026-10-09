@@ -39,6 +39,7 @@ From the repository root:
 mise install
 mise run build
 mise run test
+mise run test-ui # Native Settings focus tests; requires a macOS desktop session.
 ```
 
 `mise run build` creates `build/Passing By.app`. Open that bundle from Finder to run it. The build is ad hoc signed. Local builds have a separate development app identity and display “Development build” in About.

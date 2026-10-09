@@ -509,7 +509,7 @@ struct ScreenKeyLoop: NSViewRepresentable {
             let all = self.views(in: root)
             let first = all.first { view in
                 guard let id = view.identifier?.rawValue else { return false }
-                return ["dashboard-10", "todos-1", "appointments-1", "note-title"].contains(id)
+                return ["dashboard-10", "todos-1", "appointments-1", "note-title", "settings-010-todos"].contains(id)
             }
             if let first { focusKeyboardControl(first) }
             else { window.makeFirstResponder(self.contentAnchor) }
