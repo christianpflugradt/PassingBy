@@ -8,6 +8,11 @@ import PassingByCore
     }
 }
 
+@MainActor private struct SettingsSurfaceTestView: View {
+    @ObservedObject var state: WorkspaceState
+    var body: some View { SettingsSurface(state: state, visible: state.destination == .settings) }
+}
+
 /// Compiled with the production Settings controls by test-settings-navigation.sh.
 @main struct SettingsNavigationTests {
     @MainActor static func main() {
@@ -121,7 +126,8 @@ import PassingByCore
             workspace.labels = [PassingByCore.Label(name: "Personal"), PassingByCore.Label(name: "Work", color: .green)]
             workspace.scheduledTodos = [ScheduledTodo(title: "Weekly review", categoryID: nil, recurrence: .weekly(interval: .everyWeek, weekday: .monday), startingOn: Date().addingTimeInterval(7 * 86_400))]
         }
-        let hosting = NSHostingView(rootView: SettingsView(state: state))
+        state.destination = .settings
+        let hosting = NSHostingView(rootView: SettingsSurfaceTestView(state: state))
         window.setContentSize(NSSize(width: 780, height: 700))
         window.contentView = hosting
         func settle() {
@@ -146,6 +152,58 @@ import PassingByCore
             return window.firstResponder === view || (view as? NSControl)?.currentEditor() === window.firstResponder
         }
         settle()
+        let sectionButtons = SettingsSection.allCases.map { control($0.navigationID) as! NSButton }
+        check(sectionButtons.map(\.title) == SettingsSection.allCases.map(\.title), "Every top-level section has navigation in content order")
+        let probes = descendants(hosting).compactMap { $0 as? SettingsAnchorView }
+        check(probes.count == SettingsSection.allCases.count, "Content and navigation share the complete section list")
+        let navigation = probes.first!.navigation!
+        let contentScroll = probes.first!.enclosingScrollView!
+        let document = contentScroll.documentView!
+        func top(_ section: SettingsSection) -> CGFloat {
+            let probe = probes.first { $0.identifier?.rawValue == "section-" + section.rawValue }!
+            let frame = probe.convert(probe.bounds, to: document)
+            return document.isFlipped ? frame.minY : document.bounds.height - frame.maxY
+        }
+        func scrollTop() -> CGFloat {
+            document.isFlipped ? contentScroll.contentView.bounds.minY : document.bounds.height - contentScroll.contentView.bounds.maxY
+        }
+        func manuallyScroll(to offset: CGFloat) {
+            let maximum = max(0, document.bounds.height - contentScroll.contentView.bounds.height)
+            contentScroll.contentView.scroll(to: NSPoint(x: 0, y: document.isFlipped ? offset : maximum - offset))
+            contentScroll.reflectScrolledClipView(contentScroll.contentView)
+            settle()
+        }
+        for section in SettingsSection.allCases {
+            activate(section.navigationID)
+            check(navigation.active == section, "Section activation stays selected after scrolling: " + section.title)
+            check(abs(scrollTop() - max(0, top(section) - 12)) < 2, "Navigation aligns the requested heading: " + section.title)
+            check((control(section.navigationID) as! NSButton).accessibilityValue() as? String == "Current section", "Navigation exposes the active state to accessibility")
+        }
+        activate(SettingsSection.todos.navigationID)
+        let focusedNavigation = window.firstResponder
+        manuallyScroll(to: top(.appointments) + 10)
+        check(navigation.active == .appointments, "Manual scrolling updates the active section")
+        check(window.firstResponder === focusedNavigation, "Manual scrolling never steals keyboard focus")
+        for delta: CGFloat in [-2, 1, -1, 2] {
+            manuallyScroll(to: top(.appointments) - 20 + delta)
+            check(navigation.active == .appointments, "Small boundary jitter does not flicker selection")
+        }
+        manuallyScroll(to: top(.appointments) - 30)
+        check(navigation.active == .todos, "Scrolling clearly above a boundary selects the preceding section")
+        let starts: [(SettingsSection, CGFloat)] = [(.dashboard, 0), (.todos, 100), (.appointments, 200)]
+        check(SettingsNavigationState.section(at: 79, starts: starts, current: .dashboard) == .dashboard, "Reference line holds within the forward dead band")
+        check(SettingsNavigationState.section(at: 85, starts: starts, current: .dashboard) == .todos, "Reference line advances outside the dead band")
+        let suiteName = "PassingBy.SettingsTests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.set("data", forKey: "settings.section")
+        check(SettingsNavigationState(defaults: defaults).active == .data, "Saved section restores by identity")
+        defaults.set("removed-section", forKey: "settings.section")
+        check(SettingsNavigationState(defaults: defaults).active == .dashboard, "Unknown saved sections fall back safely")
+        defaults.removePersistentDomain(forName: suiteName)
+        window.makeFirstResponder(sectionButtons[0])
+        sectionButtons[0].keyDown(with: up)
+        check(window.firstResponder === sectionButtons.last!, "Arrow keys move between local section entries")
+        activate(SettingsSection.dashboard.navigationID)
         let categoryField = control("settings-120-name")
         let list = control("settings-100-list") as! NSTableView
         check(list.numberOfRows == 2, "Category list shows persisted Categories")
@@ -162,6 +220,8 @@ import PassingByCore
         check(state.workspace.settings.scheduledDefaultEnabled, "Scheduled default enables inline controls")
         _ = control("settings-180-start")
         _ = control("settings-190-end")
+        activate(SettingsSection.data.navigationID)
+        check(navigation.active == .data && abs(scrollTop() - top(.data) + 12) < 2, "Expanded Category controls update section positions")
         activate("settings-360-add")
         check(focused("settings-360-title"), "Opening schedule form focuses title")
         check(!(control("settings-366-create") as! NSButton).isEnabled, "Incomplete schedule cannot be created")
@@ -300,6 +360,96 @@ import PassingByCore
                 }
             }
         }
+        // Compact layouts keep the same native controls and make every control reachable.
+        let preservedControl = control("settings-010-todos")
+        for (width, zoom) in [(582.0, 100), (582.0, 180), (1060.0, 70)] {
+            state.change { $0.settings.screenZoom["settings"] = zoom }
+            window.setContentSize(NSSize(width: width, height: 410))
+            settle()
+            check(control("settings-010-todos") === preservedControl, "Resize and zoom preserve native control identity")
+            for section in SettingsSection.allCases {
+                activate(section.navigationID)
+                check(navigation.active == section, "Navigation works at width \(width), zoom \(zoom), section \(section), active \(navigation.active), offset \(scrollTop()), heading \(top(section))")
+            }
+            if let directory = ProcessInfo.processInfo.environment["SETTINGS_TEST_SCREENSHOT_DIR"] {
+                activate(SettingsSection.categories.navigationID)
+                let capture = Process()
+                capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+                capture.arguments = ["-x", "-l", String(window.windowNumber), directory + "/settings-width-" + String(Int(width)) + "-zoom-" + String(zoom) + ".png"]
+                try! capture.run()
+                capture.waitUntilExit()
+                check(capture.terminationStatus == 0, "Compact layout screenshot succeeds")
+            }
+            for view in finalLoop.controls {
+                finalLoop.select(view)
+                check(finalLoop.currentControl() === view, "Narrow layouts retain all keyboard-accessible controls")
+            }
+        }
+        state.change { $0.settings.screenZoom["settings"] = 100 }
+        window.setContentSize(NSSize(width: 900, height: 700))
+        state.labelID = state.workspace.labels.first!.id
+        settle()
+        activate(SettingsSection.categories.navigationID)
+        let nameField = control("settings-120-name") as! NSTextField
+        window.makeFirstResponder(nameField)
+        let nameEditor = nameField.currentEditor() as! NSTextView
+        nameEditor.undoManager?.removeAllActions()
+        let originalName = nameField.stringValue
+        nameEditor.insertText("X", replacementRange: NSRange(location: 0, length: 0))
+        settle()
+        check(nameEditor.undoManager?.canUndo == true, "Category typing creates native Undo history")
+        nameEditor.setSelectedRange(NSRange(location: 1, length: 2))
+        let savedScroll = scrollTop()
+        let configurationBeforeNavigation = state.workspace.settings
+        state.destination = .help
+        settle()
+        check(nameField.isHiddenOrHasHiddenAncestor, "Leaving Settings hides its native tree")
+        check(finalLoop.controls.isEmpty, "Hidden Settings controls are excluded from keyboard traversal")
+        state.destination = .settings
+        settle()
+        check(control("settings-120-name") === nameField, "Returning preserves the editor instance and Undo context")
+        check(focused("settings-120-name") && (nameField.currentEditor() as! NSTextView).selectedRange() == NSRange(location: 1, length: 2), "Returning restores focus and text selection")
+        check(abs(scrollTop() - savedScroll) < 2 && navigation.active == .categories, "Returning preserves scroll and active section")
+        check(state.workspace.settings == configurationBeforeNavigation, "Navigation never changes saved configuration")
+        let returnedEditor = nameField.currentEditor() as! NSTextView
+        check(returnedEditor.undoManager?.canUndo == true, "Native Undo history survives Settings navigation")
+        check(returnedEditor.tryToPerform(Selector(("undo:")), with: nil), "Native Undo command is available")
+        settle()
+        check(nameField.stringValue == originalName && state.label?.name == originalName, "Undo after returning restores and persists the Category name")
+        check(returnedEditor.tryToPerform(Selector(("redo:")), with: nil), "Native Redo command is available")
+        settle()
+        check(nameField.stringValue == "X" + originalName && state.label?.name == "X" + originalName, "Redo after returning reapplies and persists the Category edit")
+        let editedCategory = state.labelID!
+        let otherCategory = state.workspace.labels.first { $0.id != editedCategory }!
+        state.labelID = otherCategory.id
+        settle()
+        check(nameField.stringValue == otherCategory.name, "Category selection loads the correct editing session")
+        state.labelID = editedCategory
+        settle()
+        window.makeFirstResponder(nameField)
+        let originalEditor = nameField.currentEditor() as! NSTextView
+        check(originalEditor.undoManager?.canUndo == true, "Each Category retains its own in-memory editing history")
+        check(originalEditor.tryToPerform(Selector(("undo:")), with: nil), "Undo remains available in the original Category")
+        settle()
+        check(state.label?.name == originalName && state.workspace.labels.first { $0.id == otherCategory.id }?.name == otherCategory.name, "Undo stays bound to the edited Category: field=\(nameField.stringValue), model=\(state.label?.name ?? "nil"), original=\(originalName), other=\(state.workspace.labels.first { $0.id == otherCategory.id }?.name ?? "nil"), expectedOther=\(otherCategory.name)")
+        activate(SettingsSection.todos.navigationID)
+        let persistedOffset = scrollTop()
+        state.flush()
+        let reloadedState = WorkspaceState(try! AppStore(persistence: WorkspacePersistence(url: directory.appendingPathComponent("workspace.json"))))
+        reloadedState.destination = .settings
+        let replacementHost = NSHostingView(rootView: SettingsSurfaceTestView(state: reloadedState))
+        window.contentView = replacementHost
+        replacementHost.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        let restoredProbe = descendants(replacementHost).compactMap { $0 as? SettingsAnchorView }.first!
+        let restoredScroll = restoredProbe.enclosingScrollView!
+        let restoredDocument = restoredScroll.documentView!
+        let restoredOffset = restoredDocument.isFlipped ? restoredScroll.contentView.bounds.minY : restoredDocument.bounds.height - restoredScroll.contentView.bounds.maxY
+        check(abs(restoredOffset - persistedOffset) < 2 && restoredProbe.navigation!.active == .todos, "Reloading Settings restores persisted scroll and section")
+        check(reloadedState.labelID == editedCategory, "Reloading restores the selected Category by identity")
+        let freshField = descendants(replacementHost).first { $0.identifier?.rawValue == "settings-120-name" } as! NSTextField
+        window.makeFirstResponder(freshField)
+        check((freshField.currentEditor() as? NSTextView)?.undoManager?.canUndo != true, "Undo history is never persisted across restarts")
         state.flush()
         print("Settings navigation tests passed")
     }

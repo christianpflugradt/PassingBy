@@ -509,8 +509,10 @@ struct ScreenKeyLoop: NSViewRepresentable {
             guard let self, let window = self.window, window.attachedSheet == nil,
                   let root = window.contentView else { return }
             let all = self.views(in: root)
+            if all.contains(where: { $0 is SettingsSectionButton && !$0.isHiddenOrHasHiddenAncestor }),
+               SettingsFocusRestoration.restore(in: root) { return }
             let first = all.first { view in
-                guard let id = view.identifier?.rawValue else { return false }
+                guard !view.isHiddenOrHasHiddenAncestor, let id = view.identifier?.rawValue else { return false }
                 return ["dashboard-10", "todos-1", "appointments-1", "note-title", "settings-010-todos"].contains(id)
             }
             if let first { focusKeyboardControl(first) }
@@ -520,7 +522,9 @@ struct ScreenKeyLoop: NSViewRepresentable {
     func scrollContent(keyCode: UInt16) -> Bool {
         guard let root = window?.contentView,
               let scroll = views(in: root).compactMap({ $0 as? NSScrollView }).first(where: { scroll in
-                  !views(in: scroll).contains { $0.identifier?.rawValue.hasPrefix("sidebar-") == true }
+                  !scroll.isHiddenOrHasHiddenAncestor && !views(in: scroll).contains {
+                      $0 is SettingsSectionButton || $0.identifier?.rawValue.hasPrefix("sidebar-") == true
+                  }
               }), let document = scroll.documentView else { return false }
         let clip = scroll.contentView
         let maximum = max(0, document.bounds.height - clip.bounds.height)

@@ -632,7 +632,7 @@ private struct AppShortcut {
         case .settings:
             title = "Settings"
             commands = [.init("⌘N", "Create a Note."), .init("Space", "Activate the focused checkbox or open a focused picker."),
-                        .init("↑ / ↓; Enter", "Choose and apply an option in an open picker."), .init("Escape", "Cancel an open picker.")]
+                        .init("↑ / ↓; Enter", "Move between focused Settings sections and open one, or choose an option in an open picker."), .init("Escape", "Cancel an open picker.")]
         }
         if showReorderNotes {
             return .init(title: "Reorder Notes Shortcuts", sections: [.init(title: "This dialog", rows: [.init("Enter", "Activate Done and close the dialog.")]),
@@ -821,14 +821,19 @@ private struct WorkspaceView: View {
                 .frame(width: 68, height: geometry.size.height)
             }
             .frame(width: 68)
-            Group {
-                switch state.destination {
-                case .dashboard: DashboardView(state: state)
-                case .tasks: TasksView(state: state)
-                case .appointments: AppointmentsView(state: state)
-                case .note(let id): NoteView(state: state, id: id)
-                case .help: HelpView(state: state, notes: state.workspace.shortcutNotes)
-                case .settings: SettingsView(state: state)
+            ZStack {
+                SettingsSurface(state: state, visible: state.destination == .settings)
+                    .allowsHitTesting(state.destination == .settings)
+                    .accessibilityHidden(state.destination != .settings)
+                Group {
+                    switch state.destination {
+                    case .dashboard: DashboardView(state: state)
+                    case .tasks: TasksView(state: state)
+                    case .appointments: AppointmentsView(state: state)
+                    case .note(let id): NoteView(state: state, id: id)
+                    case .help: HelpView(state: state, notes: state.workspace.shortcutNotes)
+                    case .settings: Color.clear.allowsHitTesting(false)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

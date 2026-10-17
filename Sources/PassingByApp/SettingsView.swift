@@ -21,7 +21,7 @@ private struct ImportPreview: Identifiable {
 struct SettingsView: View {
     private enum ScheduledChoice: Hashable { case unconfigured, uncategorized, label(UUID) }
     @ObservedObject var state: WorkspaceState
-    private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
+    private var scale: CGFloat { CGFloat(state.workspace.settings.screenZoom["settings"] ?? 100) / 100 }
     @StateObject private var importFlow = AppointmentImportFlow()
     private let weekdays: [(Int, String)] = [(2, "Mon"), (3, "Tue"), (4, "Wed"), (5, "Thu"), (6, "Fri"), (7, "Sat"), (1, "Sun")]
     private var settings: AppSettings { state.workspace.settings }
@@ -42,29 +42,39 @@ struct SettingsView: View {
         })
     }
     @StateObject private var focus = SettingsFocus()
+    @StateObject private var navigation = SettingsNavigationState()
+    private var compact: Bool { navigation.availableWidth < 500 * scale }
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                Text("Settings").font(.system(size: 34 * scale, weight: .semibold))
-                dashboardSection
-                categoriesSection
-                todosSection
-                appointmentsSection
-                notesSection
-                substitutionsSection
-                securitySection
-                recoverySection
-                Divider()
-                VStack(alignment: .leading, spacing: 6) {
-                    SettingsButton(title: "Reset All Zoom Levels", id: "settings-900-zoom") { state.resetAllZoom() }
-                    explanation("Restores the default size for every Note and screen.")
+        GeometryReader { geometry in
+            HStack(alignment: .top, spacing: 20) {
+                SettingsSectionNavigation(navigation: navigation)
+                    .frame(width: 130)
+                    .padding(.top, 32)
+                ScrollView([.vertical, .horizontal]) {
+                    VStack(alignment: .leading, spacing: 28) {
+                        Text("Settings").font(.system(size: 34 * scale, weight: .semibold))
+                        ForEach(SettingsSection.allCases) { section in
+                            sectionContent(section)
+                                .frame(maxWidth: .infinity, minHeight: section == .maintenance ? max(0, geometry.size.height - 40) : 0, alignment: .topLeading)
+                                .background(SettingsSectionAnchor(section: section, navigation: navigation))
+                        }
+                    }
+                    .frame(width: max(280 * scale, min(650 * scale, geometry.size.width - 198)), alignment: .leading)
+                    .padding(.vertical, 28)
+                    .padding(.trailing, 24)
                 }
             }
-            .frame(maxWidth: 650, alignment: .leading)
-            .padding(.horizontal, 34).padding(.vertical, 28)
-            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.leading, 24)
+            .frame(maxWidth: 872, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity)
+            .onChange(of: geometry.size.width, initial: true) { _, width in navigation.availableWidth = width - 198 }
         }
         .background(SettingsKeyLoop(request: focus.request, requestedID: focus.requestedID, settings: settings, categoryID: state.labelID, scheduleIDs: state.workspace.scheduledTodos.map(\.id)))
+        .onAppear {
+            if let saved = UserDefaults.standard.string(forKey: "settings.category"), let id = UUID(uuidString: saved),
+               state.workspace.labels.contains(where: { $0.id == id }) { state.labelID = id }
+        }
+        .onChange(of: state.labelID) { _, id in UserDefaults.standard.set(id?.uuidString, forKey: "settings.category") }
         .environment(\.font, .system(size: 13 * scale))
         .environment(\.settingsPointSize, 13 * scale)
         .fileImporter(isPresented: $importFlow.selectingFile, allowedContentTypes: [.plainText, UTType(filenameExtension: "tsv") ?? .plainText]) { result in
@@ -86,12 +96,30 @@ struct SettingsView: View {
         .sheet(isPresented: $importFlow.showSubstitutions, onDismiss: { focus.focus("settings-570-manage") }) {
             SubstitutionsView(state: state)
         }
-        .sheet(item: $importFlow.preview) { preview in
+        .sheet(item: $importFlow.preview, onDismiss: { focus.focus("settings-430-import") }) { preview in
             AppointmentImportPreviewView(state: state, filename: preview.filename, parsed: preview.parsed)
         }
         .alert("Could Not Open TSV", isPresented: Binding(get: { importFlow.fileError != nil }, set: { if !$0 { importFlow.fileError = nil } })) {
             Button("OK") { importFlow.fileError = nil }
         } message: { Text(importFlow.fileError ?? "The selected file could not be read.") }
+    }
+    @ViewBuilder private func sectionContent(_ section: SettingsSection) -> some View {
+        switch section {
+        case .dashboard: dashboardSection
+        case .todos: todosSection
+        case .appointments: appointmentsSection
+        case .notes: notesSection
+        case .categories: categoriesSection
+        case .textEditing: substitutionsSection
+        case .data: recoverySection
+        case .security: securitySection
+        case .maintenance:
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeading(section.title)
+                SettingsButton(title: "Reset All Zoom Levels", id: "settings-900-zoom") { state.resetAllZoom() }
+                explanation("Restores the default size for every Note and screen.")
+            }
+        }
     }
     private var dashboardSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -104,10 +132,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeading("Categories")
             subheading("Manage Categories")
-            HStack(alignment: .top, spacing: 24) {
+            (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16)) : AnyLayout(HStackLayout(alignment: .top, spacing: 24))) {
                 VStack(alignment: .leading, spacing: 10) {
                     SettingsCategoryList(labels: state.workspace.labels, selection: $state.labelID)
-                        .frame(width: 210, height: 168)
+                        .frame(width: 210 * scale, height: 168 * scale)
                     SettingsButton(title: "Add Category", id: "settings-110-add") {
                         let label = PassingByCore.Label(name: "New Category")
                         state.change { $0.labels.append(label) }
@@ -119,13 +147,13 @@ struct SettingsView: View {
                     if let label = state.label {
                         Text("Selected Category").font(.subheadline.weight(.medium))
                         HStack(spacing: 10) {
-                            Text("Name").frame(width: 50, alignment: .leading)
+                            Text("Name").frame(width: 50 * scale, alignment: .leading)
                             SettingsTextField(title: "Category name", id: "settings-120-name", text: Binding(get: { state.label?.name ?? "" }, set: { value in
                                 state.change { w in if let i = w.labels.firstIndex(where: { $0.id == label.id }) { w.labels[i].name = value } }
-                            }))
+                            }), sessionID: label.id.uuidString)
                         }
                         HStack(spacing: 10) {
-                            Text("Color").frame(width: 50, alignment: .leading)
+                            Text("Color").frame(width: 50 * scale, alignment: .leading)
                             SettingsPicker(title: "Color", id: "settings-130-color", value: Binding(get: { state.label?.color ?? .blue }, set: { value in
                                 state.change { w in if let i = w.labels.firstIndex(where: { $0.id == label.id }) { w.labels[i].color = value } }
                             }), choices: LabelColor.allCases.map { ($0, $0.rawValue.capitalized) })
@@ -139,7 +167,7 @@ struct SettingsView: View {
                         explanation("Select a Category to edit it.")
                     }
                 }
-                .frame(width: 260, alignment: .leading)
+                .frame(maxWidth: 260 * scale, alignment: .leading)
             }
             subheading("Default Category")
             categoryPicker("New items", id: "settings-150-default", keyPath: \.defaultLabelID)
@@ -147,7 +175,7 @@ struct SettingsView: View {
             SettingsToggle(title: "Use a scheduled default", id: "settings-160-enabled", value: setting(\.scheduledDefaultEnabled))
             if settings.scheduledDefaultEnabled {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 12) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: 4), alignment: .leading, spacing: 8) {
                         ForEach(Array(weekdays.enumerated()), id: \.element.0) { index, day in
                             SettingsToggle(title: day.1, id: "settings-170-\(index)", value: Binding(get: { settings.scheduledWeekdays.contains(day.0) }, set: { selected in
                                 state.change { if selected { $0.settings.scheduledWeekdays.insert(day.0) } else { $0.settings.scheduledWeekdays.remove(day.0) } }
@@ -212,7 +240,8 @@ struct SettingsView: View {
     }
     private var substitutionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeading("Smart Substitutions")
+            sectionHeading("Text Editing")
+            subheading("Smart Substitutions")
             SettingsToggle(title: "Smart Substitutions", id: "settings-560-substitutions", value: Binding(get: { settings.smartSubstitutions.enabled }, set: { enabled in
                 state.change { $0.settings.smartSubstitutions.enabled = enabled }
             }))
@@ -222,7 +251,8 @@ struct SettingsView: View {
     }
     private var recoverySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeading("Recently Deleted")
+            sectionHeading("Data")
+            subheading("Recently Deleted")
             explanation("Deleted items can be restored for 30 days. Automatically cleaned-up items are not included.")
             SettingsButton(title: "Review Deleted Items…", id: "settings-700-deleted") {
                 state.refresh()
@@ -256,9 +286,9 @@ struct SettingsView: View {
         Text(text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
     private func row<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack(spacing: 16) {
-            Text(title).frame(width: 220, alignment: .leading)
-            content().frame(maxWidth: 260, alignment: .leading)
+        (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(spacing: 16))) {
+            Text(title).frame(width: compact ? nil : 220, alignment: .leading)
+            content().frame(maxWidth: 260 * scale, alignment: .leading)
         }
     }
     private func numberRow(_ title: String, id: String, value: Binding<Int>, range: ClosedRange<Int>, suffix: String = "") -> some View {
@@ -269,7 +299,7 @@ struct SettingsView: View {
             }
         }
     }
-    private func sectionHeading(_ title: String) -> some View { Text(title).font(.system(size: 22 * scale, weight: .semibold)) }
+    private func sectionHeading(_ title: String) -> some View { Text(title).font(.system(size: 22 * scale, weight: .semibold)).accessibilityAddTraits(.isHeader) }
     private func setting<Value>(_ keyPath: WritableKeyPath<AppSettings, Value>) -> Binding<Value> {
         Binding(get: { state.workspace.settings[keyPath: keyPath] }, set: { value in state.change { $0.settings[keyPath: keyPath] = value } })
     }

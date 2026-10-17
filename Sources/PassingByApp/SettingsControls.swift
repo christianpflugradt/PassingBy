@@ -43,7 +43,7 @@ struct SettingsKeyLoop: NSViewRepresentable {
         var lastRequest = 0
         var monitor: Any?
         init() {
-            monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseUp]) { [weak self] event in
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .leftMouseUp]) { [weak self] event in
                 guard let self else { return event }
                 return self.handle(event)
             }
@@ -51,13 +51,21 @@ struct SettingsKeyLoop: NSViewRepresentable {
         var controls: [NSView] {
             guard let root = anchor?.window?.contentView else { return [] }
             func collect(_ view: NSView) -> [NSView] {
+                guard !view.isHiddenOrHasHiddenAncestor else { return [] }
                 if view.identifier?.rawValue.hasPrefix("settings-") == true {
                     guard !view.isHiddenOrHasHiddenAncestor, (view as? NSControl)?.isEnabled != false else { return [] }
                     return [view]
                 }
                 return view.subviews.flatMap(collect)
             }
-            return collect(root).sorted { $0.identifier!.rawValue < $1.identifier!.rawValue }
+            return collect(root).sorted {
+                let left = $0.identifier!.rawValue, right = $1.identifier!.rawValue
+                let a = SettingsSection.containing(left), b = SettingsSection.containing(right)
+                let sections = SettingsSection.allCases
+                let first = a.flatMap { sections.firstIndex(of: $0) } ?? -1
+                let second = b.flatMap { sections.firstIndex(of: $0) } ?? -1
+                return first == second ? left < right : first < second
+            }
         }
         func currentControl() -> NSView? {
             guard let responder = anchor?.window?.firstResponder else { return nil }
@@ -73,15 +81,18 @@ struct SettingsKeyLoop: NSViewRepresentable {
             if control.window?.makeFirstResponder(control) == true {
                 focused = control
                 focusedID = control.identifier?.rawValue
+                if let root = control.window?.contentView { SettingsFocusRestoration.capture(in: root) }
             }
         }
         func refresh(request: Int, id: String?) {
-            guard let window = anchor?.window, window.attachedSheet == nil else { return }
+            guard let anchor, !anchor.isHiddenOrHasHiddenAncestor,
+                  let window = anchor.window, window.attachedSheet == nil else { return }
             if lastRequest != request, let target = controls.first(where: { $0.identifier?.rawValue == id }) {
                 lastRequest = request
                 select(target)
             } else if let current = currentControl() {
                 focused = current; focusedID = current.identifier?.rawValue
+                if let root = anchor.window?.contentView { SettingsFocusRestoration.capture(in: root) }
             } else if let focusedID,
                       focused?.window == nil || window.firstResponder === focused || (focused as? NSControl)?.currentEditor() === window.firstResponder {
                 if let id = (window.firstResponder as? NSView)?.identifier?.rawValue, id.hasPrefix("sidebar-") { return }
@@ -90,9 +101,10 @@ struct SettingsKeyLoop: NSViewRepresentable {
             }
         }
         func handle(_ event: NSEvent) -> NSEvent? {
-            guard let window = anchor?.window, event.window === window,
+            guard let anchor, !anchor.isHiddenOrHasHiddenAncestor,
+                  let window = anchor.window, event.window === window,
                   window.attachedSheet == nil else { return event }
-            if event.type == .leftMouseUp {
+            if event.type == .leftMouseUp || event.type == .keyUp {
                 DispatchQueue.main.async { [weak self] in self?.refresh(request: self?.lastRequest ?? 0, id: nil) }
                 return event
             }
@@ -114,7 +126,7 @@ struct SettingsKeyLoop: NSViewRepresentable {
     }
 }
 
-@MainActor final class SettingsNativeButton: NSButton {
+@MainActor class SettingsNativeButton: NSButton {
     override var acceptsFirstResponder: Bool { true }
     override func keyDown(with event: NSEvent) {
         if event.charactersIgnoringModifiers == " " || event.charactersIgnoringModifiers == "\r" {
@@ -229,24 +241,110 @@ struct SettingsPicker<Value: Hashable>: NSViewRepresentable {
     }
 }
 
+/// Keep editing history local to each Settings field instead of the window's shared field editor.
+@MainActor final class SettingsEditingField: NSTextField {
+    private var sessions: [String: SettingsEditingCell] = [:]
+    private var sessionID: String?
+    func useSession(_ id: String) -> Bool {
+        guard id != sessionID else { return false }
+        let wasEditing = currentEditor() != nil
+        if wasEditing { window?.makeFirstResponder(nil) }
+        let session = sessions[id] ?? SettingsEditingCell(textCell: "")
+        sessions[id] = session
+        cell = session
+        sessionID = id
+        return wasEditing
+    }
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        cell = SettingsEditingCell(textCell: "")
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+@MainActor private final class SettingsEditingCell: NSTextFieldCell {
+    override init(textCell string: String) {
+        super.init(textCell: string)
+        isEditable = true
+        isSelectable = true
+        isBezeled = true
+        bezelStyle = .roundedBezel
+        drawsBackground = true
+        backgroundColor = .textBackgroundColor
+        usesSingleLineMode = true
+        isScrollable = true
+    }
+    required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    let editor: SettingsFieldEditor = {
+        let editor = SettingsFieldEditor()
+        editor.isFieldEditor = true
+        editor.isRichText = false
+        editor.allowsUndo = true
+        editor.isAutomaticTextReplacementEnabled = false
+        return editor
+    }()
+    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate anObject: Any?, start selStart: Int, length selLength: Int) {
+        let previous = editor.history.resumingSession
+        editor.history.resumingSession = true
+        defer { editor.history.resumingSession = previous }
+        super.select(withFrame: rect, in: controlView, editor: textObj, delegate: anObject, start: selStart, length: selLength)
+    }
+    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate anObject: Any?, event: NSEvent?) {
+        let previous = editor.history.resumingSession
+        editor.history.resumingSession = true
+        defer { editor.history.resumingSession = previous }
+        super.edit(withFrame: rect, in: controlView, editor: textObj, delegate: anObject, event: event)
+    }
+    override func fieldEditor(for controlView: NSView) -> NSTextView? { editor }
+}
+
+/// AppKit normally clears field-editor history when beginning an editing session.
+/// Dedicated Settings editors keep that history through native re-entry only.
+private final class SettingsEditingUndoManager: UndoManager {
+    var resumingSession = false
+    override func removeAllActions() { if !resumingSession { super.removeAllActions() } }
+    override func removeAllActions(withTarget target: Any) { if !resumingSession { super.removeAllActions(withTarget: target) } }
+}
+
+@MainActor private final class SettingsFieldEditor: NSTextView {
+    let history = SettingsEditingUndoManager()
+    override var undoManager: UndoManager? { history }
+    // Dedicated field editors must notify their control after replaying text-storage Undo actions.
+    @objc func undo(_ sender: Any?) {
+        breakUndoCoalescing()
+        let previous = string
+        history.undo()
+        if string != previous { didChangeText() }
+    }
+    @objc func redo(_ sender: Any?) {
+        breakUndoCoalescing()
+        let previous = string
+        history.redo()
+        if string != previous { didChangeText() }
+    }
+}
+
 struct SettingsTextField: NSViewRepresentable {
     @Environment(\.settingsPointSize) var pointSize
     var title: String
     var id: String
     @Binding var text: String
+    var sessionID: String? = nil
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField(string: text)
+        let field = SettingsEditingField(string: text)
         field.delegate = context.coordinator
         return field
     }
     func updateNSView(_ field: NSTextField, context: Context) {
+        let resumeEditing = (field as? SettingsEditingField)?.useSession(sessionID ?? id) ?? false
         context.coordinator.parent = self
         field.identifier = .init(id)
         field.font = .systemFont(ofSize: pointSize)
         field.placeholderString = title
         field.setAccessibilityLabel(title)
         if field.stringValue != text { field.stringValue = text }
+        if resumeEditing { field.window?.makeFirstResponder(field) }
     }
     @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: SettingsTextField
@@ -298,7 +396,7 @@ struct SettingsNumberField: NSViewRepresentable {
     var range: ClosedRange<Int>
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField(string: String(value))
+        let field = SettingsEditingField(string: String(value))
         field.delegate = context.coordinator
         return field
     }
@@ -375,7 +473,7 @@ struct SettingsCategoryList: NSViewRepresentable {
     }
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         let coordinator = context.coordinator
-        let changed = coordinator.parent.labels != labels
+        let changed = coordinator.parent.labels != labels || (scroll.documentView as? NSTableView)?.rowHeight != 26 * pointSize / 13
         coordinator.parent = self
         guard let table = scroll.documentView as? NSTableView else { return }
         table.rowHeight = 26 * pointSize / 13

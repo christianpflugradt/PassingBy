@@ -194,7 +194,7 @@ Changes to persisted models must be checked with tests that load representative 
 
 # 8. Primary navigation
 
-The application uses two navigation levels: a sidebar and one main content area. There is no permanent middle list or detail inspector.
+The application uses a sidebar and one main content area. There is no permanent middle list or detail inspector. Settings has compact local section navigation within its main content area (section 21).
 
 The sidebar contains:
 
@@ -848,7 +848,29 @@ No explicit Save action should be required.
 
 # 21. Settings
 
-The Settings screen contains vertical sections for Dashboard, Categories, To-dos, Appointments, Notes, Smart Substitutions, Security, and Recently Deleted, plus Reset All Zoom Levels (section 25). Configuration controls remain inline; import previews, recovery, and substitution management use temporary dialogs. Tab and Shift+Tab traverse visible, enabled controls in reading order without requiring macOS Full Keyboard Access. Dynamic controls and dismissed dialogs preserve or restore focus to an appropriate control. Keyboard shortcut documentation belongs on Help.
+Settings is the central location for configuring application behavior and managing foundational application-wide resources. Retain the name Settings. It may contain simple configuration, compact management interfaces, entry points to extensive workflows, and application-wide maintenance actions. Keep it easy to navigate as it grows without turning it into an extensive management workspace.
+
+### Organization and presentation
+
+Organize controls by responsibility. Feature-specific sections follow the application's functional order: Dashboard, To-dos, Appointments, Notes. Follow these with cross-cutting Categories (shared organization), Text Editing (application-wide text input, including Smart Substitutions), Data (including Recently Deleted), and Security. Place general maintenance actions, including Reset All Zoom Levels (section 25), afterward where appropriate. Preserve appropriate established names. Create a section only for a distinct existing responsibility; do not add empty or speculative sections or use General as a dumping ground.
+
+Use consistent section headings, section and group spacing, label/control alignment, help text, and management actions while allowing different controls appropriate layouts. Preserve the compact, restrained native macOS appearance without unnecessary cards, heavy borders, or decorative containers. Keep content at a limited readable width. Increase the overall Settings width to accommodate navigation without unnecessarily narrowing existing controls.
+
+Simple configuration stays inline. Compact foundational management may stay inline when limited scope and immediate visibility provide value: Categories remain visible, and Scheduled To-dos retain inline management unless a concrete usability problem warrants a change. Extensive collections and self-contained workflows use native dialogs or sheets: Appointment import, Recently Deleted, and Smart Substitutions management retain their dedicated interfaces. Consider functional importance, typical size, expected growth, complexity, overview value, and page length without arbitrary numerical thresholds. Management entry points use consistent native actions with concise functional labels and explanations only when useful; dismissal returns focus appropriately.
+
+### Local navigation and scrolling
+
+Keep the existing primary application navigation unchanged. Within Settings, place compact persistent section navigation to the left of one vertically scrollable content area. List every available top-level section in content order using a shared representation of identifiers and ordering; do not create nested entries for subsection headings or an unnecessary generic configuration framework.
+
+Activating an entry scrolls directly to its section. Subtly indicate the active section and update it automatically on manual scrolling using a stable reference position in the visible scroll area, rather than largest visible area. Avoid unstable changes near boundaries and selection flicker during programmatic scrolling. Keep navigation synchronized when content changes height. Navigation remains visible while content scrolls.
+
+At normal desktop sizes navigation and content appear side by side. At narrower sizes and supported display zoom levels, use a simple native adaptation that keeps controls accessible without clipping or overlap. Navigation remains visually subordinate to content.
+
+### Keyboard, accessibility, and state
+
+The local navigation is keyboard accessible: users can reach it, move between entries, activate a section, continue through Settings controls, and return to navigation. Provide accessibility labels and active state for VoiceOver. Tab and Shift+Tab traverse visible enabled controls in logical reading order without requiring macOS Full Keyboard Access. Manual scrolling must not steal focus. Dynamic controls and dismissed dialogs preserve or restore focus to an appropriate control. Keyboard shortcut documentation belongs on Help.
+
+Preserve Settings scroll position and, where appropriate, active section when leaving and returning, following section 25's application-wide restoration requirements. Avoid unnecessary hierarchy reconstruction, configuration resets, interrupted editing, or interference with dialogs.
 
 ## 21.1 Dashboard
 
@@ -890,7 +912,7 @@ Users may optionally lock after Passing By has remained inactive for a configure
 
 ## 21.7 Recently Deleted
 
-Settings contains a Recently Deleted section with a Review Deleted Items action. It opens a compact native sheet showing explicitly deleted Notes, To-dos, and Appointments together, newest deletion first, regardless of the global Category filter. Each row identifies its type, title, and deletion date. Selection shows a read-only, selectable content preview; Note content remains raw Markdown. Restore returns the selected item without confirmation and keeps the sheet open with brief feedback. Done or Escape closes the sheet and restores focus to the Settings action. The sheet supports keyboard selection and traversal and exposes no content while the app is locked.
+The Data section in Settings contains a Recently Deleted entry with a Review Deleted Items action. It opens a compact native sheet showing explicitly deleted Notes, To-dos, and Appointments together, newest deletion first, regardless of the global Category filter. Each row identifies its type, title, and deletion date. Selection shows a read-only, selectable content preview; Note content remains raw Markdown. Restore returns the selected item without confirmation and keeps the sheet open with brief feedback. Done or Escape closes the sheet and restores focus to the Settings action. The sheet supports keyboard selection and traversal and exposes no content while the app is locked.
 
 Recovery is always enabled for a fixed 30 calendar days from deletion, persists across restarts, and has no configuration. At expiry items become unavailable and are permanently removed from the workspace on the next cleanup. Automatic retention cleanup does not enter Recently Deleted. Discarded creation drafts and deleted Categories or Scheduled To-do definitions are not included.
 
@@ -902,7 +924,7 @@ This feature stores only the item at deletion. It adds no Note history, versioni
 
 ## 21.8 Smart Substitutions
 
-Smart Substitutions are local, deterministic text shortcuts, globally off for both new and migrated workspaces. The global switch enables both explicit and Automatic matching in Note titles and Markdown content, and To-do and Appointment titles and descriptions. Search, Categories, settings fields, import, and other technical controls are excluded. Enabling the feature or changing a rule never rewrites existing content.
+The Text Editing section contains the global Smart Substitutions switch and Manage Substitutions… action. Smart Substitutions are local, deterministic text shortcuts, globally off for both new and migrated workspaces. The global switch enables both explicit and Automatic matching in Note titles and Markdown content, and To-do and Appointment titles and descriptions. Search, Categories, settings fields, import, and other technical controls are excluded. Enabling the feature or changing a rule never rewrites existing content.
 
 Manage Substitutions… opens a native sheet with Input, Replacement, and Automatic columns, built-ins followed by custom mappings. Built-in input/output cannot be edited or deleted; only Automatic can change. Select a row and press Space to toggle Automatic, or use its checkbox. New Custom Mapping opens a draft; Add Custom Mapping creates a valid draft. Selecting a custom row permits editing; valid changes auto-save, while invalid drafts remain visible with an inline error and leave the saved rule unchanged. Delete Custom Mapping removes only the selected custom rule. Tab/Shift+Tab traverse the form; Return inserts a line break in Replacement, and Done or Escape closes the sheet and restores focus to Manage Substitutions.
 
@@ -1344,6 +1366,16 @@ A reviewer should verify the items relevant to the change and its regression ris
 - [ ] Selection persists across restart.
 - [ ] The filter is one native segmented control with 1–4 configured Categories and a compact picker at five or more, with unchanged selection semantics.
 - [ ] A Note's Category assignment remains an ordinary picker.
+
+## Settings
+
+- [ ] Every top-level section has a local navigation entry in content order, and activating it scrolls to its heading.
+- [ ] Manual scrolling updates the active entry stably near boundaries; programmatic jumps and dynamic-height changes remain synchronized.
+- [ ] Existing controls, inline Category and Scheduled To-do management, and dedicated management dialogs remain functional.
+- [ ] Keyboard traversal and VoiceOver expose local navigation, current section, and controls without scrolling stealing focus.
+- [ ] Narrow windows and supported zoom levels keep navigation and controls accessible without overlap.
+- [ ] Returning preserves scroll position, active section, focus, editing, and Undo/Redo; restorable Settings state survives restart.
+- [ ] Navigation and layout changes preserve configuration and persisted data and do not affect unrelated screens.
 
 ## Recovery
 
