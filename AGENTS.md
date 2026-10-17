@@ -94,7 +94,7 @@ An explicitly requested feature or documentation review can authorize updating t
 
 Do not rebuild major view hierarchies for routine interactions such as selection, filtering, editing, or toggling state.
 
-During incremental updates, preserve selection, focus, scroll position, native Undo/Redo context, and in-progress edits where their target remains available. Intentional transitions such as creation, deletion, filtering out an item, or closing a dialog may move focus as specified in `Product.md`; choose an appropriate surviving control and preserve saved content.
+Preserve screen and editor state during incremental updates and when switching screens or Notes, following `Product.md` sections 12.3 and 25. Keep Undo/Redo history in memory across navigation; never persist it across application restarts. Persist other restorable UI state, including caret positions, as part of application state. Intentional transitions such as creation, deletion, filtering out an item, or closing a dialog may move focus as specified in `Product.md`; choose an appropriate surviving control when the original target is unavailable.
 
 Prefer stable native view hierarchies with incremental state updates over reconstructing controls after each interaction.
 

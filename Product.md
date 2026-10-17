@@ -211,7 +211,7 @@ The sidebar is a compact, icon-only navigation rail with tooltips for every dest
 
 Primary navigation is keyboard-first: `Cmd+1` opens Dashboard, `Cmd+2` To-dos, `Cmd+3` Appointments, `Cmd+4` through `Cmd+9` the first six currently visible Notes in sidebar order, `Cmd+0` Help, and `Cmd+,` Settings. Further Notes remain accessible from the sidebar. The native menu exposes these commands. `Option+Cmd+S` focuses the current sidebar destination; Up/Down moves between entries, Enter opens an entry and focuses its main content, and Escape returns to the previous control. The sidebar is outside the main content Tab sequence.
 
-Dashboard is the default starting view when no relevant navigation state can be restored. The application should restore the user's last relevant navigation state when practical.
+Dashboard is the default starting view when no valid saved navigation state can be restored. Otherwise, the application restores the last selected screen or Note and its UI state as defined in section 25.
 
 A dedicated Archive screen is not part of Version 1.
 
@@ -474,9 +474,7 @@ The editor should support normal native text-editing expectations including:
 - scrolling,
 - standard macOS text interaction.
 
-Notes use standard native macOS text editing where practical. Undo and Redo support multiple edits during the active editing session; their history is not retained across application restarts. Find searches the open Note, and native Find and Replace may be available where the macOS text system provides it naturally.
-
-Open question for human review: whether a Note must retain its Undo history, caret position, and scroll position after navigating away and returning. The current implementation recreates the Note editor on navigation; the scope of “active editing session” above does not establish a requirement across that transition. Preserve existing navigation behavior until this is clarified. State preservation during updates to an open editor remains required.
+Notes use standard native macOS text editing where practical. Each Note retains its own Undo and Redo history in memory throughout the running application session, including when the user switches Notes or visits other screens. Undo/Redo history is not persisted and starts empty after an application restart. Caret position, text selection, and scroll position are retained per Note across navigation and persisted across restarts, as part of the UI state defined in section 25. Find searches the open Note, and native Find and Replace may be available where the macOS text system provides it naturally.
 
 The editor remains compatible with native macOS Dictation when it is available.
 
@@ -823,7 +821,7 @@ Exact available values may be refined during implementation, but the following s
 
 # 20. Auto-save
 
-Changes to existing application content and Settings are automatically persisted. New To-do and Appointment drafts are the explicit exception described in section 27; accepting a draft creates and persists the item without a separate Save action.
+Changes to existing application content, Settings, and restorable UI state (section 25) are automatically persisted. Undo/Redo history is the in-memory exception and is never written to disk. New To-do and Appointment drafts are the explicit exception described in section 27; accepting a draft creates and persists the item without a separate Save action.
 
 This includes:
 
@@ -975,6 +973,12 @@ Expected behaviour includes:
 - restoration of practical UI state.
 
 Custom UI components should not unnecessarily imitate web application patterns.
+
+Switching screens or Notes must preserve each screen's state, including selection, focus, scroll position, caret positions, in-progress edits, and native Undo/Redo context. Returning resumes that state rather than resetting the screen. Restorable UI state, including the selected destination, per-screen selections, filters, display modes, expanded groups, visibility toggles, and per-editor caret, text selection, scroll position, and focus target, must also persist across application restarts. Undo/Redo history alone remains in memory and is cleared on restart. The creation-draft lifecycle remains as defined in section 27.
+
+Restore state by item or control identity. If a saved target has been deleted or is unavailable under the current filter, use an appropriate surviving target and clamp text positions to the current content. Explicit focus transitions such as creating or deleting an item still follow their specified behavior. App Lock must conceal restored state until authentication succeeds.
+
+Known implementation gap: Note navigation currently recreates the native editor without restoring its editing session. Implementing the state-preservation requirements above remains outstanding.
 
 Dashboard, To-dos, Appointments, Help, and Settings each remember an independent display zoom; every Note remembers its own. `Cmd+Plus` and `Cmd+Minus` change the current screen's size in 10-percentage-point steps from 70% to 180%, with 100% as the default. Reaching a limit gives brief feedback. Zoom persists across restarts, does not change Markdown source, and must preserve ongoing editing and native Undo/Redo. Settings → Reset All Zoom Levels restores all screens and Notes to 100%.
 
@@ -1277,7 +1281,8 @@ A reviewer should verify the items relevant to the change and its regression ris
 - [ ] To-dos auto-save.
 - [ ] Appointments auto-save.
 - [ ] Settings auto-save.
-- [ ] Normal navigation does not lose changes.
+- [ ] Switching screens or Notes and returning preserves selection, focus, caret, scroll position, in-progress edits, and Undo/Redo history.
+- [ ] Restorable screen and editor state, including caret positions, survives restart; Undo/Redo history is never persisted and starts empty.
 - [ ] Normal app termination does not lose changes.
 
 ## Native UX
