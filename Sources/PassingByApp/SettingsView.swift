@@ -51,6 +51,7 @@ struct SettingsView: View {
                 appointmentsSection
                 notesSection
                 securitySection
+                recoverySection
                 Divider()
                 VStack(alignment: .leading, spacing: 6) {
                     SettingsButton(title: "Reset All Zoom Levels", id: "settings-900-zoom") { state.resetAllZoom() }
@@ -76,6 +77,10 @@ struct SettingsView: View {
             case .failure(let error): importFlow.fileError = error.localizedDescription
             }
         }
+        .sheet(isPresented: $state.showRecentlyDeleted, onDismiss: {
+            state.contextHelp.close(restoringFocus: false)
+            focus.focus("settings-700-deleted")
+        }) { RecentlyDeletedView(state: state) }
         .sheet(item: $importFlow.preview) { preview in
             AppointmentImportPreviewView(state: state, filename: preview.filename, parsed: preview.parsed)
         }
@@ -198,6 +203,16 @@ struct SettingsView: View {
             SettingsToggle(title: "Automatic correction", id: "settings-530-correction", value: setting(\.automaticCorrection))
             SettingsToggle(title: "Smart quotes", id: "settings-540-quotes", value: setting(\.smartQuotes))
             SettingsToggle(title: "Smart dashes", id: "settings-550-dashes", value: setting(\.smartDashes))
+        }
+    }
+    private var recoverySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeading("Recently Deleted")
+            explanation("Deleted items can be restored for 30 days. Automatically cleaned-up items are not included.")
+            SettingsButton(title: "Review Deleted Items…", id: "settings-700-deleted") {
+                state.refresh()
+                state.showRecentlyDeleted = true
+            }
         }
     }
     private var securitySection: some View {

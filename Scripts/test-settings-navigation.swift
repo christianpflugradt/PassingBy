@@ -191,6 +191,85 @@ import PassingByCore
         settle()
         finalLoop.refresh(request: 0, id: nil)
         check(focused("settings-610-inactive"), "Removing inactivity field preserves nearby focus")
+        // Recovery uses isolated data and the real native sheet, including keyboard focus.
+        let recoveryNote = Note(title: "Working notes", contentMarkdown: "# Research\n\n- [x] Preserve this Markdown\n\n```swift\nlet value = 42\n```", labelID: state.workspace.labels[0].id, iconName: "book")
+        let recoveryTask = Task(title: "Completed task", taskDescription: "Keep completion state", completedAt: Date())
+        let recoveryAppointment = DateItem(title: "Past meeting", date: Date().addingTimeInterval(-86_400), itemDescription: "Original details")
+        state.change { workspace in
+            workspace.notes.append(recoveryNote)
+            workspace.tasks.append(recoveryTask)
+            workspace.dates.append(recoveryAppointment)
+            workspace.deleteTask(recoveryTask.id, at: Date().addingTimeInterval(-100))
+            workspace.deleteAppointment(recoveryAppointment.id, at: Date().addingTimeInterval(-50))
+            workspace.settings.labelContext = .label(workspace.labels[1].id)
+        }
+        state.change { $0.deleteNote(recoveryNote.id) }
+        settle()
+        check(state.workspace.notes.isEmpty && state.workspace.recentlyDeleted.count == 3, "Deletion preserves the complete Note for recovery")
+        state.destination = .settings
+        activate("settings-700-deleted")
+        guard let recoverySheet = window.attachedSheet else { fatalError("Recently Deleted opens a native sheet") }
+        func recoveryControl(_ id: String) -> NSView {
+            guard let view = descendants(recoverySheet.contentView!).first(where: { $0.identifier?.rawValue == id }) else { fatalError("Missing recovery control: " + id) }
+            return view
+        }
+        let recoveryList = recoveryControl("settings-010-deleted-list") as! NSTableView
+        let preview = recoveryControl("settings-020-deleted-preview") as! NSTextView
+        check(recoveryList.numberOfRows == 3 && recoverySheet.firstResponder === recoveryList, "Recovery ignores the global Category filter and initially focuses its list")
+        check(preview.string == recoveryNote.contentMarkdown && !preview.isEditable && preview.isSelectable, "Newest deletion is selected with complete, selectable, read-only raw Markdown")
+        recoveryList.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false)
+        settle()
+        check(recoveryControl("settings-010-deleted-list") === recoveryList && recoveryControl("settings-020-deleted-preview") === preview, "Selection preserves native list and preview identity")
+        check(preview.string == recoveryAppointment.itemDescription, "Selection updates the preview incrementally")
+        recoveryList.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+        settle()
+        let recoveryLoop = SettingsKeyLoop.Coordinator()
+        recoveryLoop.anchor = recoveryList
+        for view in recoveryLoop.controls {
+            recoveryLoop.select(view)
+            check(recoveryLoop.currentControl() === view, "Every recovery control is keyboard reachable")
+        }
+        recoveryLoop.select(preview)
+        preview.setSelectedRange(NSRange(location: 2, length: 8))
+        recoveryLoop.refresh(request: 0, id: nil)
+        check(preview.selectedRange() == NSRange(location: 2, length: 8), "Routine recovery refresh preserves preview text selection")
+        if let monitor = recoveryLoop.monitor { NSEvent.removeMonitor(monitor); recoveryLoop.monitor = nil }
+        if let destination = ProcessInfo.processInfo.environment["SETTINGS_TEST_SCREENSHOT_DIR"] {
+            let output = URL(fileURLWithPath: destination)
+            try! FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                window.appearance = NSAppearance(named: appearance)
+                recoverySheet.appearance = NSAppearance(named: appearance)
+                settle()
+                let capture = Process()
+                capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+                capture.arguments = ["-x", "-l", String(recoverySheet.windowNumber), output.appendingPathComponent("recently-deleted-" + name + ".png").path]
+                try! capture.run()
+                capture.waitUntilExit()
+                check(capture.terminationStatus == 0, "Recovery screenshot succeeds")
+            }
+        }
+        for _ in 0..<3 {
+            (recoveryControl("settings-030-deleted-restore") as! NSButton).performClick(nil)
+            settle()
+        }
+        check(state.workspace.recentlyDeleted.isEmpty && state.workspace.notes == [recoveryNote], "Restore returns full Note content without duplicates")
+        check(state.workspace.tasks.last?.completedAt == recoveryTask.completedAt && state.workspace.dates.last?.date == recoveryAppointment.date, "Recovery preserves completion and passed dates through the actual save path")
+        check(!(recoveryControl("settings-030-deleted-restore") as! NSButton).isEnabled && recoverySheet.firstResponder === recoveryControl("settings-040-deleted-done"), "Empty recovery disables Restore and moves focus to Done")
+        (recoveryControl("settings-040-deleted-done") as! NSButton).performClick(nil)
+        settle()
+        check(window.attachedSheet == nil && focused("settings-700-deleted"), "Closing recovery restores focus to its Settings action")
+        state.change { $0.deleteNote(recoveryNote.id) }
+        activate("settings-700-deleted")
+        let reopenedSheet = window.attachedSheet!
+        let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: reopenedSheet.windowNumber, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
+        app.sendEvent(escape)
+        settle()
+        check(window.attachedSheet == nil && focused("settings-700-deleted"), "Escape closes recovery and restores Settings focus")
+        activate("settings-700-deleted")
+        state.lockNow()
+        settle()
+        check(!state.showRecentlyDeleted && window.attachedSheet == nil, "App Lock dismisses recovery so private content cannot remain visible")
         if let destination = ProcessInfo.processInfo.environment["SETTINGS_TEST_SCREENSHOT_DIR"] {
             let output = URL(fileURLWithPath: destination)
             try! FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)

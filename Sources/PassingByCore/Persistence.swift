@@ -153,6 +153,21 @@ public final class AppStore {
         save()
     }
 
+    @discardableResult public func restoreDeletedItem(_ id: UUID, at now: Date = Date(), calendar: Calendar = .current) throws -> Bool {
+        var candidate = workspace
+        guard candidate.restoreDeletedItem(id, at: now, calendar: calendar) else { return false }
+        candidate.purgeExpired(now: now, calendar: calendar)
+        do { try persistence.save(candidate) }
+        catch {
+            persistenceError = error.localizedDescription
+            onPersistenceError?(error.localizedDescription)
+            throw error
+        }
+        workspace = candidate
+        persistenceError = nil
+        return true
+    }
+
     public func importAppointments(_ parsed: AppointmentTSVImport, categoryID: UUID?) throws {
         guard parsed.canImport else { throw AppointmentImportError.invalidRows }
         guard categoryID == nil || workspace.labels.contains(where: { $0.id == categoryID }) else { throw AppointmentImportError.unknownCategory }

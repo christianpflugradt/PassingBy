@@ -118,6 +118,7 @@ public struct Task: Codable, Identifiable, Hashable {
     public var labelID: UUID?
     public var createdAt = Date()
     public var completedAt: Date?
+    public var restoredAt: Date?
     public init(id: UUID = UUID(), title: String, taskDescription: String = "", labelID: UUID? = nil, createdAt: Date = Date(), completedAt: Date? = nil) { self.id = id; self.title = title; self.taskDescription = taskDescription; self.labelID = labelID; self.createdAt = createdAt; self.completedAt = completedAt }
 }
 
@@ -126,6 +127,7 @@ public struct DateItem: Codable, Identifiable, Hashable {
     public var title: String
     public var date: Date
     public var itemDescription: String = ""
+    public var restoredAt: Date?
     public var labelID: UUID?
     public var createdAt = Date()
     public init(id: UUID = UUID(), title: String, date: Date, itemDescription: String = "", labelID: UUID? = nil, createdAt: Date = Date()) { self.id = id; self.title = title; self.date = date; self.itemDescription = itemDescription; self.labelID = labelID; self.createdAt = createdAt }
@@ -260,6 +262,7 @@ public struct Workspace: Codable, Equatable {
     public var tasks: [Task] = []
     public var scheduledTodos: [ScheduledTodo] = []
     public var dates: [DateItem] = []
+    public var recentlyDeleted: [DeletedItem] = []
     public var settings = AppSettings()
     public var statisticsStartedAt: Date?
     public var historicalCompletedTodoCount = 0
@@ -274,7 +277,7 @@ public struct Workspace: Codable, Equatable {
         self.historicalPassedAppointmentCount = historicalPassedAppointmentCount
     }
 
-    private enum CodingKeys: String, CodingKey { case labels, notes, tasks, scheduledTodos, dates, settings, noteOrderVersion, statisticsStartedAt, historicalCompletedTodoCount, historicalPassedAppointmentCount }
+    private enum CodingKeys: String, CodingKey { case labels, notes, tasks, scheduledTodos, dates, recentlyDeleted, settings, noteOrderVersion, statisticsStartedAt, historicalCompletedTodoCount, historicalPassedAppointmentCount }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         labels = try values.decode([Label].self, forKey: .labels)
@@ -282,6 +285,7 @@ public struct Workspace: Codable, Equatable {
         tasks = try values.decode([Task].self, forKey: .tasks)
         scheduledTodos = try values.decodeIfPresent([ScheduledTodo].self, forKey: .scheduledTodos) ?? []
         dates = try values.decode([DateItem].self, forKey: .dates)
+        recentlyDeleted = try values.decodeIfPresent([DeletedItem].self, forKey: .recentlyDeleted) ?? []
         settings = try values.decode(AppSettings.self, forKey: .settings)
         statisticsStartedAt = try values.decodeIfPresent(Date.self, forKey: .statisticsStartedAt)
         historicalCompletedTodoCount = try values.decodeIfPresent(Int.self, forKey: .historicalCompletedTodoCount) ?? 0
@@ -442,13 +446,14 @@ public struct Workspace: Codable, Equatable {
     }
 
     public mutating func purgeExpired(now: Date = Date(), calendar: Calendar = .current) {
+        recentlyDeleted.removeAll { $0.hasExpired(at: now, calendar: calendar) }
         let today = calendar.startOfDay(for: now)
         if settings.taskRetention != .never {
             let days = settings.taskRetention.rawValue
             var removed = 0
             tasks.removeAll { task in
                 guard let completed = task.completedAt,
-                      let expiry = calendar.date(byAdding: .day, value: days, to: completed) else { return false }
+                      let expiry = calendar.date(byAdding: .day, value: days, to: max(completed, task.restoredAt ?? completed)) else { return false }
                 if now > expiry { removed += 1; return true }
                 return false
             }
@@ -459,7 +464,7 @@ public struct Workspace: Codable, Equatable {
             var removed = 0
             dates.removeAll { item in
                 guard item.date < today,
-                      let expiry = calendar.date(byAdding: .day, value: days, to: calendar.startOfDay(for: item.date)) else { return false }
+                      let expiry = calendar.date(byAdding: .day, value: days, to: calendar.startOfDay(for: max(item.date, item.restoredAt ?? item.date))) else { return false }
                 if today > expiry { removed += 1; return true }
                 return false
             }

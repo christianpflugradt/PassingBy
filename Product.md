@@ -409,7 +409,7 @@ Notes may be explicitly deleted.
 
 Deleting a Note requires explicit confirmation, whether triggered by its trash action or `Cmd+Delete`.
 
-A Trash system is not required.
+Explicitly deleted Notes remain recoverable through Settings → Recently Deleted for 30 days, as defined in section 21.7. This recovery window does not apply retention to existing Notes.
 
 A Note archive is not required.
 
@@ -792,7 +792,7 @@ Settings contain separate retention configuration for:
 
 Notes have no retention setting.
 
-The implementation must not introduce Note retention.
+The implementation must not introduce retention of existing Notes. The fixed recovery window for explicitly deleted items is defined separately in section 21.7.
 
 Reasonable representation may include durations such as:
 
@@ -881,6 +881,18 @@ Users can configure line numbers, indent width, spell checking, automatic correc
 Optional global App Lock protects app content from casual exposure. It is off by default and uses native macOS authentication, including Touch ID when available through the system. With App Lock enabled, every fresh launch starts locked and no private app content is visible until authentication succeeds. `Shift+Cmd+L` and Lock Now in Settings lock the app immediately.
 
 Users may optionally lock after Passing By has remained inactive for a configured 1–120 minutes (default 5). This option is off by default. Inactive means the application is not active; keyboard and mouse idle time while it remains active does not count. Returning before the delay cancels the pending lock. Category-specific privacy filtering is outside Version 1.
+
+## 21.7 Recently Deleted
+
+Settings contains a Recently Deleted section with a Review Deleted Items action. It opens a compact native sheet showing explicitly deleted Notes, To-dos, and Appointments together, newest deletion first, regardless of the global Category filter. Each row identifies its type, title, and deletion date. Selection shows a read-only, selectable content preview; Note content remains raw Markdown. Restore returns the selected item without confirmation and keeps the sheet open with brief feedback. Done or Escape closes the sheet and restores focus to the Settings action. The sheet supports keyboard selection and traversal and exposes no content while the app is locked.
+
+Recovery is always enabled for a fixed 30 calendar days from deletion, persists across restarts, and has no configuration. At expiry items become unavailable and are permanently removed from the workspace on the next cleanup. Automatic retention cleanup does not enter Recently Deleted. Discarded creation drafts and deleted Categories or Scheduled To-do definitions are not included.
+
+Normal deletion confirmations remain and explain the recovery window. Deleted items disappear from normal screens, sidebar entries, filtering results, and Dashboard totals. Recovery preserves the item identity and all user content and metadata, including the Note icon and zoom, To-do completion timestamp, and Appointment date. Restore into the former collection position where practical; if the Category no longer exists, restore as Uncategorized. Restoration does not change the global filter, navigate away, reopen completed To-dos, or change Appointment dates. Feedback explains when Show Completed To-dos or Show past is needed. Restoring an item removes its recovery entry without duplicating the item. Failed restoration saves leave the recovery entry available for retry and surface an error.
+
+Restored completed To-dos and passed Appointments receive a fresh window under their current retention setting from restoration. Their original completion timestamp or Appointment date remains unchanged. Subsequent completion or a later Appointment date uses that later date for retention. Ordinary retention continues to preserve lifetime statistics; explicit deletion excludes the deleted item and recovery includes it again exactly once.
+
+This feature stores only the item at deletion. It adds no Note history, versioning, archive, search, bulk restore, or manual permanent-deletion controls. Existing Notes still have no automatic retention.
 
 ---
 
@@ -1034,7 +1046,7 @@ Notes have no archive state.
 
 Notes have no completion state.
 
-Notes have no retention-based deletion.
+Existing Notes have no retention-based deletion. Explicitly deleted Notes have the fixed recovery window in section 21.7.
 
 ---
 
@@ -1177,7 +1189,7 @@ A reviewer should explicitly verify all of the following.
 - [ ] Notes can be deleted.
 - [ ] Notes cannot be completed.
 - [ ] Notes cannot be archived.
-- [ ] Notes are not affected by retention.
+- [ ] Existing Notes are not affected by retention; explicitly deleted Notes follow the Recently Deleted recovery window.
 
 ## To-dos
 
@@ -1227,6 +1239,16 @@ A reviewer should explicitly verify all of the following.
 - [ ] Selection persists across restart.
 - [ ] The filter is one native segmented control with 1–4 configured Categories and a compact picker at five or more, with unchanged selection semantics.
 - [ ] A Note's Category assignment remains an ordinary picker.
+
+## Recovery
+
+- [ ] Settings opens one Recently Deleted sheet for all explicitly deleted item types, independent of the global Category filter, newest deletion first.
+- [ ] Selection previews complete read-only content, including raw Markdown Notes; keyboard navigation, copy, dismissal, and focus restoration work.
+- [ ] Recovery entries persist for 30 calendar days across restarts; expired entries cannot be restored and cleanup removes them.
+- [ ] Restore preserves identity, content, Note icon and zoom, To-do completion state, and Appointment date; missing Categories become Uncategorized.
+- [ ] Restored inactive items survive cleanup for a fresh retention window without changing their original dates or duplicating statistics.
+- [ ] Automatic retention, discarded drafts, Categories, and schedule definitions do not populate Recently Deleted.
+- [ ] Deleted items stay out of ordinary views and totals; locking hides recovery content, and failed restoration saves preserve the entry for retry.
 
 ## Persistence
 

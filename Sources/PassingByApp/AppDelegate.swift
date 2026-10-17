@@ -47,6 +47,7 @@ enum Destination: Hashable {
         didSet {
             contextHelp.close(restoringFocus: false)
             cancelItemDeletion()
+            if destination != .settings { showRecentlyDeleted = false }
             switch destination {
             case .dashboard: UserDefaults.standard.set("dashboard", forKey: "area")
             case .tasks: UserDefaults.standard.set("tasks", forKey: "area")
@@ -66,6 +67,7 @@ enum Destination: Hashable {
     @Published var editingAppointmentID: UUID? { didSet { contextHelp.close(restoringFocus: false) } }
     @Published var appointmentDraft: DateItem?
     @Published var describingAppointmentID: UUID?
+    @Published var showRecentlyDeleted = false
     @Published var showReorderNotes = false
     @Published var iconPickerNoteID: UUID?
     @Published var focusNoteTitleID: UUID?
@@ -191,6 +193,7 @@ enum Destination: Hashable {
         authenticationContext = nil
         isAuthenticating = false
         isLocked = true
+        showRecentlyDeleted = false
         contextHelp.close(restoringFocus: false)
         cancelItemDeletion()
         cancelPendingLock()
@@ -265,6 +268,14 @@ enum Destination: Hashable {
         workspace = store.workspace
         error = store.persistenceError
         reconcile()
+    }
+    @discardableResult func restoreDeletedItem(_ id: UUID) throws -> Bool {
+        guard !isLocked else { return false }
+        let restored = try store.restoreDeletedItem(id)
+        workspace = store.workspace
+        error = store.persistenceError
+        reconcile()
+        return restored
     }
     func refreshIfDayChanged() {
         let today = Calendar.current.startOfDay(for: Date())
@@ -395,7 +406,7 @@ enum Destination: Hashable {
         alert.alertStyle = .warning
         let itemName = isNote ? "Note" : (appointment ? "Appointment" : "To-do")
         alert.messageText = "Delete this \(itemName)?"
-        alert.informativeText = "\(title.isEmpty ? (isNote ? "Untitled Note" : "New " + itemName) : title)\nThis cannot be undone."
+        alert.informativeText = "\(title.isEmpty ? (isNote ? "Untitled Note" : "New " + itemName) : title)\nYou can restore it from Settings → Recently Deleted for 30 days."
         alert.addButton(withTitle: "Delete " + itemName)
         alert.addButton(withTitle: "Cancel")
         alert.buttons[0].hasDestructiveAction = true
@@ -426,14 +437,14 @@ enum Destination: Hashable {
             guard !self.isLocked, self.destination == expectedDestination else { return }
             if response == .alertFirstButtonReturn {
                 if isNote {
-                    self.change { $0.notes.removeAll { $0.id == id } }
+                    self.change { $0.deleteNote(id) }
                 } else if appointment {
                     if self.editingAppointmentID == id { self.closeAppointmentEditing() }
-                    self.change { $0.dates.removeAll { $0.id == id } }
+                    self.change { $0.deleteAppointment(id) }
                     if self.selectedAppointmentID == id { self.selectedAppointmentID = nil }
                 } else {
                     if self.editingTaskID == id { self.closeTaskEditing() }
-                    self.change { $0.tasks.removeAll { $0.id == id } }
+                    self.change { $0.deleteTask(id) }
                     if self.selectedTaskID == id { self.selectedTaskID = nil }
                 }
             }
@@ -573,6 +584,11 @@ private struct AppShortcut {
                 .init(title: "This dialog", rows: commands), .init(title: "Assign Category", rows: category),
                 .init(title: "Text editing", rows: editing), panelHelp,
                 .init(title: "After closing this dialog", rows: navigation)])
+        }
+        if showRecentlyDeleted {
+            return .init(title: "Recently Deleted Shortcuts", sections: [
+                .init(title: "This dialog", rows: [.init("↑ / ↓ in the list", "Select a deleted item and show its preview."), .init("Enter / Space on a button", "Activate the focused button."), .init("⌘C in the preview", "Copy selected text."), .init("Escape", "Close Recently Deleted.")]),
+                panelHelp, .init(title: "After closing this dialog", rows: navigation)])
         }
         if itemDeletionAlert != nil || keyboardNavigation.window?.attachedSheet != nil && !showReorderNotes {
             return .init(title: "Confirmation Shortcuts", sections: [
@@ -1389,6 +1405,7 @@ private struct HelpView: View {
                 Text("Passing By keeps everyday notes, to-dos, and appointments close at hand. Your information stays locally on this Mac, and changes are saved automatically.")
                 section("Categories", "Create Categories in Settings to organize To-dos, Appointments, and Notes. Work, Personal, and Sports are examples you might create. A Default Category applies to new items; a Scheduled Default can use another Category on selected weekdays and times.")
                 section("To-dos", "Create To-dos and assign them to Categories. Mark one complete to remove it from the open list. Turn on Show Completed To-dos to see completed items and restore one if you checked it off by mistake. Deleting a To-do always requires confirmation.")
+                section("Recently Deleted", "Recover deleted Notes, To-dos, and Appointments from Settings → Recently Deleted for 30 days. Select an item to preview its contents, then choose Restore. Automatic cleanup is not included.")
                 section("Appointments", "Create Appointments and assign them to Categories. Upcoming Appointments appear on the Dashboard alongside open To-dos. The Appointments view can also show past items.")
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Bulk Import").font(.system(size: 22 * scale, weight: .semibold))

@@ -7,6 +7,7 @@ Passing By is a small native macOS workspace for information that matters now: t
 - A compact dashboard for open to-dos and upcoming appointments.
 - To-dos, date-based appointments, and notes you can edit directly in Markdown.
 - Optional categories to group and filter your items.
+- Recovery of explicitly deleted notes, to-dos, and appointments for 30 days through Settings → Recently Deleted.
 - Appointment import from TSV, control over how long completed to-dos and past appointments are kept, and optional App Lock.
 
 ## Install
