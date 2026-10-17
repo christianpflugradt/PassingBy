@@ -478,7 +478,7 @@ Notes use standard native macOS text editing where practical. Each Note retains 
 
 The editor remains compatible with native macOS Dictation when it is available.
 
-Notes use spaces for indentation. Tab indents and Shift-Tab outdents using the configured width of 2, 4, or 8 spaces; the default is 4. Line numbers are configurable and shown by default. Native spell checking is on by default. Automatic correction, Smart Quotes, and Smart Dashes are off by default, and each may be enabled in Settings.
+Notes use spaces for indentation. Tab indents and Shift-Tab outdents using the configured width of 2, 4, or 8 spaces; the default is 4. Line numbers are configurable and shown by default. Native spell checking is on by default. Automatic correction, Smart Quotes, and Smart Dashes are off by default, and each may be enabled in Settings. Optional Smart Substitutions are defined in section 21.8.
 
 A restrained editor status bar shows the caret line and column, word count, and character count. These describe the current Markdown source, including its syntax.
 
@@ -848,7 +848,7 @@ No explicit Save action should be required.
 
 # 21. Settings
 
-The Settings screen contains vertical sections for Dashboard, Categories, To-dos, Appointments, Notes, Security, and Recently Deleted, plus Reset All Zoom Levels (section 25). Configuration controls remain inline; import previews and recovery use temporary dialogs. Tab and Shift+Tab traverse visible, enabled controls in reading order without requiring macOS Full Keyboard Access. Dynamic controls and dismissed dialogs preserve or restore focus to an appropriate control. Keyboard shortcut documentation belongs on Help.
+The Settings screen contains vertical sections for Dashboard, Categories, To-dos, Appointments, Notes, Smart Substitutions, Security, and Recently Deleted, plus Reset All Zoom Levels (section 25). Configuration controls remain inline; import previews, recovery, and substitution management use temporary dialogs. Tab and Shift+Tab traverse visible, enabled controls in reading order without requiring macOS Full Keyboard Access. Dynamic controls and dismissed dialogs preserve or restore focus to an appropriate control. Keyboard shortcut documentation belongs on Help.
 
 ## 21.1 Dashboard
 
@@ -899,6 +899,90 @@ Normal deletion confirmations remain and explain the recovery window. Deleted it
 Restored completed To-dos and passed Appointments receive a fresh window under their current retention setting from restoration. Their original completion timestamp or Appointment date remains unchanged. Subsequent completion or a later Appointment date uses that later date for retention. Ordinary retention continues to preserve lifetime statistics; explicit deletion excludes the deleted item and recovery includes it again exactly once.
 
 This feature stores only the item at deletion. It adds no Note history, versioning, archive, search, bulk restore, or manual permanent-deletion controls. Existing Notes still have no automatic retention.
+
+## 21.8 Smart Substitutions
+
+Smart Substitutions are local, deterministic text shortcuts, globally off for both new and migrated workspaces. The global switch enables both explicit and Automatic matching in Note titles and Markdown content, and To-do and Appointment titles and descriptions. Search, Categories, settings fields, import, and other technical controls are excluded. Enabling the feature or changing a rule never rewrites existing content.
+
+Manage Substitutions… opens a native sheet with Input, Replacement, and Automatic columns, built-ins followed by custom mappings. Built-in input/output cannot be edited or deleted; only Automatic can change. Select a row and press Space to toggle Automatic, or use its checkbox. New Custom Mapping opens a draft; Add Custom Mapping creates a valid draft. Selecting a custom row permits editing; valid changes auto-save, while invalid drafts remain visible with an inline error and leave the saved rule unchanged. Delete Custom Mapping removes only the selected custom rule. Tab/Shift+Tab traverse the form; Return inserts a line break in Replacement, and Done or Escape closes the sheet and restores focus to Manage Substitutions.
+
+Explicit syntax is `|input|`, completed only by typing its last delimiter. The opener must start the field/token (after whitespace) or follow up to eight opening brackets or quotes at the start of a token (`(`, `[`, `{`, `"`, `'`). This avoids substitutions in adjacent identifiers, paths and URL components. Inside the delimiters, escape each literal pipe as `\|` and each literal backslash as `\\`. This applies uniformly to every mapping: `|:\||` inserts 😐, `|\|\||` inserts ∨, and `|\|->|` inserts ↦. The entire 61-entry proposed catalog, including `|->`, is retained using this grammar. Custom inputs still cannot contain `|`.
+
+A backslash immediately before the opening delimiter prevents explicit conversion, regardless of the number of backslashes: `\|sqrt|` remains exactly that literal text, including the backslash. One Undo after any substitution restores the full typed sequence (including explicit delimiters or the Automatic boundary); Redo reapplies the replacement. Automatic rules may also be disabled individually.
+
+Automatic matching requires the entire input to start at the field or after whitespace and finish with a newly typed space, tab, or line break. Punctuation alone does not trigger it. The longest eligible whole input wins, so a suffix of a longer token, identifier, URL, or path cannot match. The typed boundary remains. Note Tab still inserts the configured indentation spaces, with the first space acting as the boundary; Tab in item forms continues to move focus. Return in a title keeps its normal acceptance behavior. No substitutions run during paste, load, selection/navigation, programmatic changes, Undo/Redo, bulk replacement, or marked-text composition. A replacement is never recursively matched in the same edit.
+
+Custom inputs contain 1–10 Swift Characters and at most 256 UTF-16 units, stored without trimming or normalization. Empty inputs, duplicate inputs (including built-ins, using Swift canonical Unicode equality), pipes, backticks (protected code delimiters), control characters, leading/trailing whitespace, tabs, and line breaks are rejected. Interior spaces are allowed. Replacement text is nonempty, differs from the input, and may contain Unicode, multiple characters, emoji, and line breaks. Its practical persistence/UI limit is 16,384 UTF-16 units. The editor shows these validation rules and explains invalid drafts inline.
+
+No matching is allowed inside fenced code, including unclosed fences. Fence recognition protects backtick and tilde runs of at least three at the start of a line after whitespace, optional blockquote markers, or an unordered/ordered list prefix. Optional language labels are allowed. A closing fence uses the same character, at least the opener's width, and only trailing whitespace; it retains the opener’s blockquote depth and never strips list markers from a code line. Closing indentation is limited to three columns beyond a recognized list prefix (tabs advance to four-column stops); blockquote markers permit up to three leading columns and one optional following space. An over-indented fence-like code line cannot close the block. Conservatively recognized plain openers beyond three-space indentation may remain protected until a less-indented closing fence. Both opening and closing lines are protected. Indented fences are conservatively protected even beyond Markdown's normal three-space indentation. Outside fences, unescaped backtick runs open inline code; only an equal-width run closes it. Unclosed inline spans remain protected across line breaks. Backslash-escaped backticks do not open spans. This conservative policy may suppress substitutions in ambiguous Markdown rather than modify code.
+
+Matching examines only a bounded suffix at the insertion point and replaces only that range. Compiled dictionaries are cached until settings change. Markdown context uses cached line-boundary checkpoints invalidated by text edits; a cold lookup or an edit to an earlier fence can require rescanning the prefix. Whole-operation time is therefore not independent of Note length. No full-document substitution search or replacement is performed.
+
+The initial catalog below is fixed; Automatic overrides and custom rules persist with workspace Settings. All built-ins support explicit syntax while the global switch is on. Custom mappings default to Automatic off.
+
+| Input | Replacement | Automatic default |
+|---|---|---|
+| `:)` | 🙂 | On |
+| `:-)` | 🙂 | On |
+| `:(` | 🙁 | On |
+| `:-(` | 🙁 | On |
+| `;)` | 😉 | On |
+| `;-)` | 😉 | On |
+| `:D` | 😃 | On |
+| `:-D` | 😃 | On |
+| `:P` | 😛 | On |
+| `:-P` | 😛 | On |
+| `:O` | 😮 | On |
+| `:-O` | 😮 | On |
+| `:'(` | 😢 | On |
+| `:-/` | 😕 | On |
+| `:-\|` | 😐 | On |
+| `8-)` | 😎 | On |
+| `(c)` | © | On |
+| `(r)` | ® | On |
+| `(tm)` | ™ | On |
+| `<3` | ❤️ | On |
+| `->` | → | Off |
+| `<-` | ← | Off |
+| `<->` | ↔ | Off |
+| `=>` | ⇒ | Off |
+| `<=` | ≤ | Off |
+| `>=` | ≥ | Off |
+| `<=>` | ⇔ | Off |
+| `-->` | ⟶ | Off |
+| `<--` | ⟵ | Off |
+| `==>` | ⟹ | Off |
+| `!=` | ≠ | Off |
+| `~=` | ≈ | Off |
+| `===` | ≡ | Off |
+| `+-` | ± | Off |
+| `+/-` | ± | Off |
+| `-+` | ∓ | Off |
+| `...` | … | Off |
+| `--` | – | Off |
+| `---` | — | Off |
+| `1/2` | ½ | Off |
+| `1/4` | ¼ | Off |
+| `3/4` | ¾ | Off |
+| `sqrt` | √ | Off |
+| `&&` | ∧ | Off |
+| `\|\|` | ∨ | Off |
+| `:=` | ≔ | Off |
+| `::=` | ≔ | Off |
+| `~~>` | ⇝ | Off |
+| `\|->` | ↦ | Off |
+| `:\|` | 😐 | Off |
+| `:/` | 😕 | Off |
+| `8)` | 😎 | Off |
+| `</3` | 💔 | Off |
+| `(p)` | ℗ | Off |
+| `(x)` | ☒ | Off |
+| `( )` | ☐ | Off |
+| `(*)` | ★ | Off |
+| `(+)` | ⊕ | Off |
+| `(i)` | ℹ️ | Off |
+| `(!)` | ❗ | Off |
+| `(?)` | ❓ | Off |
 
 ---
 
@@ -1284,6 +1368,16 @@ A reviewer should verify the items relevant to the change and its regression ris
 - [ ] Switching screens or Notes and returning preserves selection, focus, caret, scroll position, in-progress edits, and Undo/Redo history.
 - [ ] Restorable screen and editor state, including caret positions, survives restart; Undo/Redo history is never persisted and starts empty.
 - [ ] Normal app termination does not lose changes.
+
+## Smart Substitutions
+
+- [ ] Global off disables explicit and Automatic matching; enabling it only affects newly typed triggers in eligible content fields.
+- [ ] All 61 immutable built-ins, their Automatic overrides, and custom mappings survive migration and restart; invalid or duplicate custom drafts do not replace saved rules.
+- [ ] Delimiter escapes, Unicode, whole-token boundaries, overlapping inputs, and multi-character outputs behave as defined in section 21.8.
+- [ ] Fenced and inline code stay unchanged, including unclosed fences and edits to earlier fence boundaries.
+- [ ] Paste, load, composition, navigation, programmatic edits, and Undo/Redo do not trigger substitutions; one Undo restores the original typed sequence.
+- [ ] Management supports keyboard traversal, row Automatic toggling, validation feedback, and focus restoration.
+- [ ] Typing with at least 300 mappings in a large Note remains responsive; only the intended local range changes.
 
 ## Native UX
 

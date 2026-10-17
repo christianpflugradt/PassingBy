@@ -188,6 +188,7 @@ public struct AppSettings: Codable, Hashable {
     public var checkSpelling = true
     public var automaticCorrection = false
     public var smartQuotes = false
+    public var smartSubstitutions = SmartSubstitutionSettings()
     public var smartDashes = false
     public var screenZoom: [String: Int] = [:]
     public var appLockEnabled = false
@@ -205,6 +206,7 @@ public struct AppSettings: Codable, Hashable {
         case maximumDashboardTasks, maximumDashboardAppointments, todoCompletionConfirmation
         case defaultLabelID, scheduledDefaultEnabled, scheduledCategoryConfigured, scheduledLabelID, scheduledWeekdays, scheduledStartMinute, scheduledEndMinute
         case showLineNumbers, indentWidth, checkSpelling, automaticCorrection, smartQuotes, smartDashes, screenZoom
+        case smartSubstitutions
         case appLockEnabled, lockWhenInactive, inactivityMinutes
     }
     public init(from decoder: Decoder) throws {
@@ -234,6 +236,7 @@ public struct AppSettings: Codable, Hashable {
         checkSpelling = try values.decodeIfPresent(Bool.self, forKey: .checkSpelling) ?? true
         automaticCorrection = try values.decodeIfPresent(Bool.self, forKey: .automaticCorrection) ?? false
         smartQuotes = try values.decodeIfPresent(Bool.self, forKey: .smartQuotes) ?? false
+        smartSubstitutions = try values.decodeIfPresent(SmartSubstitutionSettings.self, forKey: .smartSubstitutions) ?? SmartSubstitutionSettings()
         smartDashes = try values.decodeIfPresent(Bool.self, forKey: .smartDashes) ?? false
         screenZoom = (try values.decodeIfPresent([String: Int].self, forKey: .screenZoom) ?? [:]).mapValues(ZoomLevel.validated)
         appLockEnabled = try values.decodeIfPresent(Bool.self, forKey: .appLockEnabled) ?? false

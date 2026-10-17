@@ -1170,6 +1170,7 @@ private struct TaskEditor: View {
             title: Binding(get: { state.task(id)?.title ?? "" }, set: { value in state.editTask(id) { $0.title = value } }),
             description: Binding(get: { state.task(id)?.taskDescription ?? "" }, set: { value in state.editTask(id) { $0.taskDescription = value } }),
             labels: state.workspace.labels,
+            substitutionSettings: state.workspace.settings.smartSubstitutions,
             categoryID: Binding(get: { state.task(id)?.labelID }, set: { value in state.editTask(id) { $0.labelID = value } }),
             onDone: state.finishTaskEditing,
             onClose: state.closeTaskEditing
@@ -1323,6 +1324,7 @@ private struct AppointmentEditor: View {
             title: Binding(get: { state.appointment(id)?.title ?? "" }, set: { value in state.editAppointment(id) { $0.title = value } }),
             description: Binding(get: { state.appointment(id)?.itemDescription ?? "" }, set: { value in state.editAppointment(id) { $0.itemDescription = value } }),
             labels: state.workspace.labels,
+            substitutionSettings: state.workspace.settings.smartSubstitutions,
             categoryID: Binding(get: { state.appointment(id)?.labelID }, set: { value in state.editAppointment(id) { $0.labelID = value } }),
             date: Binding(get: { state.appointment(id)?.date ?? Date() }, set: { value in state.editAppointment(id) { $0.date = value } }),
             onDone: state.finishAppointmentEditing,
@@ -1357,7 +1359,7 @@ private struct NoteView: View {
                             }.padding(12)
                                 .background(ScreenKeyLoop(scope: "note-icons", controlIDs: NoteIcon.choices.map { "note-icons-" + $0 }, requestedFocusID: "note-icons-" + (NoteIcon.choices.contains(note.iconName) ? note.iconName : NoteIcon.defaultName), focusRequest: 1))
                         }
-                        KeyboardNoteTitle(title: Binding(get: { state.note(id)?.title ?? "" }, set: { value in state.editNote(id) { $0.title = value } }), pointSize: 22 * scale, focusRequest: state.focusNoteTitleID == id ? state.titleFocusNonce : nil)
+                        KeyboardNoteTitle(title: Binding(get: { state.note(id)?.title ?? "" }, set: { value in state.editNote(id) { $0.title = value } }), pointSize: 22 * scale, substitutionSettings: state.workspace.settings.smartSubstitutions, focusRequest: state.focusNoteTitleID == id ? state.titleFocusNonce : nil)
                             .frame(minWidth: 120, maxWidth: 400)
                         KeyboardNoteCategory(labels: state.workspace.labels, categoryID: Binding(get: { state.note(id)?.labelID }, set: { value in state.editNote(id) { $0.labelID = value } }))
                             .frame(width: 155)
@@ -1524,6 +1526,7 @@ private struct MarkdownTextView: NSViewRepresentable {
         editor.isAutomaticQuoteSubstitutionEnabled = settings.smartQuotes
         editor.isAutomaticDashSubstitutionEnabled = settings.smartDashes
         editor.isAutomaticTextReplacementEnabled = false
+        editor.substitutionSettings = settings.smartSubstitutions
         editor.indentWidth = settings.indentWidth
         editor.isVerticallyResizable = true
         editor.isHorizontallyResizable = false
@@ -1554,6 +1557,7 @@ private struct MarkdownTextView: NSViewRepresentable {
         editor.isAutomaticSpellingCorrectionEnabled = settings.automaticCorrection
         editor.isAutomaticQuoteSubstitutionEnabled = settings.smartQuotes
         editor.isAutomaticDashSubstitutionEnabled = settings.smartDashes
+        (editor as? NoteEditorTextView)?.substitutionSettings = settings.smartSubstitutions
         (editor as? NoteEditorTextView)?.indentWidth = settings.indentWidth
         scroll.rulersVisible = settings.showLineNumbers
         if let noteEditor = editor as? NoteEditorTextView, noteEditor.zoomPercent != zoomPercent {
@@ -1721,7 +1725,7 @@ private final class NoteLineNumberRuler: NSRulerView {
     }
 }
 
-private final class NoteEditorTextView: NSTextView {
+final class NoteEditorTextView: SubstitutionTextView {
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 48, event.modifierFlags.contains(.control), !event.modifierFlags.contains(.command), !event.modifierFlags.contains(.option),
            let target = event.modifierFlags.contains(.shift) ? previousKeyView : nextKeyView {
@@ -1812,6 +1816,7 @@ private final class NoteEditorTextView: NSTextView {
     override func insertTab(_ sender: Any?) {
         if selectedRange().length > 0 { changeLineIndents(outdent: false); return }
         insertText(String(repeating: " ", count: indentWidth), replacementRange: selectedRange())
+        substituteAfterIndentation(width: indentWidth)
     }
     override func insertBacktab(_ sender: Any?) {
         changeLineIndents(outdent: true)

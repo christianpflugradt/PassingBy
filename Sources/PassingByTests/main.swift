@@ -816,6 +816,8 @@ func testTodoCompletionConfirmationPersistenceAndLegacyDefaults() throws {
     expect(reloaded == loaded, "older workspace retains its content after saving the new preference and reopening")
 }
 
+try testSmartSubstitutions()
+testSubstitutionMarkdownProtectionAndPerformance()
 try testRecentlyDeletedRoundTripAndRestoration()
 try testRecentlyDeletedExpiryAndRetention()
 try testRecentlyDeletedMigrationAndAtomicPersistence()

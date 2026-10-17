@@ -10,6 +10,7 @@ private struct ImportPreview: Identifiable {
 }
 
 @MainActor private final class AppointmentImportFlow: ObservableObject {
+    @Published var showSubstitutions = false
     @Published var selectingFile = false
     @Published var preview: ImportPreview?
     @Published var fileError: String?
@@ -50,6 +51,7 @@ struct SettingsView: View {
                 todosSection
                 appointmentsSection
                 notesSection
+                substitutionsSection
                 securitySection
                 recoverySection
                 Divider()
@@ -81,6 +83,9 @@ struct SettingsView: View {
             state.contextHelp.close(restoringFocus: false)
             focus.focus("settings-700-deleted")
         }) { RecentlyDeletedView(state: state) }
+        .sheet(isPresented: $importFlow.showSubstitutions, onDismiss: { focus.focus("settings-570-manage") }) {
+            SubstitutionsView(state: state)
+        }
         .sheet(item: $importFlow.preview) { preview in
             AppointmentImportPreviewView(state: state, filename: preview.filename, parsed: preview.parsed)
         }
@@ -203,6 +208,16 @@ struct SettingsView: View {
             SettingsToggle(title: "Automatic correction", id: "settings-530-correction", value: setting(\.automaticCorrection))
             SettingsToggle(title: "Smart quotes", id: "settings-540-quotes", value: setting(\.smartQuotes))
             SettingsToggle(title: "Smart dashes", id: "settings-550-dashes", value: setting(\.smartDashes))
+        }
+    }
+    private var substitutionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeading("Smart Substitutions")
+            SettingsToggle(title: "Smart Substitutions", id: "settings-560-substitutions", value: Binding(get: { settings.smartSubstitutions.enabled }, set: { enabled in
+                state.change { $0.settings.smartSubstitutions.enabled = enabled }
+            }))
+            SettingsButton(title: "Manage Substitutions…", id: "settings-570-manage") { importFlow.showSubstitutions = true }
+            explanation("Local text shortcuts for Note, To-do and Appointment titles and content. Type |sqrt| for √; Automatic rules also work after Space, Tab or Return. Code fences and inline code are protected.")
         }
     }
     private var recoverySection: some View {

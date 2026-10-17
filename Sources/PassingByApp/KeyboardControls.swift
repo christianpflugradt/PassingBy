@@ -138,10 +138,11 @@ struct KeyboardButton: NSViewRepresentable {
 struct KeyboardNoteTitle: NSViewRepresentable {
     @Binding var title: String
     var pointSize: CGFloat
+    var substitutionSettings = SmartSubstitutionSettings()
     var focusRequest: Int?
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField(string: title)
+        let field = SubstitutionTextField(string: title)
         field.isBordered = false
         field.drawsBackground = false
         field.identifier = NSUserInterfaceItemIdentifier("note-title")
@@ -151,6 +152,7 @@ struct KeyboardNoteTitle: NSViewRepresentable {
     }
     func updateNSView(_ field: NSTextField, context: Context) {
         context.coordinator.parent = self
+        (field as? SubstitutionTextField)?.substitutionSettings = substitutionSettings
         field.font = .systemFont(ofSize: pointSize, weight: .semibold)
         if field.stringValue != title { field.stringValue = title }
         if let focusRequest, context.coordinator.lastFocusRequest != focusRequest {

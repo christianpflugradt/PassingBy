@@ -7,6 +7,7 @@ struct NativeItemEditor: NSViewRepresentable {
     @Binding var title: String
     @Binding var description: String
     let labels: [PassingByCore.Label]
+    var substitutionSettings = SmartSubstitutionSettings()
     @Binding var categoryID: UUID?
     var date: Binding<Date>? = nil
     let onDone: () -> Void
@@ -33,6 +34,8 @@ struct NativeItemEditor: NSViewRepresentable {
 
     func updateNSView(_ form: ItemEditorForm, context: Context) {
         context.coordinator.parent = self
+        form.titleField.substitutionSettings = substitutionSettings
+        form.descriptionView.substitutionSettings = substitutionSettings
         // Do not replace text during ordinary typing: preserve selection and native Undo.
         if form.titleField.stringValue != title { form.titleField.stringValue = title }
         if form.descriptionView.string != description { form.descriptionView.string = description }
@@ -95,7 +98,7 @@ struct NativeItemEditor: NSViewRepresentable {
 }
 
 @MainActor final class ItemEditorForm: NSView {
-    let titleField = NSTextField(string: "")
+    let titleField = SubstitutionTextField(string: "")
     fileprivate let descriptionView = ItemDescriptionTextView()
     fileprivate let categoryPicker = ItemCategoryPopUpButton()
     let datePicker = NSDatePicker()
@@ -200,7 +203,7 @@ struct NativeItemEditor: NSViewRepresentable {
     }
 }
 
-@MainActor private final class ItemDescriptionTextView: NSTextView {
+@MainActor private final class ItemDescriptionTextView: SubstitutionTextView {
     override func insertTab(_ sender: Any?) { window?.selectNextKeyView(self) }
     override func insertBacktab(_ sender: Any?) { window?.selectPreviousKeyView(self) }
 }

@@ -2,10 +2,16 @@ import AppKit
 import SwiftUI
 import PassingByCore
 
+@MainActor private final class SettingsTestApplication: NSApplication {
+    override func reportException(_ exception: NSException) {
+        fatalError("Native test exception: " + (exception.reason ?? exception.name.rawValue))
+    }
+}
+
 /// Compiled with the production Settings controls by test-settings-navigation.sh.
 @main struct SettingsNavigationTests {
     @MainActor static func main() {
-        let app = NSApplication.shared
+        let app = SettingsTestApplication.shared
         app.setActivationPolicy(.regular)
         RunLoop.main.perform {
             MainActor.assumeIsolated {
@@ -16,6 +22,7 @@ import PassingByCore
         app.run()
     }
     @MainActor static func runTests() {
+        runSmartSubstitutionNativeTests()
         let app = NSApplication.shared
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 360), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         let root = NSView(frame: window.contentView!.bounds)

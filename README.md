@@ -7,6 +7,7 @@ Passing By is a small native macOS workspace for information that matters now: t
 - A compact dashboard for open to-dos and upcoming appointments.
 - To-dos, date-based appointments, and notes you can edit directly in Markdown.
 - Optional categories to group and filter your items.
+- Optional local Smart Substitutions for content typing, with built-in symbols and custom mappings.
 - Recovery of explicitly deleted notes, to-dos, and appointments for 30 days through Settings → Recently Deleted.
 - Appointment import from TSV, control over how long completed to-dos and past appointments are kept, and optional App Lock.
 
@@ -30,6 +31,8 @@ Your workspace is saved automatically at `~/Library/Application Support/Passing 
 
 Optional App Lock uses native macOS authentication to protect access to the application UI. It does **not** encrypt the workspace file.
 
+Smart Substitutions default off. Enable them in Settings and open Manage Substitutions… to configure Automatic rules or add custom mappings. Type `|sqrt|` for √; Automatic rules convert whole inputs after Space, Tab or Return. Escape a literal sequence as `\|sqrt|` (the backslash stays), or Undo once to restore the typed sequence. Code fences and inline code are protected. See [Product.md section 21.8](Product.md#218-smart-substitutions) for the catalog, delimiter escaping, and exact matching rules.
+
 ## Development
 
 You need Apple Command Line Tools with Swift 6 or later (`xcode-select --install`) and [Mise](https://mise.jdx.dev/) for the commands below. No separate Node.js runtime is required to build or run the app. See [Product.md](Product.md) for the product specification.
@@ -40,7 +43,7 @@ From the repository root:
 mise install
 mise run build
 mise run test
-mise run test-ui # Native Settings focus tests; requires a macOS desktop session.
+mise run test-ui # Native Settings focus and substitution editing tests; requires a macOS desktop session.
 ```
 
 `mise run build` creates `build/Passing By.app`. Open that bundle from Finder to run it. The build is ad hoc signed. Local builds have a separate development app identity and display “Development build” in About.
