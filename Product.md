@@ -16,7 +16,9 @@ An implementation is considered conformant only if it satisfies both:
 - the explicit functional requirements, and
 - the product principles and interaction expectations defined in this document.
 
-When an implementation choice is not explicitly covered, the product principles in this specification shall be used to resolve the ambiguity.
+Explicit requirements and invariants are binding. Product principles guide decisions and reviews; a principle-based finding must identify a concrete user impact. Wording such as “preferred”, “may”, “where practical”, and illustrative examples allows implementation judgment and is not an independent acceptance requirement. Specific feature rules take precedence over general guidance; for example, creation drafts in section 27 qualify automatic persistence.
+
+When an implementation choice is not explicitly covered, apply section 34. The verification checklist in section 32 is a review aid, not a second specification or a record of passing tests. “Version 1” refers to the product scope defined here, including subsequent documented additions, rather than a snapshot of the initial commit.
 
 ---
 
@@ -102,7 +104,7 @@ Native interaction patterns should be preferred over custom interaction patterns
 
 The user should never need to think about saving.
 
-All user changes must be persisted automatically.
+Changes to existing content and Settings, and accepted new items, must be persisted automatically. Creation drafts have the explicit lifecycle defined in section 27.
 
 There must be no normal workflow containing a Save button or a "Save changes?" confirmation.
 
@@ -153,9 +155,7 @@ The preferred application stack is:
 - TextKit or equivalent native text infrastructure for the Markdown editor
 - local persistent storage
 
-SQLite is an acceptable and preferred persistence mechanism.
-
-The product specification does not require a specific internal architecture beyond these constraints.
+SQLite is acceptable and preferred, but this is an implementation preference and does not require replacing the current local JSON workspace. The preferred stack and architecture guidance are implementation preferences; local persistence, offline operation, and data-safety requirements remain binding.
 
 Architecture should favour:
 
@@ -188,7 +188,7 @@ An app update must load workspace data saved by older versions without requiring
 
 After loading older data, the app must continue saving it normally, including any new values the user sets. A missing field must not cause unrelated saved content to be reset or discarded. If a file is genuinely unreadable, the app must report the failure rather than silently replace it with an empty workspace.
 
-Changes to persisted models must be checked with tests that load representative older data and verify that existing content survives a save and reload.
+Changes to persisted models must be checked with tests that load representative older data and verify that existing content survives a save and reload. Tolerating unrecognized fields does not imply support for downgrades or for unknown values of recognized fields.
 
 ---
 
@@ -209,7 +209,7 @@ Selecting a Note opens its dedicated editor in the full main content area. There
 
 The sidebar is a compact, icon-only navigation rail with tooltips for every destination and Note title. It has no Notes collapse control. Settings is anchored separately at the bottom. Icons are comfortably clickable, clearly indicate selection, and use native SF Symbols. Notes may have a restrained category-color dot.
 
-Primary navigation is keyboard-first: `Cmd+1` opens Dashboard, `Cmd+2` To-dos, `Cmd+3` Appointments, `Cmd+4` through `Cmd+9` the first six Notes in sidebar order, `Cmd+0` Help, and `Cmd+,` Settings. Further Notes remain accessible from the sidebar. The native menu exposes these commands. `Option+Cmd+S` focuses the current sidebar destination; Up/Down moves between entries, Enter opens an entry and focuses its main content, and Escape returns to the previous control. The sidebar is outside the main content Tab sequence.
+Primary navigation is keyboard-first: `Cmd+1` opens Dashboard, `Cmd+2` To-dos, `Cmd+3` Appointments, `Cmd+4` through `Cmd+9` the first six currently visible Notes in sidebar order, `Cmd+0` Help, and `Cmd+,` Settings. Further Notes remain accessible from the sidebar. The native menu exposes these commands. `Option+Cmd+S` focuses the current sidebar destination; Up/Down moves between entries, Enter opens an entry and focuses its main content, and Escape returns to the previous control. The sidebar is outside the main content Tab sequence.
 
 Dashboard is the default starting view when no relevant navigation state can be restored. The application should restore the user's last relevant navigation state when practical.
 
@@ -260,6 +260,8 @@ The filter shows its selected value without a redundant caption in the page head
 When 1–4 Categories are configured, Dashboard, To-dos, and Appointments present this filter as one native segmented control containing `All` and every configured Category. Switching takes one click and the selected segment is immediately apparent. With no configured Categories or with five or more, the filter uses a compact picker. The presentation changes automatically without changing the selected filter or any item data. There is no maximum number of Categories. `All` is a filter state, not a stored Category.
 
 An individual Note's Category control remains an ordinary picker because it assigns an item property rather than filtering the workspace.
+
+Creating a Note or accepting a new To-do or Appointment whose Category is excluded by the current filter switches the filter to All so the new item is visible. Opening or discarding a creation draft does not change the filter.
 
 ## 9.2 No local category filters
 
@@ -321,7 +323,7 @@ Item editors may only choose from existing categories.
 
 Deleting a category must not delete associated Notes, To-dos, or Appointments.
 
-Affected items become uncategorized.
+Affected items become uncategorized. If the deleted Category is the active global filter, that filter returns to All. Default and Scheduled To-do references are handled as specified in sections 21.2–21.3; recovery snapshots resolve missing Categories on restoration (section 21.7).
 
 Equivalent domain behaviour:
 
@@ -395,13 +397,15 @@ The user must be able to create multiple Notes.
 
 Each Note is independently selectable and editable.
 
-Every Note appears directly in the sidebar and opens in a dedicated editor screen. The editor gives most of the main content area to the Markdown source, without a permanent list or inspector beside it.
+Every Note matching the global filter appears directly in the sidebar and opens in a dedicated editor screen. The editor gives most of the main content area to the Markdown source, without a permanent list or inspector beside it.
 
 Its compact header contains the selectable Note icon, editable title, category picker, and deletion action in one row above the editor. New Notes default to `doc.text`; existing Notes without an icon also use that symbol. Clicking the icon opens a compact picker of curated SF Symbols. The editor begins directly below the header and uses the remaining space.
 
 The picker offers 49 recognizable everyday symbols in a compact 7 × 7 grid. A Note icon expresses the user-defined subject or purpose of that Note. Symbols Passing By deliberately uses for its own navigation, actions, or application concepts must not also be selectable Note icons. If a symbol is removed from the curated choices later, existing Notes using it retain and display their saved icon; removal affects only new assignments.
 
-Creating a Note opens it and focuses its title. Keyboard focus proceeds from title to category to editor. Within the editor, Tab inserts indentation and Shift+Tab outdents where applicable without moving focus to surrounding controls. Escape does not unexpectedly leave the editor. `Shift+Cmd+T` returns focus to the Note title.
+Creating a Note persists it immediately, opens it, and focuses its title. New Notes append to the saved Note order. `Option+Cmd+R` opens Reorder Notes, where dragging changes the order of all Notes, including those hidden by the global filter. Order persists across restarts; renaming and filtering preserve relative order, and sidebar shortcuts follow the visible order. Older workspaces retain their previous creation-time display order when first loaded.
+
+Keyboard focus proceeds from title to category to editor, then delete and icon controls. Within the editor, Tab inserts indentation and Shift+Tab outdents where applicable without moving focus to surrounding controls. Control+Tab leaves the editor forwards; Control+Shift+Tab leaves backwards. Escape does not unexpectedly leave the editor. `Shift+Cmd+T` returns focus to the Note title.
 
 ## 11.5 Deleting Notes
 
@@ -472,11 +476,15 @@ The editor should support normal native text-editing expectations including:
 
 Notes use standard native macOS text editing where practical. Undo and Redo support multiple edits during the active editing session; their history is not retained across application restarts. Find searches the open Note, and native Find and Replace may be available where the macOS text system provides it naturally.
 
-Native spell checking may indicate possible errors. Automatic spelling correction, Smart Quotes, and Smart Dashes are off by default so literal Markdown source is preserved. The editor remains compatible with native macOS Dictation when it is available.
+Open question for human review: whether a Note must retain its Undo history, caret position, and scroll position after navigating away and returning. The current implementation recreates the Note editor on navigation; the scope of “active editing session” above does not establish a requirement across that transition. Preserve existing navigation behavior until this is clarified. State preservation during updates to an open editor remains required.
+
+The editor remains compatible with native macOS Dictation when it is available.
 
 Notes use spaces for indentation. Tab indents and Shift-Tab outdents using the configured width of 2, 4, or 8 spaces; the default is 4. Line numbers are configurable and shown by default. Native spell checking is on by default. Automatic correction, Smart Quotes, and Smart Dashes are off by default, and each may be enabled in Settings.
 
-Large code blocks and reasonably large Notes must remain usable.
+A restrained editor status bar shows the caret line and column, word count, and character count. These describe the current Markdown source, including its syntax.
+
+Large code blocks and reasonably large Notes must remain usable; reviews should substantiate usability problems with a representative Note and the affected operation rather than assume an unstated size limit.
 
 ---
 
@@ -520,7 +528,7 @@ To-dos have no:
 - due time,
 - priority,
 - subtasks,
-- recurrence,
+- recurrence on the individual item (Settings-managed Scheduled To-dos are defined separately in section 21.3),
 - project assignment.
 
 ## 13.4 To-do states
@@ -536,7 +544,7 @@ Completed To-dos are treated as archived from the active-to-do perspective.
 
 The user must be able to mark an open To-do as completed.
 
-The To-do must immediately leave the default active-to-do list.
+After completion is accepted, the To-do must immediately leave the default active-to-do list. The optional confirmation policy in section 21.3 applies on both Dashboard and To-dos. Cancelling confirmation leaves it open. Restoring a completed To-do never requires completion confirmation.
 
 ## 13.6 Showing completed To-dos
 
@@ -733,9 +741,9 @@ The setting is global.
 
 ## 16.1 Behaviour
 
-In grouped presentation, only the nearest configured number of Appointments within the future horizon may initially be shown per category.
+In grouped presentation, only the nearest configured number of upcoming Appointments within the future horizon may initially be shown per category, including the Uncategorized group. Show past adds retained passed Appointments without applying the upcoming count limit to them.
 
-If more matching Appointments exist, the interface must make that fact clear.
+If more upcoming Appointments exist within the horizon than the per-category limit, the interface must make that fact clear. Expansion reveals those in-horizon items; Appointments beyond the horizon remain accessible in Chronological mode.
 
 An affordance such as:
 
@@ -815,7 +823,7 @@ Exact available values may be refined during implementation, but the following s
 
 # 20. Auto-save
 
-All editable application content is automatically persisted.
+Changes to existing application content and Settings are automatically persisted. New To-do and Appointment drafts are the explicit exception described in section 27; accepting a draft creates and persists the item without a separate Save action.
 
 This includes:
 
@@ -842,7 +850,7 @@ No explicit Save action should be required.
 
 # 21. Settings
 
-Settings contain six vertical sections: Dashboard, Categories, To-dos, Appointments, Notes, and Security. Controls remain inline in one calm, native screen. Keyboard shortcut documentation belongs on Help.
+The Settings screen contains vertical sections for Dashboard, Categories, To-dos, Appointments, Notes, Security, and Recently Deleted, plus Reset All Zoom Levels (section 25). Configuration controls remain inline; import previews and recovery use temporary dialogs. Tab and Shift+Tab traverse visible, enabled controls in reading order without requiring macOS Full Keyboard Access. Dynamic controls and dismissed dialogs preserve or restore focus to an appropriate control. Keyboard shortcut documentation belongs on Help.
 
 ## 21.1 Dashboard
 
@@ -856,11 +864,11 @@ One global Default Category is used when creating a new Note, To-do, or Appointm
 
 One optional Scheduled Default Category may override the fallback Default Category on selected weekdays during one local time range. The scheduled choice may explicitly be Uncategorized; before a choice is made, the schedule is inactive. The start time is inclusive and the end time exclusive. A schedule with no selected days or an end time at or before its start is inactive. Overnight ranges are not supported. The scheduled setting is off by default; its initial days are Monday–Friday, 08:00–17:00.
 
-The override is resolved only when a new item is created, using the current local creation time. An Appointment's own date does not affect its initial Category. Existing items are never recategorized when time passes. Deleting a referenced Category safely clears its default reference; deleting a scheduled Category also disables that override.
+The override is resolved when a Note is created or a To-do or Appointment draft is opened, using the current local time; accepting the draft later does not recalculate it. An Appointment's own date does not affect its initial Category. Existing items are never recategorized when time passes. Deleting a referenced Category safely clears its default reference; deleting a scheduled Category also disables that override.
 
 ## 21.3 To-dos
 
-Users can configure completed To-do retention.
+Users can configure completed To-do retention and a completion-confirmation policy: Off (default), Keyboard only (Return or Space), or All interactions (also mouse clicks). The same policy applies on Dashboard and To-dos.
 
 Scheduled To-dos are managed only here. A schedule has a static To-do title, one selected Category or an explicit Uncategorized choice, a weekly or monthly recurrence, and a persisted next occurrence. Weekly choices are every week or every two weeks on one selected weekday; the first occurrence anchors the two-week cadence. Monthly choices are the first day, first weekday, last day, or last weekday of the month, where weekday means Monday through Friday. Schedules can be created, viewed, and deleted, but not edited or paused. The list identifies schedules by title and provides a compact read-only view of their configuration and next occurrence.
 
@@ -880,7 +888,7 @@ Users can configure line numbers, indent width, spell checking, automatic correc
 
 Optional global App Lock protects app content from casual exposure. It is off by default and uses native macOS authentication, including Touch ID when available through the system. With App Lock enabled, every fresh launch starts locked and no private app content is visible until authentication succeeds. `Shift+Cmd+L` and Lock Now in Settings lock the app immediately.
 
-Users may optionally lock after Passing By has remained inactive for a configured 1–120 minutes (default 5). This option is off by default. Inactive means the application is not active; keyboard and mouse idle time while it remains active does not count. Returning before the delay cancels the pending lock. Category-specific privacy filtering is outside Version 1.
+Users may optionally lock after Passing By has remained inactive for a configured 1–120 minutes (default 5). This option is off by default. Inactive means the application is not active; keyboard and mouse idle time while it remains active does not count. Returning before the delay cancels the pending lock. The app also locks on system sleep when App Lock is enabled. App Lock protects access through the UI; it does not encrypt the local workspace file. Category-specific privacy filtering is outside Version 1.
 
 ## 21.7 Recently Deleted
 
@@ -904,7 +912,7 @@ The dedicated Help screen is informational and lists all supported application s
 
 `Cmd+N` creates a To-do on To-dos, an Appointment on Appointments, and a Note on Dashboard, Help, Settings, or an open Note. `Shift+Cmd+N` creates a Note from anywhere. The sidebar New Note button has the same action.
 
-`Cmd+Delete` deletes a current or selected item only when its target is unambiguous. Note and Appointment deletion always require confirmation. `Shift+Cmd+T` focuses the open Note title.
+`Cmd+Delete` deletes a current or selected item only when its target is unambiguous. Note, To-do, and Appointment deletion always require confirmation. `Shift+Cmd+T` focuses the open Note title.
 
 `Shift+Cmd+L` locks Passing By when App Lock is enabled.
 
@@ -926,7 +934,7 @@ Quick Capture is explicitly not part of Version 1.
 
 Version 1 has no requirement for:
 
-- global keyboard shortcuts,
+- system-wide keyboard shortcuts that work while another application is active,
 - floating capture windows,
 - menu-bar capture,
 - alternative creation workflows.
@@ -941,9 +949,11 @@ Dashboard is the deliberately minimal "what matters now" starting view.
 
 In Version 1 it surfaces open To-dos and upcoming Appointments under the current global category context, up to the respective maximums configured in Settings. It does not surface recent Notes.
 
-To-dos appear in the left column and Appointments in the right. The columns form one balanced composition with aligned headings, comfortable spacing, and a restrained maximum content width. They are sections, not cards or widgets. To-do rows contain only a completion control, an applicable Category color indicator, and the title. Appointment rows put useful relative time first, keep the absolute date visible but secondary, then show the title on a second line; they also show an applicable Category color indicator. For example, `Today · 27 Sep` above `New Date`.
+To-dos appear in the left column and Appointments in the right. The columns form one balanced composition with aligned headings, comfortable spacing, and a restrained maximum content width. They are sections, not cards or widgets. To-do rows contain a completion control, an applicable Category color indicator, the title, and a description action when non-empty. Appointment rows put useful relative time first, keep the absolute date visible but secondary, then show the title on a second line; they also show an applicable Category color indicator. For example, `Today · 27 Sep` above `New Date`.
 
-It is a short path to current items, not an analytics or widget dashboard. A restrained status bar at the bottom shows exactly three lifetime values: Days Passed, To-dos Completed, and Appointments Passed. Days Passed counts local calendar days inclusively from the first persisted statistics start date. Completed To-dos and passed Appointments contribute while retained, and their lifetime totals survive normal retention. Explicit deletion removes an item from the lifetime total if it has not already been removed by retention. These values describe usage history rather than productivity. The Dashboard must not introduce cards, charts, trends, scores, or other dense overview furniture. To-dos, Appointments, and individual Notes remain directly accessible from the sidebar.
+To-dos are ordered oldest-created first. Upcoming Appointments are ordered by date after the horizon and per-category limits in section 16, then truncated to the Dashboard maximum. Dashboard and full-list To-do and Appointment rows expose non-empty descriptions through a compact, read-only popover; long descriptions remain fully accessible by scrolling. Rows with no description omit that action. The full To-dos and Appointments lists have separate edit and delete actions.
+
+It is a short path to current items, not an analytics or widget dashboard. A restrained status bar at the bottom shows exactly three lifetime values: Days Passed, To-dos Completed, and Appointments Passed. Days Passed counts local calendar days inclusively from the first persisted statistics start date. Completed To-dos and passed Appointments contribute while retained, and their lifetime totals survive normal retention. Explicit deletion removes an item from the lifetime total if it has not already been removed by retention. These lifetime values cover the whole workspace, independently of the global Category filter, and describe usage history rather than productivity. The Dashboard must not introduce cards, charts, trends, scores, or other dense overview furniture. To-dos, Appointments, and individual Notes remain directly accessible from the sidebar.
 
 ---
 
@@ -965,6 +975,8 @@ Expected behaviour includes:
 - restoration of practical UI state.
 
 Custom UI components should not unnecessarily imitate web application patterns.
+
+Dashboard, To-dos, Appointments, Help, and Settings each remember an independent display zoom; every Note remembers its own. `Cmd+Plus` and `Cmd+Minus` change the current screen's size in 10-percentage-point steps from 70% to 180%, with 100% as the default. Reaching a limit gives brief feedback. Zoom persists across restarts, does not change Markdown source, and must preserve ongoing editing and native Undo/Redo. Settings → Reset All Zoom Levels restores all screens and Notes to 100%.
 
 ---
 
@@ -998,7 +1010,11 @@ Avoid multi-step creation wizards.
 
 To-dos and Appointments are scanned and acted on in their main lists; their creation and editing use temporary sheets, popovers, or equivalent native UI rather than permanent editing panes. A Note opens directly in its dedicated main-content editor and has no permanent list or inspector alongside it.
 
-Settings are intentionally exempt: configuration controls remain inline on the Settings screen.
+A new To-do or Appointment begins as an unsaved draft with focus in its selected title. Done, Return in Title, or `Cmd+Enter` accepts it exactly once; Escape or closing the creation editor discards it. Existing-item edits auto-save as they are made; Done or Escape closes the editor without reverting changes. Return in Description inserts a line break. Tab and Shift+Tab traverse Title, Date (Appointments only), Description, Category, and Done. Dismissal restores focus to the originating control or a nearby surviving action.
+
+New To-dos default to “New To-do”; new Appointments default to “New Appointment” and today's date. An accepted blank title uses that item type's default, so “required title” does not require a validation dialog. New Notes use “Untitled Note”. Blank titles on existing items normalize to the corresponding default when the item editor closes or navigation leaves the screen.
+
+Settings are intentionally exempt: configuration controls remain inline on the Settings screen. Scheduled To-do creation and TSV import require their explicit Create or Import action before adding data; they do not weaken auto-save for existing content.
 
 The primary actions should be discoverable but not visually dominant.
 
@@ -1022,7 +1038,7 @@ The following invariants must always hold.
 
 ## 29.1 Category invariants
 
-An item references zero or one existing category.
+Each item in the normal collections references zero or one existing Category. A recovery snapshot may retain a deleted Category reference until restoration resolves it to Uncategorized (section 21.7).
 
 Deleting a category must not delete an item.
 
@@ -1151,7 +1167,7 @@ A technically impressive implementation that adds complexity beyond this specifi
 
 # 32. Verification checklist
 
-A reviewer should explicitly verify all of the following.
+A reviewer should verify the items relevant to the change and its regression risks. A whole-product acceptance review covers the complete checklist. Checklist wording summarizes the requirements above; it neither overrides them nor establishes that the current implementation passes.
 
 ## Product structure
 
@@ -1161,6 +1177,7 @@ A reviewer should explicitly verify all of the following.
 - [ ] Dashboard shows only Days Passed, To-dos Completed, and Appointments Passed in a restrained status bar; the totals survive retention and remain hidden while locked.
 - [ ] Dashboard Appointment rows show relative time prominently and the absolute date secondarily.
 - [ ] Each Note opens directly from the sidebar in the main content area.
+- [ ] Manual Note ordering persists, preserves hidden Notes, and determines the first six visible Note shortcuts.
 - [ ] The compact icon sidebar has tooltips, Notes do not collapse, and Settings is anchored at the bottom.
 - [ ] No dedicated Archive area exists unless explicitly justified by revised specification.
 - [ ] One global category context exists.
@@ -1199,7 +1216,7 @@ A reviewer should explicitly verify all of the following.
 - [ ] To-dos have no due date.
 - [ ] To-dos have no priority.
 - [ ] To-dos have no subtasks.
-- [ ] To-dos can be completed.
+- [ ] To-dos can be completed, with the configured confirmation policy applied consistently on Dashboard and To-dos; cancellation and restoration preserve the expected state.
 - [ ] Completed To-dos disappear from the default active view.
 - [ ] Archived/completed To-dos can be shown via a toggle.
 - [ ] Completed To-dos can be restored.
@@ -1270,7 +1287,9 @@ A reviewer should explicitly verify all of the following.
 - [ ] `Shift+Cmd+L` and Lock Now lock immediately when App Lock is enabled.
 - [ ] Optional inactivity locking uses time away from the active application, and returning before the delay cancels it.
 - [ ] To-dos and Appointments use temporary editors rather than permanent inspectors; Notes have a dedicated editor screen.
-- [ ] Settings keeps inline configuration controls.
+- [ ] Settings keeps inline configuration controls, with keyboard access to visible, enabled controls and sensible focus after dynamic changes or dialog dismissal.
+- [ ] Creation drafts persist exactly once on Done and are discarded on Escape; existing-item edits remain auto-saved when the editor closes.
+- [ ] Independent screen and Note zoom persists, honors its bounds, and resets through Settings without changing source or losing editing state.
 - [ ] Standard keyboard behaviour works.
 - [ ] Help lists the application shortcuts, and contextual creation, navigation, Note title focus, and guarded deletion shortcuts work.
 - [ ] Undo/Redo works where appropriate.
@@ -1308,7 +1327,7 @@ Examples:
 - Appointments have mandatory times.
 - Open To-dos are removed by retention.
 
-These must be fixed.
+These must be fixed within the authorized task scope; unrelated pre-existing violations should be reported separately rather than silently expanding a change.
 
 ## B. Product-principle violation
 
@@ -1321,7 +1340,7 @@ Examples:
 - the global category filter is hidden and easy to overlook,
 - grouped Appointments are rendered as large decorative cards that severely reduce information density.
 
-These should normally be fixed.
+These should normally be fixed when supported by a reproducible interaction or concrete user impact. Identify the applicable principle and the consequence; personal aesthetic preference or vague wording such as “feels wrong” is insufficient evidence.
 
 ## C. Implementation preference
 
@@ -1334,7 +1353,9 @@ Examples:
 - internal repository structure,
 - database library choice.
 
-These should not be treated as defects merely because a reviewer would personally implement them differently.
+These should not be treated as defects merely because a reviewer would personally implement them differently. Preferred technologies and illustrative layouts do not make alternative implementations defective when binding behavior and product principles are preserved.
+
+For each finding, cite the applicable requirement and implementation evidence, describe the trigger and consequence, and distinguish a regression from a pre-existing discrepancy. When the specification and implementation disagree, use tests and change history to investigate intent; neither passing tests nor current behavior alone authorizes rewriting a requirement. Unresolved or conflicting intent is a question for human review, not a confirmed defect.
 
 ---
 
@@ -1349,7 +1370,9 @@ When the specification does not explicitly define an interaction, use the follow
 5. avoid adding new concepts,
 6. choose the least surprising behaviour.
 
-If a proposed solution requires introducing a new product concept, it should normally be rejected until the specification is revised.
+Use these principles for small unspecified details while preserving established behavior. An explicit instruction for the current task may authorize a product change; update the affected specification alongside that change so future work has the same contract.
+
+If requirements conflict or a choice would materially change behavior, data safety, or scope, report the discrepancy and the smallest concrete decision needed. Preserve existing behavior pending human clarification; do not silently resolve it by rewriting the specification or extending the implementation. If a proposed solution requires introducing a new product concept, it should normally wait until the product decision and specification are revised.
 
 ---
 

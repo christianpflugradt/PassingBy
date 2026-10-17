@@ -4,10 +4,10 @@
 
 - `Product.md` is the authoritative product specification.
 - Read `Product.md` before making product, UX, domain, or scope decisions.
-- Do not duplicate or reinterpret product requirements in other documentation.
+- Keep product requirements in `Product.md`; link to them rather than maintaining competing definitions elsewhere.
 - Explicit non-goals in `Product.md` are deliberate constraints, not missing features.
 
-If requirements are ambiguous, prefer the simplest interpretation consistent with the product principles. Report material ambiguities instead of silently inventing product behaviour.
+Use the interpretation and reviewer decision rules in `Product.md` sections 33–34. For unspecified minor details, preserve established behaviour and choose the simplest consistent solution. For missing, conflicting, or evolving requirements that materially affect behaviour, data safety, or scope, inspect tests and relevant Git history, report the uncertainty, and leave the product decision to the user. Neither the implementation nor passing tests automatically overrides the specification.
 
 ## Engineering Principles
 
@@ -50,7 +50,7 @@ After changes:
 3. fix regressions,
 4. verify the result against the applicable requirements in `Product.md`.
 
-Do not declare work complete while known specification violations or failing tests remain.
+Fix violations and regressions introduced by the task before declaring it complete. Report unrelated pre-existing discrepancies or failing checks separately; do not silently expand the task to repair them. For documentation-only work, verify claims against source, tests, and history, and check links and cross-references; do not change application code or tests unless requested.
 
 ## Testing
 
@@ -88,16 +88,13 @@ If implementation work reveals that the specification should change:
 3. propose the smallest concrete specification change,
 4. leave the product decision to the user unless explicitly instructed otherwise.
 
+An explicitly requested feature or documentation review can authorize updating the affected specification. Record well-supported product decisions in the existing relevant sections, update corresponding verification criteria where useful, and preserve unresolved material questions for human review. Do not turn incidental implementation details into new product constraints.
+
 ## UI State and Native Interaction
 
 Do not rebuild major view hierarchies for routine interactions such as selection, filtering, editing, or toggling state.
 
-Preserve:
-- selection,
-- focus,
-- scroll position,
-- native Undo/Redo context,
-- in-progress edits.
+During incremental updates, preserve selection, focus, scroll position, native Undo/Redo context, and in-progress edits where their target remains available. Intentional transitions such as creation, deletion, filtering out an item, or closing a dialog may move focus as specified in `Product.md`; choose an appropriate surviving control and preserve saved content.
 
 Prefer stable native view hierarchies with incremental state updates over reconstructing controls after each interaction.
 
@@ -122,7 +119,7 @@ Before considering a task complete:
 - the project builds,
 - relevant tests pass,
 - the requested behaviour works,
-- applicable `Product.md` requirements are satisfied,
+- applicable `Product.md` requirements are satisfied, with unrelated pre-existing deviations reported,
 - no unrelated product behaviour has been introduced.
 
 For substantial product work, perform a final review against the relevant `Product.md` verification criteria and report any remaining deviations explicitly.
