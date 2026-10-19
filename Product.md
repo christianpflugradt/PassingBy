@@ -868,7 +868,7 @@ At normal desktop sizes navigation and content appear side by side. At narrower 
 
 ### Keyboard, accessibility, and state
 
-The local navigation is keyboard accessible: users can reach it, move between entries, activate a section, continue through Settings controls, and return to navigation. Provide accessibility labels and active state for VoiceOver. Tab and Shift+Tab traverse visible enabled controls in logical reading order without requiring macOS Full Keyboard Access. Manual scrolling must not steal focus. Dynamic controls and dismissed dialogs preserve or restore focus to an appropriate control. Keyboard shortcut documentation belongs on Help.
+The local navigation is keyboard accessible: users can reach it, move between entries, activate a section, continue through Settings controls, and return to navigation. Provide accessibility labels and active state for VoiceOver. Tab and Shift+Tab traverse visible enabled controls in logical reading order without requiring macOS Full Keyboard Access. Manual scrolling must not steal focus. Dynamic controls and dismissed dialogs preserve or restore focus to an appropriate control. Keyboard shortcut documentation belongs in contextual help, with a pointer from the Help screen (section 21A).
 
 Preserve Settings scroll position and, where appropriate, active section when leaving and returning, following section 25's application-wide restoration requirements. Avoid unnecessary hierarchy reconstruction, configuration resets, interrupted editing, or interference with dialogs.
 
@@ -1010,7 +1010,7 @@ The initial catalog below is fixed; Automatic overrides and custom rules persist
 
 # 21A. Help and keyboard commands
 
-The dedicated Help screen is informational and lists all supported application shortcuts. `Cmd+0` opens it. Shortcuts appear in the native macOS menu where applicable.
+The dedicated Help screen is informational and points users to `F1` for keyboard shortcuts for the current screen or dialog, noting `Fn+F1` on some Mac keyboards, rather than listing individual shortcuts. `Cmd+0` opens it. Shortcuts appear in the native macOS menu where applicable.
 
 `F1` (or `Fn+F1` on some Mac keyboards) and Help → Keyboard Shortcuts for This View open a native floating help panel for the current screen or dialog. It lists the relevant keyboard commands, including sidebar and global category filter commands. An open item editor takes priority and explains Done from Title, `Cmd+Enter` from any field, Description line breaks, and Escape’s draft-discard or existing-item close behaviour. Commands unavailable until the dialog closes are labelled accordingly. The panel omits Tab traversal instructions but includes Note indentation and commands for leaving the editor. Escape, F1 again, or the close button dismisses help and restores the previous focus and text selection. The panel does not execute underlying item commands. `Cmd+?` retains the native macOS Help-menu behaviour.
 
@@ -1422,7 +1422,7 @@ A reviewer should verify the items relevant to the change and its regression ris
 - [ ] Creation drafts persist exactly once on Done and are discarded on Escape; existing-item edits remain auto-saved when the editor closes.
 - [ ] Independent screen and Note zoom persists, honors its bounds, and resets through Settings without changing source or losing editing state.
 - [ ] Standard keyboard behaviour works.
-- [ ] Help lists the application shortcuts, and contextual creation, navigation, Note title focus, and guarded deletion shortcuts work.
+- [ ] Help points to F1 (or Fn+F1) for current-screen or dialog shortcuts without duplicating the shortcut list, and contextual creation, navigation, Note title focus, and guarded deletion shortcuts work.
 - [ ] Undo/Redo works where appropriate.
 - [ ] Light mode is usable.
 - [ ] Dark mode is usable.

@@ -831,7 +831,7 @@ private struct WorkspaceView: View {
                     case .tasks: TasksView(state: state)
                     case .appointments: AppointmentsView(state: state)
                     case .note(let id): NoteView(state: state, id: id)
-                    case .help: HelpView(state: state, notes: state.workspace.shortcutNotes)
+                    case .help: HelpView(state: state)
                     case .settings: Color.clear.allowsHitTesting(false)
                     }
                 }
@@ -1398,13 +1398,7 @@ private struct NoteView: View {
 
 private struct HelpView: View {
     @ObservedObject var state: WorkspaceState
-    let notes: [Note]
     private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
-    private var shortcuts: [AppShortcut] {
-        [AppShortcut.dashboard, .tasks, .appointments] +
-        Array(notes.prefix(6).enumerated()).map { AppShortcut.note($0.offset, title: $0.element.title) } +
-        [.help, .settings, .categoryFilter, .sidebar, .newItem, .newNote, .reorderNotes, .noteTitle, .delete, .lock, .find, .findNext, .findPrevious, .zoomIn, .zoomOut]
-    }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -1425,40 +1419,7 @@ private struct HelpView: View {
                 section("Notes", "Create individual Notes and assign them to Categories. Edit Markdown source with syntax highlighting, optional line numbers, word and character counts, Find, Undo and Redo, spell checking, and space-based indentation. Standard Cut, Copy, Paste, and Select All also work. Each Note remembers its own text size.")
                 section("Dashboard", "See a compact view of open To-dos and upcoming Appointments. The Category filter narrows the view to one context.")
                 section("App Lock", "Enable App Lock in Settings to prevent casual access through Passing By. Unlock with macOS authentication, including Touch ID when available. You can also set the app to lock after it becomes inactive. App Lock does not encrypt the workspace file on disk.")
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Keyboard Shortcuts").font(.system(size: 22 * scale, weight: .semibold))
-                    Text("⌘N creates a To-do or Appointment in those views, and a Note elsewhere. Note shortcuts follow the first six Notes currently shown in the sidebar.")
-                        .foregroundStyle(.secondary)
-                    Text("F1 opens keyboard shortcuts for the current screen or dialog. On some Mac keyboards, use Fn+F1. Escape or F1 again closes the floating help panel and restores your previous focus. ⌘? opens the macOS Help menu.")
-                        .foregroundStyle(.secondary)
-                    Text("⌥⌘F opens the global category filter: use Up/Down, Enter to apply, or Escape to cancel. Focus then returns to your previous control. ⌥⌘S focuses the sidebar: Up/Down moves, Enter opens, and Escape returns. The global filter and sidebar are outside the main content Tab sequence.")
-                    Text("In To-do and Appointment dialogs, Tab and Shift-Tab move between fields, including Category. Return in the title or ⌘Return activates Done; Return in the description adds a new line. Escape discards a new item, or closes an existing item while keeping its changes.")
-                        .foregroundStyle(.secondary)
-                    Text("On Dashboard, Tab follows To-dos, then Appointments. Return or Space activates a focused action. Escape closes a description.")
-                        .foregroundStyle(.secondary)
-                    Text("On To-dos, Tab follows New To-do, Show Completed To-dos, then each row’s Complete or Restore, Description when present, Edit, and Delete actions. Shift-Tab reverses this order.")
-                        .foregroundStyle(.secondary)
-                    Text("On Appointments, Tab follows New Appointment, Display mode, Show past, then each row’s Description when present, Edit, and Delete. In By Category mode, each group’s Show more or Show fewer follows its rows. Left and Right change the display mode; Shift-Tab reverses the tab order.")
-                        .foregroundStyle(.secondary)
-                    Text("On Notes, focus follows Title, Category, Editor, Delete, and Icon. Tab and Shift-Tab indent and outdent inside the editor using spaces; Control-Tab leaves it forwards and Control-Shift-Tab backwards. The icon picker supports Tab, Shift-Tab, and Return or Space to choose an icon; Escape closes it.")
-                        .foregroundStyle(.secondary)
-                    Grid(alignment: .leading, horizontalSpacing: 30, verticalSpacing: 7) {
-                        ForEach(shortcuts.indices, id: \.self) { index in
-                            let shortcut = shortcuts[index]
-                            GridRow {
-                                Text(shortcut.display)
-                                    .font(.system(size: 13 * scale, design: .monospaced))
-                                    .foregroundStyle(.secondary)
-                                    .frame(minWidth: 80, alignment: .leading)
-                                Text(shortcut.description)
-                            }
-                        }
-                        GridRow {
-                            Text("⌘Z / ⇧⌘Z").font(.system(size: 13 * scale, design: .monospaced)).foregroundStyle(.secondary)
-                            Text("Undo / Redo in the Note editor")
-                        }
-                    }
-                }
+                section("Keyboard Shortcuts", "Press F1 to see keyboard shortcuts for the current screen or dialog. On some Mac keyboards, use Fn+F1. Press Escape or F1 again to close the shortcut panel and return to your previous control.")
                 VStack(alignment: .leading, spacing: 8) {
                     Text("More").font(.system(size: 22 * scale, weight: .semibold))
                     Text("Passing By is open source. Visit the project on GitHub for source code, issues, and further information.")
