@@ -1,0 +1,4 @@
+id = "provider-smoke"
+description = "Verify Codex connectivity and structured output; not application quality"
+enabled = false
+instructions = "provider-smoke.md"

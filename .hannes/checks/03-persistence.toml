@@ -1,0 +1,6 @@
+id = "03-persistence"
+description = "Test persistence, migration and protection against data loss"
+enabled = true
+command = "swift run PassingByTests --suite persistence"
+working_directory = "."
+timeout_seconds = 180

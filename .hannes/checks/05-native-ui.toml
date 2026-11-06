@@ -1,0 +1,6 @@
+id = "05-native-ui"
+description = "Test native Settings focus, navigation and Undo/Redo"
+enabled = true
+command = "./Scripts/test-settings-navigation.sh"
+working_directory = "."
+timeout_seconds = 300

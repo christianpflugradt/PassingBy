@@ -1,0 +1,6 @@
+id = "07-style"
+description = "Check Swift formatting and style"
+enabled = true
+command = "swift format lint --strict --recursive Sources Scripts Package.swift"
+working_directory = "."
+timeout_seconds = 120

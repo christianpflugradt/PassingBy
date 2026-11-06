@@ -1,0 +1,6 @@
+id = "02-domain"
+description = "Test filtering, retention, scheduling and domain rules"
+enabled = true
+command = "swift run PassingByTests --suite domain"
+working_directory = "."
+timeout_seconds = 180

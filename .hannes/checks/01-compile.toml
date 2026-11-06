@@ -1,0 +1,6 @@
+id = "01-compile"
+description = "Compile the release application"
+enabled = true
+command = "swift build -c release --product PassingByApp"
+working_directory = "."
+timeout_seconds = 300

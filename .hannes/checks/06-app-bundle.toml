@@ -1,0 +1,6 @@
+id = "06-app-bundle"
+description = "Assemble and verify the macOS app bundle"
+enabled = true
+command = "./Scripts/build-release.sh"
+working_directory = "."
+timeout_seconds = 300

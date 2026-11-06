@@ -56,6 +56,16 @@ Allowed scopes: `app`, `ui`, `notes`, `todos`, `appointments`, `settings`, `pers
 
 Examples: `build: assemble local app`, `fix(ui): correct sidebar alignment`, `docs: clarify setup`.
 
+### Hannes checks
+
+Run `hannes pass auf`, then `hannes mach was` from this repository. Seven checks
+cover release compilation, domain rules, persistence/legacy data, Markdown and
+substitutions, native Settings interactions, the app bundle, and Swift style.
+All reviews are disabled, so this setup makes no Codex calls.
+`hannes was ist phase --details` shows captured output from the saved report.
+See [.hannes/README.md](.hannes/README.md) for commands and requirements.
+
+
 ### Releases
 
 Releases use Semantic Release and SemVer. Run `mise run release` to start the manual GitHub workflow; Conventional Commits determine the next version. After tests pass, Semantic Release passes that version directly to the release build and packaging steps, creates the `v<version>` tag, and publishes the GitHub Release with the ZIP attached. For local packaging checks, run `RELEASE_VERSION=1.2.3 mise run build && RELEASE_VERSION=1.2.3 mise run package` with a test version.
