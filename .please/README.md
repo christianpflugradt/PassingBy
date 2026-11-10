@@ -73,6 +73,15 @@ hook may call its advisory provider. Dependency preparation is separate from che
 Builds reuse ignored `.build/` and `build/` outputs and never install the app.
 The npm audit needs current advisory access in CI/readiness.
 
+## Dependency updates
+
+Renovate uses the best-practices preset and groups the Semantic Release toolchain.
+Routine updates wait seven days; major versions and grouped GitHub Actions updates
+wait fourteen days. Release timestamps are required, and strict internal checks
+keep updates pending until eligible. Branches refresh when main advances.
+Minor, patch and digest updates, plus grouped GitHub Actions updates, auto-merge
+after green CI through Renovate; other major updates remain manual.
+
 ## Release contract
 
 CI has `check` / `Check`. Manual Release on main has `plan` / `Plan`,
