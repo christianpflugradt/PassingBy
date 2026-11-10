@@ -73,7 +73,10 @@ public struct ScheduledTodo: Codable, Equatable, Identifiable {
     public var nextOccurrence: Date
     public var lastGeneratedOccurrence: Date? = nil
 
-    public init(id: UUID = UUID(), title: String, categoryID: UUID?, recurrence: ScheduleRecurrence, startingOn date: Date = Date(), calendar: Calendar = .current) {
+    public init(
+        id: UUID = UUID(), title: String, categoryID: UUID?, recurrence: ScheduleRecurrence, startingOn date: Date = Date(),
+        calendar: Calendar = .current
+    ) {
         self.id = id
         self.title = title
         self.categoryID = categoryID

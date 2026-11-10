@@ -42,6 +42,7 @@ done
 iconutil -c icns "$iconset" -o "$staged_app/Contents/Resources/PassingBy.icns"
 
 codesign --force --sign - "$staged_app"
+"$root/Scripts/check-app-bundle.sh" "$staged_app"
 rm -rf "$app"
 mv "$staged_app" "$app"
 print "Built $app"

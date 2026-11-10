@@ -91,7 +91,8 @@ enum Destination: Hashable {
         error = store.persistenceError
         let previous = UserDefaults.standard.string(forKey: "area")
         if (previous == "note" || previous == "Notes"),
-           let value = UserDefaults.standard.string(forKey: "note"), let id = UUID(uuidString: value) {
+            let value = UserDefaults.standard.string(forKey: "note"), let id = UUID(uuidString: value)
+        {
             destination = .note(id)
         } else {
             switch previous {
@@ -113,10 +114,15 @@ enum Destination: Hashable {
         }
     }
     var notes: [Note] { workspace.visibleNotes }
-    var tasks: [Task] { workspace.tasks.filter { workspace.matches($0.labelID) && (showCompleted || $0.completedAt == nil) }.sorted { $0.createdAt < $1.createdAt } }
+    var tasks: [Task] {
+        workspace.tasks.filter { workspace.matches($0.labelID) && (showCompleted || $0.completedAt == nil) }.sorted {
+            $0.createdAt < $1.createdAt
+        }
+    }
     var appointments: [DateItem] { workspace.matchingDates(showPast: showPast) }
     var visibleAppointments: [DateItem] {
-        workspace.settings.dateDisplayMode == .chronological ? appointments : workspace.dateGroups(showPast: showPast, expanded: expanded).flatMap(\.items)
+        workspace.settings.dateDisplayMode == .chronological
+            ? appointments : workspace.dateGroups(showPast: showPast, expanded: expanded).flatMap(\.items)
     }
     var label: PassingByCore.Label? { workspace.labels.first { $0.id == labelID } }
     func note(_ id: UUID) -> Note? { workspace.notes.first { $0.id == id } }
@@ -222,7 +228,8 @@ enum Destination: Hashable {
     }
     func becameActive() {
         if let inactiveSince, workspace.settings.appLockEnabled, workspace.settings.lockWhenInactive,
-           Date().timeIntervalSince(inactiveSince) >= TimeInterval(workspace.settings.inactivityMinutes * 60) {
+            Date().timeIntervalSince(inactiveSince) >= TimeInterval(workspace.settings.inactivityMinutes * 60)
+        {
             lockNow()
         }
         cancelPendingLock()
@@ -248,16 +255,24 @@ enum Destination: Hashable {
     }
     func flush() {
         let needsNormalization =
-            workspace.notes.contains { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ||
-            workspace.tasks.contains { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ||
-            workspace.dates.contains { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ||
-            workspace.labels.contains { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            workspace.notes.contains { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            || workspace.tasks.contains { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            || workspace.dates.contains { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            || workspace.labels.contains { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         if needsNormalization {
             change { w in
-                for i in w.notes.indices where w.notes[i].title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { w.notes[i].title = "Untitled Note" }
-                for i in w.tasks.indices where w.tasks[i].title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { w.tasks[i].title = "New To-do" }
-                for i in w.dates.indices where w.dates[i].title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { w.dates[i].title = "New Appointment" }
-                for i in w.labels.indices where w.labels[i].name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { w.labels[i].name = "New Category" }
+                for i in w.notes.indices where w.notes[i].title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    w.notes[i].title = "Untitled Note"
+                }
+                for i in w.tasks.indices where w.tasks[i].title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    w.tasks[i].title = "New To-do"
+                }
+                for i in w.dates.indices where w.dates[i].title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    w.dates[i].title = "New Appointment"
+                }
+                for i in w.labels.indices where w.labels[i].name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    w.labels[i].name = "New Category"
+                }
             }
         }
         _ = store.flush(); error = store.persistenceError
@@ -343,7 +358,9 @@ enum Destination: Hashable {
         workspace = store.workspace
         error = store.persistenceError
     }
-    func editNote(_ id: UUID, _ edit: (inout Note) -> Void) { change { w in if let i = w.notes.firstIndex(where: { $0.id == id }) { edit(&w.notes[i]); w.notes[i].updatedAt = Date() } } }
+    func editNote(_ id: UUID, _ edit: (inout Note) -> Void) {
+        change { w in if let i = w.notes.firstIndex(where: { $0.id == id }) { edit(&w.notes[i]); w.notes[i].updatedAt = Date() } }
+    }
     func editTask(_ id: UUID, _ edit: (inout Task) -> Void) {
         if taskDraft?.id == id { edit(&taskDraft!); return }
         change { w in if let i = w.tasks.firstIndex(where: { $0.id == id }) { edit(&w.tasks[i]) } }
@@ -382,9 +399,12 @@ enum Destination: Hashable {
         let appointment = kind == .appointment
         let isNote = kind == .note
         let expectedDestination: Destination = isNote ? .note(id) : (appointment ? .appointments : .tasks)
-        let title = isNote ? note(id)?.title : (appointment ? workspace.dates.first { $0.id == id }?.title : workspace.tasks.first { $0.id == id }?.title)
+        let title =
+            isNote
+            ? note(id)?.title : (appointment ? workspace.dates.first { $0.id == id }?.title : workspace.tasks.first { $0.id == id }?.title)
         guard !isLocked, itemDeletionAlert == nil, let title,
-              let window = NSApp.keyWindow, window.attachedSheet == nil else { return }
+            let window = NSApp.keyWindow, window.attachedSheet == nil
+        else { return }
         let currentResponder = window.firstResponder as? NSView
         // Resolve the deleted row's neighbour even when Cmd+Delete targets a mouse-selected row.
         let itemIDs = appointment ? visibleAppointments.map(\.id) : tasks.map(\.id)
@@ -400,13 +420,19 @@ enum Destination: Hashable {
             return nil
         }
         let content = window.sheetParent?.contentView ?? window.contentView
-        let rowButton = isNote ? content.flatMap { control("note-delete", in: $0) } : rowIndex.flatMap { index in content.flatMap { control(appointment ? "appointments-\(id)-delete" : "todos-\(13 + index * 4)", in: $0) } }
+        let rowButton =
+            isNote
+            ? content.flatMap { control("note-delete", in: $0) }
+            : rowIndex.flatMap { index in
+                content.flatMap { control(appointment ? "appointments-\(id)-delete" : "todos-\(13 + index * 4)", in: $0) }
+            }
         let source = fromCurrentItem ? currentResponder : rowButton ?? currentResponder
         let alert = NSAlert()
         alert.alertStyle = .warning
         let itemName = isNote ? "Note" : (appointment ? "Appointment" : "To-do")
         alert.messageText = "Delete this \(itemName)?"
-        alert.informativeText = "\(title.isEmpty ? (isNote ? "Untitled Note" : "New " + itemName) : title)\nYou can restore it from Settings → Recently Deleted for 30 days."
+        alert.informativeText =
+            "\(title.isEmpty ? (isNote ? "Untitled Note" : "New " + itemName) : title)\nYou can restore it from Settings → Recently Deleted for 30 days."
         alert.addButton(withTitle: "Delete " + itemName)
         alert.addButton(withTitle: "Cancel")
         alert.buttons[0].hasDestructiveAction = true
@@ -423,7 +449,8 @@ enum Destination: Hashable {
                 return nil
             }
             if (event.keyCode == 36 || event.keyCode == 49),
-               let button = alert.buttons.first(where: { alert.window.firstResponder === $0 }) {
+                let button = alert.buttons.first(where: { alert.window.firstResponder === $0 })
+            {
                 if !event.isARepeat { button.performClick(nil) }
                 return nil
             }
@@ -449,19 +476,24 @@ enum Destination: Hashable {
                 }
             }
             DispatchQueue.main.async { [weak self, weak source, weak content] in
-                guard let self, !self.isLocked, self.destination == (isNote && response == .alertFirstButtonReturn ? .dashboard : expectedDestination) else { return }
+                guard let self, !self.isLocked,
+                    self.destination == (isNote && response == .alertFirstButtonReturn ? .dashboard : expectedDestination)
+                else { return }
                 let target: NSView?
                 if response == .alertFirstButtonReturn, let content {
                     let identifier: String
                     if isNote {
                         identifier = "dashboard-10"
                     } else if appointment {
-                        identifier = self.visibleAppointments.first { $0.id == neighbourID }.map { "appointments-\($0.id)-edit" } ?? "appointments-1"
+                        identifier =
+                            self.visibleAppointments.first { $0.id == neighbourID }.map { "appointments-\($0.id)-edit" } ?? "appointments-1"
                     } else {
                         identifier = self.tasks.firstIndex { $0.id == neighbourID }.map { "todos-\(10 + $0 * 4)" } ?? "todos-1"
                     }
                     target = control(identifier, in: content)
-                } else { target = source }
+                } else {
+                    target = source
+                }
                 guard let target, let window = target.window else { return }
                 target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
                 window.makeFirstResponder(target)
@@ -491,8 +523,7 @@ enum Destination: Hashable {
     private var stateChanges: AnyCancellable?
     private var lifecycle: [AnyCancellable] = []
     init() {
-        do { state = WorkspaceState(try AppStore()); error = nil }
-        catch { state = nil; self.error = error.localizedDescription }
+        do { state = WorkspaceState(try AppStore()); error = nil } catch { state = nil; self.error = error.localizedDescription }
         stateChanges = state?.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         lifecycle = [
             NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
@@ -502,7 +533,7 @@ enum Destination: Hashable {
             NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)
                 .sink { [weak self] _ in self?.state?.lockNow() },
             NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
-                .sink { [weak self] _ in if !NSApp.isActive { self?.state?.becameInactive() } }
+                .sink { [weak self] _ in if !NSApp.isActive { self?.state?.becameInactive() } },
         ]
     }
 }
@@ -513,7 +544,8 @@ private struct AppShortcut {
     let display: String
     let description: String
 
-    static let categoryFilter = Self(key: "f", modifiers: [.command, .option], display: "⌥⌘F", description: "Change global category filter")
+    static let categoryFilter = Self(
+        key: "f", modifiers: [.command, .option], display: "⌥⌘F", description: "Change global category filter")
     static let sidebar = Self(key: "s", modifiers: [.command, .option], display: "⌥⌘S", description: "Focus sidebar")
     static let dashboard = Self(key: "1", modifiers: .command, display: "⌘1", description: "Dashboard")
     static let tasks = Self(key: "2", modifiers: .command, display: "⌘2", description: "To-dos")
@@ -534,8 +566,9 @@ private struct AppShortcut {
 
     static func note(_ index: Int, title: String) -> Self {
         let number = index + 4
-        return Self(key: KeyEquivalent(Character(String(number))), modifiers: .command,
-                    display: "⌘\(number)", description: title.isEmpty ? "Untitled Note" : title)
+        return Self(
+            key: KeyEquivalent(Character(String(number))), modifiers: .command,
+            display: "⌘\(number)", description: title.isEmpty ? "Untitled Note" : title)
     }
 }
 
@@ -547,11 +580,13 @@ private struct AppShortcut {
     }
     var contextHelpDocument: ContextHelpDocument {
         func row(_ shortcut: AppShortcut) -> ContextHelpRow { .init(shortcut.display, shortcut.description) }
-        var navigation = [row(.sidebar), .init("↑ / ↓; Enter", "In the sidebar: move between entries, then open one."),
-                          .init("Escape", "Leave the sidebar and return to your previous control."), row(.categoryFilter),
-                          .init("↑ / ↓; Enter", "In the global filter: choose a category, then apply it."),
-                          .init("Escape", "Cancel the category chooser and return to your previous control."),
-                          row(.dashboard), row(.tasks), row(.appointments)]
+        var navigation = [
+            row(.sidebar), .init("↑ / ↓; Enter", "In the sidebar: move between entries, then open one."),
+            .init("Escape", "Leave the sidebar and return to your previous control."), row(.categoryFilter),
+            .init("↑ / ↓; Enter", "In the global filter: choose a category, then apply it."),
+            .init("Escape", "Cancel the category chooser and return to your previous control."),
+            row(.dashboard), row(.tasks), row(.appointments),
+        ]
         navigation += workspace.shortcutNotes.prefix(6).enumerated().map { row(.note($0.offset, title: $0.element.title)) }
         navigation += [row(.help), row(.settings), row(.newNote)]
         if workspace.notes.count >= 2 { navigation.append(row(.reorderNotes)) }
@@ -563,37 +598,70 @@ private struct AppShortcut {
             .init("⌥← / ⌥→", "Move by word; hold Shift to select."),
             .init("⌘← / ⌘→", "Move to the start / end of the line; hold Shift to select."),
             .init("⌘↑ / ⌘↓", "Move to the start / end of the text; hold Shift to select."),
-            .init("⌫ / ⌥⌫", "Delete the previous character / word.")]
-        let category: [ContextHelpRow] = [.init("Space", "Open the focused item Category picker."),
-                                          .init("↑ / ↓; Enter", "Choose a category, then assign it to the item."),
-                                          .init("Escape", "Cancel the Category menu.")]
-        let panelHelp = ContextHelpSection(title: "Help", rows: [.init("F1", "Show or close these contextual shortcuts (Fn+F1 on some keyboards)."),
-                                                               .init("⌘?", "Open the macOS Help menu.")])
+            .init("⌫ / ⌥⌫", "Delete the previous character / word."),
+        ]
+        let category: [ContextHelpRow] = [
+            .init("Space", "Open the focused item Category picker."),
+            .init("↑ / ↓; Enter", "Choose a category, then assign it to the item."),
+            .init("Escape", "Cancel the Category menu."),
+        ]
+        let panelHelp = ContextHelpSection(
+            title: "Help",
+            rows: [
+                .init("F1", "Show or close these contextual shortcuts (Fn+F1 on some keyboards)."),
+                .init("⌘?", "Open the macOS Help menu."),
+            ])
         if editingTaskID != nil || editingAppointmentID != nil {
             let appointment = editingAppointmentID != nil
             let isNew = appointment ? appointmentDraft != nil : taskDraft != nil
-            var commands: [ContextHelpRow] = [.init("Enter in Title", "Done: " + (isNew ? "create the item and close the dialog." : "finish editing and close the dialog.")),
-                                              .init("⌘Enter", "Done from any field, including Description and Category" + (appointment ? ", or Date." : ".")),
-                                              .init("Enter / Space on Done", "Activate the focused Done button."),
-                                              .init("Enter in Description", "Insert a line break."),
-                                              .init("Escape", isNew ? "Cancel and discard this draft; no item is created." : "Close the editor, keeping your changes.")]
-            if appointment { commands += [.init("← / → in Date", "Move between day, month, and year."),
-                                           .init("↑ / ↓ in Date", "Increase / decrease the selected date component."),
-                                           .init("Digits in Date", "Replace the selected date component.")] }
-            return ContextHelpDocument(title: (isNew ? "New " : "Edit ") + (appointment ? "Appointment" : "To-do") + " Shortcuts", sections: [
-                .init(title: "This dialog", rows: commands), .init(title: "Assign Category", rows: category),
-                .init(title: "Text editing", rows: editing), panelHelp,
-                .init(title: "After closing this dialog", rows: navigation)])
+            var commands: [ContextHelpRow] = [
+                .init(
+                    "Enter in Title", "Done: " + (isNew ? "create the item and close the dialog." : "finish editing and close the dialog.")),
+                .init("⌘Enter", "Done from any field, including Description and Category" + (appointment ? ", or Date." : ".")),
+                .init("Enter / Space on Done", "Activate the focused Done button."),
+                .init("Enter in Description", "Insert a line break."),
+                .init("Escape", isNew ? "Cancel and discard this draft; no item is created." : "Close the editor, keeping your changes."),
+            ]
+            if appointment {
+                commands += [
+                    .init("← / → in Date", "Move between day, month, and year."),
+                    .init("↑ / ↓ in Date", "Increase / decrease the selected date component."),
+                    .init("Digits in Date", "Replace the selected date component."),
+                ]
+            }
+            return ContextHelpDocument(
+                title: (isNew ? "New " : "Edit ") + (appointment ? "Appointment" : "To-do") + " Shortcuts",
+                sections: [
+                    .init(title: "This dialog", rows: commands), .init(title: "Assign Category", rows: category),
+                    .init(title: "Text editing", rows: editing), panelHelp,
+                    .init(title: "After closing this dialog", rows: navigation),
+                ])
         }
         if showRecentlyDeleted {
-            return .init(title: "Recently Deleted Shortcuts", sections: [
-                .init(title: "This dialog", rows: [.init("↑ / ↓ in the list", "Select a deleted item and show its preview."), .init("Enter / Space on a button", "Activate the focused button."), .init("⌘C in the preview", "Copy selected text."), .init("Escape", "Close Recently Deleted.")]),
-                panelHelp, .init(title: "After closing this dialog", rows: navigation)])
+            return .init(
+                title: "Recently Deleted Shortcuts",
+                sections: [
+                    .init(
+                        title: "This dialog",
+                        rows: [
+                            .init("↑ / ↓ in the list", "Select a deleted item and show its preview."),
+                            .init("Enter / Space on a button", "Activate the focused button."),
+                            .init("⌘C in the preview", "Copy selected text."), .init("Escape", "Close Recently Deleted."),
+                        ]),
+                    panelHelp, .init(title: "After closing this dialog", rows: navigation),
+                ])
         }
         if itemDeletionAlert != nil || keyboardNavigation.window?.attachedSheet != nil && !showReorderNotes {
-            return .init(title: "Confirmation Shortcuts", sections: [
-                .init(title: "This confirmation", rows: [.init("Enter / Space", "Activate the focused choice."), .init("Escape", "Cancel without changing the item.")]),
-                panelHelp, .init(title: "After closing this dialog", rows: navigation)])
+            return .init(
+                title: "Confirmation Shortcuts",
+                sections: [
+                    .init(
+                        title: "This confirmation",
+                        rows: [
+                            .init("Enter / Space", "Activate the focused choice."), .init("Escape", "Cancel without changing the item."),
+                        ]),
+                    panelHelp, .init(title: "After closing this dialog", rows: navigation),
+                ])
         }
         var title: String
         var commands: [ContextHelpRow]
@@ -601,52 +669,75 @@ private struct AppShortcut {
         switch destination {
         case .dashboard:
             title = "Dashboard"
-            commands = [.init("⌘N", "Create a Note."), .init("Enter / Space", "Open the focused section or description, or complete a focused To-do."),
-                        .init("Escape", "Close the description popover.")]
+            commands = [
+                .init("⌘N", "Create a Note."),
+                .init("Enter / Space", "Open the focused section or description, or complete a focused To-do."),
+                .init("Escape", "Close the description popover."),
+            ]
         case .tasks:
             title = "To-do"
-            commands = [.init("⌘N", "Create a To-do."), .init("Enter / Space", "Activate the focused Complete / Restore, Description, Edit, Delete, or Show Completed control."),
-                        .init("⌘⌫", "Delete the selected To-do, with confirmation, when the target is unambiguous."),
-                        .init("Escape", "Close the description popover.")]
+            commands = [
+                .init("⌘N", "Create a To-do."),
+                .init("Enter / Space", "Activate the focused Complete / Restore, Description, Edit, Delete, or Show Completed control."),
+                .init("⌘⌫", "Delete the selected To-do, with confirmation, when the target is unambiguous."),
+                .init("Escape", "Close the description popover."),
+            ]
         case .appointments:
             title = "Appointment"
-            commands = [.init("⌘N", "Create an Appointment."), .init("Enter / Space", "Activate the focused Description, Edit, Delete, Show past, or Show more / fewer control."),
-                        .init("← / →", "Change the focused Display mode control."),
-                        .init("⌘⌫", "Delete the selected Appointment, with confirmation, when the target is unambiguous."),
-                        .init("Escape", "Close the description popover.")]
+            commands = [
+                .init("⌘N", "Create an Appointment."),
+                .init("Enter / Space", "Activate the focused Description, Edit, Delete, Show past, or Show more / fewer control."),
+                .init("← / →", "Change the focused Display mode control."),
+                .init("⌘⌫", "Delete the selected Appointment, with confirmation, when the target is unambiguous."),
+                .init("Escape", "Close the description popover."),
+            ]
         case .note:
             title = "Note"
-            commands = [.init("⌘N", "Create a Note."), row(.noteTitle), .init("⌘⌫", "Delete this Note, with confirmation."),
-                        row(.find), row(.findNext), row(.findPrevious),
-                        .init("Ctrl+Tab", "Leave the editor forwards, retaining your caret and selection."),
-                        .init("Ctrl+Shift+Tab", "Leave the editor backwards, retaining your caret and selection."),
-                        .init("Tab / Shift+Tab", "Indent / outdent in the editor using the configured spaces."),
-                        .init("Enter in Editor", "Insert a line break."),
-                        .init("Enter / Space", "Open the focused icon picker, choose a focused icon, or activate Delete."),
-                        .init("Escape", "Close the icon picker; inside the editor, retain focus.")]
+            commands = [
+                .init("⌘N", "Create a Note."), row(.noteTitle), .init("⌘⌫", "Delete this Note, with confirmation."),
+                row(.find), row(.findNext), row(.findPrevious),
+                .init("Ctrl+Tab", "Leave the editor forwards, retaining your caret and selection."),
+                .init("Ctrl+Shift+Tab", "Leave the editor backwards, retaining your caret and selection."),
+                .init("Tab / Shift+Tab", "Indent / outdent in the editor using the configured spaces."),
+                .init("Enter in Editor", "Insert a line break."),
+                .init("Enter / Space", "Open the focused icon picker, choose a focused icon, or activate Delete."),
+                .init("Escape", "Close the icon picker; inside the editor, retain focus."),
+            ]
             sections = [.init(title: "Assign Category", rows: category), .init(title: "Text editing", rows: editing)]
         case .help:
             title = "Help"
-            commands = [.init("⌘N", "Create a Note."), .init("↑ / ↓", "Scroll the main content."), .init("Page Up / Down", "Scroll one page."),
-                        .init("Home / End", "Scroll to the start / end.")]
+            commands = [
+                .init("⌘N", "Create a Note."), .init("↑ / ↓", "Scroll the main content."), .init("Page Up / Down", "Scroll one page."),
+                .init("Home / End", "Scroll to the start / end."),
+            ]
         case .settings:
             title = "Settings"
-            commands = [.init("⌘N", "Create a Note."), .init("Space", "Activate the focused checkbox or open a focused picker."),
-                        .init("↑ / ↓; Enter", "Move between focused Settings sections and open one, or choose an option in an open picker."), .init("Escape", "Cancel an open picker.")]
+            commands = [
+                .init("⌘N", "Create a Note."), .init("Space", "Activate the focused checkbox or open a focused picker."),
+                .init("↑ / ↓; Enter", "Move between focused Settings sections and open one, or choose an option in an open picker."),
+                .init("Escape", "Cancel an open picker."),
+            ]
         }
         if showReorderNotes {
-            return .init(title: "Reorder Notes Shortcuts", sections: [.init(title: "This dialog", rows: [.init("Enter", "Activate Done and close the dialog.")]),
-                                                                   panelHelp, .init(title: "After closing this dialog", rows: navigation)])
+            return .init(
+                title: "Reorder Notes Shortcuts",
+                sections: [
+                    .init(title: "This dialog", rows: [.init("Enter", "Activate Done and close the dialog.")]),
+                    panelHelp, .init(title: "After closing this dialog", rows: navigation),
+                ])
         }
         commands += [row(.zoomIn), row(.zoomOut)]
-        return .init(title: title + " Shortcuts", sections: [.init(title: "This view", rows: commands)] + sections + [
-            .init(title: "Navigation and global commands", rows: navigation), panelHelp,
-            .init(title: "Window", rows: [.init("⌘W", "Close the app window."), .init("⌘Q", "Quit Passing By.")])])
+        return .init(
+            title: title + " Shortcuts",
+            sections: [.init(title: "This view", rows: commands)] + sections + [
+                .init(title: "Navigation and global commands", rows: navigation), panelHelp,
+                .init(title: "Window", rows: [.init("⌘W", "Close the app window."), .init("⌘Q", "Quit Passing By.")]),
+            ])
     }
 }
 
 #if !SETTINGS_NAVIGATION_TESTS
-@main
+    @main
 #endif
 struct PassingByApp: App {
     @StateObject private var startup = Startup()
@@ -662,19 +753,33 @@ struct PassingByApp: App {
                     Button("About Passing By") { showAboutPanel() }
                 }
                 CommandGroup(replacing: .newItem) {
-                    Button("New Item") { startup.state?.createContextualItem() }.keyboardShortcut(AppShortcut.newItem.key, modifiers: AppShortcut.newItem.modifiers).disabled(startup.state?.isLocked ?? true)
-                    Button("New Note") { startup.state?.createNote() }.keyboardShortcut(AppShortcut.newNote.key, modifiers: AppShortcut.newNote.modifiers).disabled(startup.state?.isLocked ?? true)
+                    Button("New Item") { startup.state?.createContextualItem() }.keyboardShortcut(
+                        AppShortcut.newItem.key, modifiers: AppShortcut.newItem.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
+                    Button("New Note") { startup.state?.createNote() }.keyboardShortcut(
+                        AppShortcut.newNote.key, modifiers: AppShortcut.newNote.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
                 }
                 CommandGroup(replacing: .appSettings) {
-                    Button("Settings") { startup.state?.destination = .settings }.keyboardShortcut(AppShortcut.settings.key, modifiers: AppShortcut.settings.modifiers).disabled(startup.state?.isLocked ?? true)
+                    Button("Settings") { startup.state?.destination = .settings }.keyboardShortcut(
+                        AppShortcut.settings.key, modifiers: AppShortcut.settings.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
                 }
                 CommandMenu("Navigate") {
-                    Button("Dashboard") { startup.state?.destination = .dashboard }.keyboardShortcut(AppShortcut.dashboard.key, modifiers: AppShortcut.dashboard.modifiers).disabled(startup.state?.isLocked ?? true)
-                    Button("To-dos") { startup.state?.destination = .tasks }.keyboardShortcut(AppShortcut.tasks.key, modifiers: AppShortcut.tasks.modifiers).disabled(startup.state?.isLocked ?? true)
-                    Button("Appointments") { startup.state?.destination = .appointments }.keyboardShortcut(AppShortcut.appointments.key, modifiers: AppShortcut.appointments.modifiers).disabled(startup.state?.isLocked ?? true)
+                    Button("Dashboard") { startup.state?.destination = .dashboard }.keyboardShortcut(
+                        AppShortcut.dashboard.key, modifiers: AppShortcut.dashboard.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
+                    Button("To-dos") { startup.state?.destination = .tasks }.keyboardShortcut(
+                        AppShortcut.tasks.key, modifiers: AppShortcut.tasks.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
+                    Button("Appointments") { startup.state?.destination = .appointments }.keyboardShortcut(
+                        AppShortcut.appointments.key, modifiers: AppShortcut.appointments.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
                     ForEach(Array(shortcutNotes.enumerated()), id: \.element.id) { index, note in
                         Button(note.title.isEmpty ? "Untitled Note" : note.title) { startup.state?.destination = .note(note.id) }
-                        .keyboardShortcut(AppShortcut.note(index, title: note.title).key, modifiers: AppShortcut.note(index, title: note.title).modifiers)
+                            .keyboardShortcut(
+                                AppShortcut.note(index, title: note.title).key,
+                                modifiers: AppShortcut.note(index, title: note.title).modifiers)
                     }
                     Divider()
                     Button("Change Category Filter…") {
@@ -706,8 +811,12 @@ struct PassingByApp: App {
                         .disabled(startup.state?.isLocked ?? true)
                 }
                 CommandMenu("Item") {
-                    Button("Focus Note Title") { startup.state?.focusNoteTitle() }.keyboardShortcut(AppShortcut.noteTitle.key, modifiers: AppShortcut.noteTitle.modifiers).disabled(startup.state?.isLocked ?? true)
-                    Button("Delete") { startup.state?.deleteCurrentItem() }.keyboardShortcut(AppShortcut.delete.key, modifiers: AppShortcut.delete.modifiers).disabled(startup.state?.isLocked ?? true)
+                    Button("Focus Note Title") { startup.state?.focusNoteTitle() }.keyboardShortcut(
+                        AppShortcut.noteTitle.key, modifiers: AppShortcut.noteTitle.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
+                    Button("Delete") { startup.state?.deleteCurrentItem() }.keyboardShortcut(
+                        AppShortcut.delete.key, modifiers: AppShortcut.delete.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
                     Divider()
                     Button("Lock Passing By") { startup.state?.lockNow() }
                         .keyboardShortcut(AppShortcut.lock.key, modifiers: AppShortcut.lock.modifiers)
@@ -723,9 +832,14 @@ struct PassingByApp: App {
                 }
                 CommandGroup(after: .textEditing) {
                     Divider()
-                    Button("Find…") { performFindAction(1) }.keyboardShortcut(AppShortcut.find.key, modifiers: AppShortcut.find.modifiers).disabled(startup.state?.isLocked ?? true)
-                    Button("Find Next") { performFindAction(2) }.keyboardShortcut(AppShortcut.findNext.key, modifiers: AppShortcut.findNext.modifiers).disabled(startup.state?.isLocked ?? true)
-                    Button("Find Previous") { performFindAction(3) }.keyboardShortcut(AppShortcut.findPrevious.key, modifiers: AppShortcut.findPrevious.modifiers).disabled(startup.state?.isLocked ?? true)
+                    Button("Find…") { performFindAction(1) }.keyboardShortcut(AppShortcut.find.key, modifiers: AppShortcut.find.modifiers)
+                        .disabled(startup.state?.isLocked ?? true)
+                    Button("Find Next") { performFindAction(2) }.keyboardShortcut(
+                        AppShortcut.findNext.key, modifiers: AppShortcut.findNext.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
+                    Button("Find Previous") { performFindAction(3) }.keyboardShortcut(
+                        AppShortcut.findPrevious.key, modifiers: AppShortcut.findPrevious.modifiers
+                    ).disabled(startup.state?.isLocked ?? true)
                 }
             }
     }
@@ -737,19 +851,21 @@ struct PassingByApp: App {
     let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
     let paragraph = NSMutableParagraphStyle()
     paragraph.alignment = .center
-    let credits = NSAttributedString(string: """
-        A lightweight, local-first macOS app for notes, to-dos, and appointments.
+    let credits = NSAttributedString(
+        string: """
+            A lightweight, local-first macOS app for notes, to-dos, and appointments.
 
-        Created by Christian Pflugradt
-        """, attributes: [
+            Created by Christian Pflugradt
+            """,
+        attributes: [
             .font: NSFont.systemFont(ofSize: 13),
             .foregroundColor: NSColor.secondaryLabelColor,
-            .paragraphStyle: paragraph
+            .paragraphStyle: paragraph,
         ])
     NSApp.orderFrontStandardAboutPanel(options: [
         .applicationVersion: version == "0.0.0" ? "Development build" : "Version \(version)",
         .version: build == version ? "" : build,
-        .credits: credits
+        .credits: credits,
     ])
 }
 
@@ -764,10 +880,11 @@ private struct StartupView: View {
     var body: some View {
         Group {
             if let state = startup.state {
-                if state.isLocked { LockedView(state: state) }
-                else { WorkspaceView(state: state) }
+                if state.isLocked { LockedView(state: state) } else { WorkspaceView(state: state) }
             } else {
-                ContentUnavailableView("Workspace Could Not Open", systemImage: AppSymbol.error, description: Text(startup.error ?? "The workspace could not be loaded."))
+                ContentUnavailableView(
+                    "Workspace Could Not Open", systemImage: AppSymbol.error,
+                    description: Text(startup.error ?? "The workspace could not be loaded."))
             }
         }
         .onAppear { if NSApp.isActive { startup.state?.becameActive() } else { startup.state?.becameInactive() } }
@@ -804,7 +921,9 @@ private struct WorkspaceView: View {
                             sidebarButton("Appointments", icon: AppSymbol.appointments, destination: .appointments)
                             Divider().padding(.vertical, 11).padding(.horizontal, 13)
                             ForEach(state.notes) { note in
-                                sidebarButton(note.title.isEmpty ? "Untitled Note" : note.title, icon: availableNoteIcon(note.iconName), destination: .note(note.id), categoryID: note.labelID)
+                                sidebarButton(
+                                    note.title.isEmpty ? "Untitled Note" : note.title, icon: availableNoteIcon(note.iconName),
+                                    destination: .note(note.id), categoryID: note.labelID)
                             }
                             KeyboardButton(symbol: AppSymbol.add, pointSize: 17, keyLoopID: "sidebar-new", accessibilityLabel: "New Note") {
                                 state.createNote()
@@ -850,12 +969,16 @@ private struct WorkspaceView: View {
             }
         }
         .frame(minWidth: 650, minHeight: 410)
-        .background(WorkspaceKeyboardBridge(navigation: state.keyboardNavigation, contextHelp: state.contextHelp, onHelp: state.toggleContextHelp))
+        .background(
+            WorkspaceKeyboardBridge(navigation: state.keyboardNavigation, contextHelp: state.contextHelp, onHelp: state.toggleContextHelp)
+        )
         .sheet(isPresented: $state.showReorderNotes) { ReorderNotesView(state: state) }
         .alert("Could Not Save Changes", isPresented: Binding(get: { state.error != nil }, set: { if !$0 { state.error = nil } })) {
             Button("Retry") { state.flush() }
-            Button("Keep Editing", role: .cancel) { }
-        } message: { Text(state.error ?? "Your changes remain in memory. Retry saving before quitting.") }
+            Button("Keep Editing", role: .cancel) {}
+        } message: {
+            Text(state.error ?? "Your changes remain in memory. Retry saving before quitting.")
+        }
         .onChange(of: scenePhase) { _, phase in if phase == .active { state.refresh() } else { state.flush() } }
         .onChange(of: state.destination) { _, _ in
             state.flush()
@@ -909,8 +1032,9 @@ private struct ReorderNotesView: View {
                     .draggable(note.id.uuidString)
                     .dropDestination(for: String.self) { identifiers, _ in
                         guard let identifier = identifiers.first, let sourceID = UUID(uuidString: identifier),
-                              let source = state.workspace.notes.firstIndex(where: { $0.id == sourceID }),
-                              let target = state.workspace.notes.firstIndex(where: { $0.id == note.id }) else { return false }
+                            let source = state.workspace.notes.firstIndex(where: { $0.id == sourceID }),
+                            let target = state.workspace.notes.firstIndex(where: { $0.id == note.id })
+                        else { return false }
                         state.change { $0.moveNote(from: source, to: target) }
                         return true
                     }
@@ -969,95 +1093,120 @@ private struct PageHeader<Trailing: View>: View {
 private struct DashboardView: View {
     @ObservedObject var state: WorkspaceState
     private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
-    private var openTasks: [Task] { Array(state.workspace.tasks.filter { $0.completedAt == nil && state.workspace.matches($0.labelID) }.sorted { $0.createdAt < $1.createdAt }.prefix(state.workspace.settings.maximumDashboardTasks)) }
-    private var upcoming: [DateItem] { Array(state.workspace.upcomingDates().prefix(state.workspace.settings.maximumDashboardAppointments)) }
+    private var openTasks: [Task] {
+        Array(
+            state.workspace.tasks.filter { $0.completedAt == nil && state.workspace.matches($0.labelID) }.sorted {
+                $0.createdAt < $1.createdAt
+            }.prefix(state.workspace.settings.maximumDashboardTasks))
+    }
+    private var upcoming: [DateItem] {
+        Array(state.workspace.upcomingDates().prefix(state.workspace.settings.maximumDashboardAppointments))
+    }
     private var statisticsText: String {
         let days = state.workspace.daysPassed()
         let todos = state.workspace.completedTodoCount
         let appointments = state.workspace.passedAppointmentCount()
-        return "\(days.formatted()) \(days == 1 ? "Day" : "Days") Passed · \(todos.formatted()) \(todos == 1 ? "To-do" : "To-dos") Completed · \(appointments.formatted()) \(appointments == 1 ? "Appointment" : "Appointments") Passed"
+        return
+            "\(days.formatted()) \(days == 1 ? "Day" : "Days") Passed · \(todos.formatted()) \(todos == 1 ? "To-do" : "To-dos") Completed · \(appointments.formatted()) \(appointments == 1 ? "Appointment" : "Appointments") Passed"
     }
     var body: some View {
         VStack(spacing: 0) {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(title: "Dashboard", scale: scale) { LabelFilter(state: state) }
-                HStack(alignment: .top, spacing: 52) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        KeyboardButton(title: "To-dos", pointSize: 22 * scale, bold: true, dashboardOrder: 10, accessibilityLabel: "Open To-dos") { state.destination = .tasks }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    PageHeader(title: "Dashboard", scale: scale) { LabelFilter(state: state) }
+                    HStack(alignment: .top, spacing: 52) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            KeyboardButton(
+                                title: "To-dos", pointSize: 22 * scale, bold: true, dashboardOrder: 10, accessibilityLabel: "Open To-dos"
+                            ) { state.destination = .tasks }
                             .fixedSize()
                             .padding(.bottom, 20)
-                        if openTasks.isEmpty {
-                            Text("No open To-dos").foregroundStyle(.secondary).padding(.top, 12)
-                        }
-                        ForEach(Array(openTasks.enumerated()), id: \.element.id) { index, task in
-                            HStack(spacing: 12) {
-                                KeyboardButton(symbol: AppSymbol.incomplete, pointSize: 20 * scale, dashboardOrder: 20 + index * 2, advancesFocus: true, completionConfirmation: state.workspace.settings.todoCompletionConfirmation, taskTitle: task.title, accessibilityLabel: "Complete \(task.title)") {
-                                    state.editTask(task.id) { $0.completedAt = Date() }
-                                }
-                                .fixedSize()
-                                categoryDot(task.labelID, state.workspace.labels)
-                                Text(task.title).font(.system(size: 16 * scale)).frame(maxWidth: .infinity, alignment: .leading)
-                                DescriptionInfoButton(description: task.taskDescription, isPresented: Binding(
-                                    get: { state.describingTaskID == task.id },
-                                    set: { state.describingTaskID = $0 ? task.id : nil }
-                                ), dashboardOrder: 21 + index * 2)
+                            if openTasks.isEmpty {
+                                Text("No open To-dos").foregroundStyle(.secondary).padding(.top, 12)
                             }
-                            .padding(.vertical, 15)
-                            Divider()
+                            ForEach(Array(openTasks.enumerated()), id: \.element.id) { index, task in
+                                HStack(spacing: 12) {
+                                    KeyboardButton(
+                                        symbol: AppSymbol.incomplete, pointSize: 20 * scale, dashboardOrder: 20 + index * 2,
+                                        advancesFocus: true, completionConfirmation: state.workspace.settings.todoCompletionConfirmation,
+                                        taskTitle: task.title, accessibilityLabel: "Complete \(task.title)"
+                                    ) {
+                                        state.editTask(task.id) { $0.completedAt = Date() }
+                                    }
+                                    .fixedSize()
+                                    categoryDot(task.labelID, state.workspace.labels)
+                                    Text(task.title).font(.system(size: 16 * scale)).frame(maxWidth: .infinity, alignment: .leading)
+                                    DescriptionInfoButton(
+                                        description: task.taskDescription,
+                                        isPresented: Binding(
+                                            get: { state.describingTaskID == task.id },
+                                            set: { state.describingTaskID = $0 ? task.id : nil }
+                                        ), dashboardOrder: 21 + index * 2)
+                                }
+                                .padding(.vertical, 15)
+                                Divider()
+                            }
                         }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 0) {
-                        KeyboardButton(title: "Appointments", pointSize: 22 * scale, bold: true, dashboardOrder: 100, accessibilityLabel: "Open Appointments") { state.destination = .appointments }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 0) {
+                            KeyboardButton(
+                                title: "Appointments", pointSize: 22 * scale, bold: true, dashboardOrder: 100,
+                                accessibilityLabel: "Open Appointments"
+                            ) { state.destination = .appointments }
                             .fixedSize()
                             .padding(.bottom, 20)
-                        if upcoming.isEmpty {
-                            Text("No upcoming Appointments").foregroundStyle(.secondary).padding(.top, 12)
-                        }
-                        ForEach(Array(upcoming.enumerated()), id: \.element.id) { index, item in
-                            HStack(alignment: .top, spacing: 12) {
-                                categoryDot(item.labelID, state.workspace.labels)
-                                    .padding(.top, 6)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 5) {
-                                        Text(relativeDate(item.date)).fontWeight(.semibold)
-                                        Text("·").foregroundStyle(.secondary)
-                                        Text(item.date.formatted(.dateTime.day().month(.abbreviated)))
-                                            .foregroundStyle(.secondary)
-                                    }.font(.system(size: 13 * scale))
-                                    Text(item.title).font(.system(size: 16 * scale))
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                DescriptionInfoButton(description: item.itemDescription, isPresented: Binding(
-                                    get: { state.describingAppointmentID == item.id },
-                                    set: { state.describingAppointmentID = $0 ? item.id : nil }
-                                ), dashboardOrder: 110 + index)
-                                .padding(.top, 2)
+                            if upcoming.isEmpty {
+                                Text("No upcoming Appointments").foregroundStyle(.secondary).padding(.top, 12)
                             }
-                            .padding(.vertical, 11)
-                            Divider()
+                            ForEach(Array(upcoming.enumerated()), id: \.element.id) { index, item in
+                                HStack(alignment: .top, spacing: 12) {
+                                    categoryDot(item.labelID, state.workspace.labels)
+                                        .padding(.top, 6)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 5) {
+                                            Text(relativeDate(item.date)).fontWeight(.semibold)
+                                            Text("·").foregroundStyle(.secondary)
+                                            Text(item.date.formatted(.dateTime.day().month(.abbreviated)))
+                                                .foregroundStyle(.secondary)
+                                        }.font(.system(size: 13 * scale))
+                                        Text(item.title).font(.system(size: 16 * scale))
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    DescriptionInfoButton(
+                                        description: item.itemDescription,
+                                        isPresented: Binding(
+                                            get: { state.describingAppointmentID == item.id },
+                                            set: { state.describingAppointmentID = $0 ? item.id : nil }
+                                        ), dashboardOrder: 110 + index
+                                    )
+                                    .padding(.top, 2)
+                                }
+                                .padding(.vertical, 11)
+                                Divider()
+                            }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: 900, alignment: .leading)
+                .padding(.horizontal, 34).padding(.vertical, 28)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
-            .frame(maxWidth: 900, alignment: .leading)
-            .padding(.horizontal, 34).padding(.vertical, 28)
-            .frame(maxWidth: .infinity, alignment: .center)
-        }
-        Text(statisticsText)
-            .font(.system(size: 11 * scale))
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: 900, alignment: .leading)
-            .padding(.horizontal, 34)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .frame(height: 35)
-            .overlay(alignment: .top) { Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1) }
+            Text(statisticsText)
+                .font(.system(size: 11 * scale))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: 900, alignment: .leading)
+                .padding(.horizontal, 34)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .frame(height: 35)
+                .overlay(alignment: .top) { Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1) }
         }
         .environment(\.font, .system(size: 13 * scale))
         .onAppear { state.refreshIfDayChanged() }
-        .background(ScreenKeyLoop(itemIDs: openTasks.map(\.id) + upcoming.map(\.id), descriptionPresence: openTasks.map { !$0.taskDescription.isEmpty } + upcoming.map { !$0.itemDescription.isEmpty }))
+        .background(
+            ScreenKeyLoop(
+                itemIDs: openTasks.map(\.id) + upcoming.map(\.id),
+                descriptionPresence: openTasks.map { !$0.taskDescription.isEmpty } + upcoming.map { !$0.itemDescription.isEmpty }))
     }
 }
 
@@ -1068,11 +1217,15 @@ private struct TasksView: View {
         VStack(alignment: .leading, spacing: 0) {
             PageHeader(title: "To-dos", scale: scale) {
                 LabelFilter(state: state, keyboardScope: "todos")
-                KeyboardButton(symbol: AppSymbol.add, pointSize: 13 * scale, todoOrder: 1, bordered: true, accessibilityLabel: "New To-do") {
+                KeyboardButton(symbol: AppSymbol.add, pointSize: 13 * scale, todoOrder: 1, bordered: true, accessibilityLabel: "New To-do")
+                {
                     state.editingTaskID = state.createTask()
                 }.fixedSize().help("New To-do")
             }
-            KeyboardButton(title: "Show Completed To-dos", pointSize: 13 * scale, todoOrder: 2, checked: state.showCompleted, accessibilityLabel: "Show Completed To-dos") {
+            KeyboardButton(
+                title: "Show Completed To-dos", pointSize: 13 * scale, todoOrder: 2, checked: state.showCompleted,
+                accessibilityLabel: "Show Completed To-dos"
+            ) {
                 state.showCompleted.toggle()
             }.fixedSize().padding(.bottom, 16)
             if state.tasks.isEmpty {
@@ -1099,10 +1252,12 @@ private struct TasksView: View {
                                     .foregroundStyle(task.completedAt == nil ? .primary : .secondary)
                                     .strikethrough(task.completedAt != nil)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                DescriptionInfoButton(description: task.taskDescription, isPresented: Binding(
-                                    get: { state.describingTaskID == task.id },
-                                    set: { state.describingTaskID = $0 ? task.id : nil }
-                                ), todoOrder: 11 + index * 4)
+                                DescriptionInfoButton(
+                                    description: task.taskDescription,
+                                    isPresented: Binding(
+                                        get: { state.describingTaskID == task.id },
+                                        set: { state.describingTaskID = $0 ? task.id : nil }
+                                    ), todoOrder: 11 + index * 4)
                                 KeyboardButton(symbol: AppSymbol.edit, todoOrder: 12 + index * 4, accessibilityLabel: "Edit To-do") {
                                     state.editingTaskID = task.id
                                 }.fixedSize().help("Edit To-do")
@@ -1112,7 +1267,10 @@ private struct TasksView: View {
                             }
                             .padding(.vertical, 17)
                             .padding(.horizontal, 8)
-                            .background(state.selectedTaskID == task.id ? Color.accentColor.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 7))
+                            .background(
+                                state.selectedTaskID == task.id ? Color.accentColor.opacity(0.10) : .clear,
+                                in: RoundedRectangle(cornerRadius: 7)
+                            )
                             .contentShape(Rectangle())
                             .onTapGesture { state.selectedTaskID = task.id }
                             Divider()
@@ -1125,7 +1283,10 @@ private struct TasksView: View {
         .padding(.horizontal, 34).padding(.top, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.font, .system(size: 13 * scale))
-        .background(ScreenKeyLoop(scope: "todos", itemIDs: state.tasks.map(\.id), descriptionPresence: state.tasks.map { !$0.taskDescription.isEmpty }))
+        .background(
+            ScreenKeyLoop(
+                scope: "todos", itemIDs: state.tasks.map(\.id), descriptionPresence: state.tasks.map { !$0.taskDescription.isEmpty })
+        )
         .sheet(isPresented: Binding(get: { state.editingTaskID != nil }, set: { if !$0 { state.closeTaskEditing() } })) {
             if let id = state.editingTaskID { TaskEditor(state: state, id: id) }
         }
@@ -1150,19 +1311,22 @@ private struct DescriptionInfoButton: View {
 
     var body: some View {
         if !description.isEmpty {
-            KeyboardButton(symbol: AppSymbol.details, dashboardOrder: dashboardOrder, todoOrder: todoOrder, keyLoopID: keyLoopID, accessibilityLabel: "Show description") { isPresented = true }
-                .fixedSize()
-                .help("Show description")
-                .popover(isPresented: $isPresented) {
-                    ScrollView {
-                        Text(description)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(16)
-                    }
-                    .frame(width: 360, height: popoverHeight)
+            KeyboardButton(
+                symbol: AppSymbol.details, dashboardOrder: dashboardOrder, todoOrder: todoOrder, keyLoopID: keyLoopID,
+                accessibilityLabel: "Show description"
+            ) { isPresented = true }
+            .fixedSize()
+            .help("Show description")
+            .popover(isPresented: $isPresented) {
+                ScrollView {
+                    Text(description)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
                 }
+                .frame(width: 360, height: popoverHeight)
+            }
         }
     }
 }
@@ -1173,7 +1337,8 @@ private struct TaskEditor: View {
     var body: some View {
         NativeItemEditor(
             title: Binding(get: { state.task(id)?.title ?? "" }, set: { value in state.editTask(id) { $0.title = value } }),
-            description: Binding(get: { state.task(id)?.taskDescription ?? "" }, set: { value in state.editTask(id) { $0.taskDescription = value } }),
+            description: Binding(
+                get: { state.task(id)?.taskDescription ?? "" }, set: { value in state.editTask(id) { $0.taskDescription = value } }),
             labels: state.workspace.labels,
             substitutionSettings: state.workspace.settings.smartSubstitutions,
             categoryID: Binding(get: { state.task(id)?.labelID }, set: { value in state.editTask(id) { $0.labelID = value } }),
@@ -1193,7 +1358,9 @@ private struct TaskEditor: View {
         editingOrigin = id
         if let index = visibleIDs.firstIndex(of: id) {
             editingNeighbours = Array(visibleIDs.dropFirst(index + 1)) + Array(visibleIDs.prefix(index).reversed())
-        } else { editingNeighbours = [] }
+        } else {
+            editingNeighbours = []
+        }
     }
     func restore(visibleIDs: [UUID]) {
         let visible = Set(visibleIDs)
@@ -1228,15 +1395,25 @@ private struct AppointmentsView: View {
         VStack(alignment: .leading, spacing: 0) {
             PageHeader(title: "Appointments", scale: scale) {
                 LabelFilter(state: state, keyboardScope: "appointments")
-                KeyboardButton(symbol: AppSymbol.add, pointSize: 13 * scale, keyLoopID: "appointments-1", bordered: true, accessibilityLabel: "New Appointment") {
+                KeyboardButton(
+                    symbol: AppSymbol.add, pointSize: 13 * scale, keyLoopID: "appointments-1", bordered: true,
+                    accessibilityLabel: "New Appointment"
+                ) {
                     state.editingAppointmentID = state.createAppointment()
                 }.fixedSize().help("New Appointment")
             }
             HStack {
-                KeyboardAppointmentDisplay(selection: Binding(get: { state.workspace.settings.dateDisplayMode }, set: { value in state.change { $0.settings.dateDisplayMode = value } }))
-                    .frame(width: 240)
+                KeyboardAppointmentDisplay(
+                    selection: Binding(
+                        get: { state.workspace.settings.dateDisplayMode },
+                        set: { value in state.change { $0.settings.dateDisplayMode = value } })
+                )
+                .frame(width: 240)
                 Spacer()
-                KeyboardButton(title: "Show past", pointSize: 13 * scale, keyLoopID: "appointments-3", checked: state.showPast, accessibilityLabel: "Show past Appointments") {
+                KeyboardButton(
+                    title: "Show past", pointSize: 13 * scale, keyLoopID: "appointments-3", checked: state.showPast,
+                    accessibilityLabel: "Show past Appointments"
+                ) {
                     state.showPast.toggle()
                 }.fixedSize()
             }.padding(.bottom, 16)
@@ -1257,9 +1434,17 @@ private struct AppointmentsView: View {
                                 .padding(.top, 24).padding(.bottom, 10)
                                 ForEach(group.items) { item in row(item) }
                                 if group.hiddenUpcomingCount > 0 {
-                                    KeyboardButton(title: state.expanded.contains(group.id) ? "Show fewer" : "Show \(group.hiddenUpcomingCount) more…", pointSize: 13 * scale, keyLoopID: "appointments-group-" + group.id, accessibilityLabel: "\(state.expanded.contains(group.id) ? "Show fewer" : "Show more") in \(group.name)") {
-                                        if state.expanded.contains(group.id) { state.expanded.remove(group.id) }
-                                        else { state.expanded.insert(group.id) }
+                                    KeyboardButton(
+                                        title: state.expanded.contains(group.id) ? "Show fewer" : "Show \(group.hiddenUpcomingCount) more…",
+                                        pointSize: 13 * scale, keyLoopID: "appointments-group-" + group.id,
+                                        accessibilityLabel:
+                                            "\(state.expanded.contains(group.id) ? "Show fewer" : "Show more") in \(group.name)"
+                                    ) {
+                                        if state.expanded.contains(group.id) {
+                                            state.expanded.remove(group.id)
+                                        } else {
+                                            state.expanded.insert(group.id)
+                                        }
                                     }.fixedSize().padding(.vertical, 10)
                                 }
                             }
@@ -1272,51 +1457,62 @@ private struct AppointmentsView: View {
         .padding(.horizontal, 34).padding(.top, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.font, .system(size: 13 * scale))
-        .background(ScreenKeyLoop(scope: "appointments", controlIDs: controlIDs, requestedFocusID: focus.requestedID, focusRequest: focus.request))
+        .background(
+            ScreenKeyLoop(scope: "appointments", controlIDs: controlIDs, requestedFocusID: focus.requestedID, focusRequest: focus.request)
+        )
         .onChange(of: state.editingAppointmentID) { _, id in
             guard let id else { return }
             focus.beganEditing(id, visibleIDs: state.visibleAppointments.map(\.id))
         }
-        .sheet(isPresented: Binding(get: { state.editingAppointmentID != nil }, set: { if !$0 { state.closeAppointmentEditing() } }), onDismiss: {
-            focus.restore(visibleIDs: state.visibleAppointments.map(\.id))
-        }) {
+        .sheet(
+            isPresented: Binding(get: { state.editingAppointmentID != nil }, set: { if !$0 { state.closeAppointmentEditing() } }),
+            onDismiss: {
+                focus.restore(visibleIDs: state.visibleAppointments.map(\.id))
+            }
+        ) {
             if let id = state.editingAppointmentID { AppointmentEditor(state: state, id: id) }
         }
     }
     private func row(_ item: DateItem) -> some View {
         VStack(spacing: 0) {
-          HStack(spacing: 16) {
-            categoryDot(item.labelID, state.workspace.labels)
-            VStack(alignment: .leading, spacing: 5) {
-                Text(item.title.isEmpty ? "New Appointment" : item.title).font(.system(size: 16 * scale))
-                HStack(spacing: 8) {
-                    Text(item.date.formatted(date: .abbreviated, time: .omitted))
-                    Text("·")
-                    Text(relativeDate(item.date))
-                    if let label = state.workspace.labels.first(where: { $0.id == item.labelID }) {
-                        Text("·"); Text(label.name)
-                    }
-                }.font(.system(size: 13 * scale)).foregroundStyle(.secondary)
+            HStack(spacing: 16) {
+                categoryDot(item.labelID, state.workspace.labels)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(item.title.isEmpty ? "New Appointment" : item.title).font(.system(size: 16 * scale))
+                    HStack(spacing: 8) {
+                        Text(item.date.formatted(date: .abbreviated, time: .omitted))
+                        Text("·")
+                        Text(relativeDate(item.date))
+                        if let label = state.workspace.labels.first(where: { $0.id == item.labelID }) {
+                            Text("·"); Text(label.name)
+                        }
+                    }.font(.system(size: 13 * scale)).foregroundStyle(.secondary)
+                }
+                .foregroundStyle(state.workspace.isPassed(item) ? .secondary : .primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                DescriptionInfoButton(
+                    description: item.itemDescription,
+                    isPresented: Binding(
+                        get: { state.describingAppointmentID == item.id },
+                        set: { state.describingAppointmentID = $0 ? item.id : nil }
+                    ), keyLoopID: "appointments-\(item.id)-description")
+                KeyboardButton(symbol: AppSymbol.edit, keyLoopID: "appointments-\(item.id)-edit", accessibilityLabel: "Edit Appointment") {
+                    state.editingAppointmentID = item.id
+                }.fixedSize().help("Edit Appointment")
+                KeyboardButton(
+                    symbol: AppSymbol.delete, keyLoopID: "appointments-\(item.id)-delete", accessibilityLabel: "Delete Appointment"
+                ) {
+                    state.confirmAppointmentDeletion(item.id)
+                }.fixedSize().help("Delete Appointment")
             }
-            .foregroundStyle(state.workspace.isPassed(item) ? .secondary : .primary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            DescriptionInfoButton(description: item.itemDescription, isPresented: Binding(
-                get: { state.describingAppointmentID == item.id },
-                set: { state.describingAppointmentID = $0 ? item.id : nil }
-            ), keyLoopID: "appointments-\(item.id)-description")
-            KeyboardButton(symbol: AppSymbol.edit, keyLoopID: "appointments-\(item.id)-edit", accessibilityLabel: "Edit Appointment") {
-                state.editingAppointmentID = item.id
-            }.fixedSize().help("Edit Appointment")
-            KeyboardButton(symbol: AppSymbol.delete, keyLoopID: "appointments-\(item.id)-delete", accessibilityLabel: "Delete Appointment") {
-                state.confirmAppointmentDeletion(item.id)
-            }.fixedSize().help("Delete Appointment")
-        }
-          .padding(.vertical, 16)
-          .padding(.horizontal, 8)
-          .background(state.selectedAppointmentID == item.id ? Color.accentColor.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 7))
-          .contentShape(Rectangle())
-          .onTapGesture { state.selectedAppointmentID = item.id }
-          Divider()
+            .padding(.vertical, 16)
+            .padding(.horizontal, 8)
+            .background(
+                state.selectedAppointmentID == item.id ? Color.accentColor.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 7)
+            )
+            .contentShape(Rectangle())
+            .onTapGesture { state.selectedAppointmentID = item.id }
+            Divider()
         }
     }
 }
@@ -1327,10 +1523,13 @@ private struct AppointmentEditor: View {
     var body: some View {
         NativeItemEditor(
             title: Binding(get: { state.appointment(id)?.title ?? "" }, set: { value in state.editAppointment(id) { $0.title = value } }),
-            description: Binding(get: { state.appointment(id)?.itemDescription ?? "" }, set: { value in state.editAppointment(id) { $0.itemDescription = value } }),
+            description: Binding(
+                get: { state.appointment(id)?.itemDescription ?? "" },
+                set: { value in state.editAppointment(id) { $0.itemDescription = value } }),
             labels: state.workspace.labels,
             substitutionSettings: state.workspace.settings.smartSubstitutions,
-            categoryID: Binding(get: { state.appointment(id)?.labelID }, set: { value in state.editAppointment(id) { $0.labelID = value } }),
+            categoryID: Binding(
+                get: { state.appointment(id)?.labelID }, set: { value in state.editAppointment(id) { $0.labelID = value } }),
             date: Binding(get: { state.appointment(id)?.date ?? Date() }, set: { value in state.editAppointment(id) { $0.date = value } }),
             onDone: state.finishAppointmentEditing,
             onClose: state.closeAppointmentEditing
@@ -1349,36 +1548,68 @@ private struct NoteView: View {
             if let note = state.note(id) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .center, spacing: 12) {
-                        KeyboardButton(symbol: availableNoteIcon(note.iconName), pointSize: 20 * scale, keyLoopID: "note-icon", accessibilityLabel: "Choose Note Icon") {
+                        KeyboardButton(
+                            symbol: availableNoteIcon(note.iconName), pointSize: 20 * scale, keyLoopID: "note-icon",
+                            accessibilityLabel: "Choose Note Icon"
+                        ) {
                             state.iconPickerNoteID = id
                         }.fixedSize().frame(width: 32 * scale, height: 32 * scale).help("Choose Note Icon")
-                        .popover(isPresented: Binding(get: { state.iconPickerNoteID == id }, set: { if !$0 { state.iconPickerNoteID = nil } }), arrowEdge: .leading) {
-                            LazyVGrid(columns: Array(repeating: GridItem(.fixed(38)), count: 7), spacing: 8) {
-                                ForEach(NoteIcon.choices, id: \.self) { name in
-                                    KeyboardButton(symbol: name, pointSize: 18, keyLoopID: "note-icons-" + name, accessibilityLabel: name) {
-                                        state.editNote(id) { $0.iconName = name }
-                                        state.iconPickerNoteID = nil
-                                    }.fixedSize().frame(width: 34, height: 34).help(name)
-                                        .background(note.iconName == name ? Color.accentColor.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 6))
-                                }
-                            }.padding(12)
-                                .background(ScreenKeyLoop(scope: "note-icons", controlIDs: NoteIcon.choices.map { "note-icons-" + $0 }, requestedFocusID: "note-icons-" + (NoteIcon.choices.contains(note.iconName) ? note.iconName : NoteIcon.defaultName), focusRequest: 1))
-                        }
-                        KeyboardNoteTitle(title: Binding(get: { state.note(id)?.title ?? "" }, set: { value in state.editNote(id) { $0.title = value } }), pointSize: 22 * scale, substitutionSettings: state.workspace.settings.smartSubstitutions, focusRequest: state.focusNoteTitleID == id ? state.titleFocusNonce : nil)
-                            .frame(minWidth: 120, maxWidth: 400)
-                        KeyboardNoteCategory(labels: state.workspace.labels, categoryID: Binding(get: { state.note(id)?.labelID }, set: { value in state.editNote(id) { $0.labelID = value } }))
-                            .frame(width: 155)
+                            .popover(
+                                isPresented: Binding(
+                                    get: { state.iconPickerNoteID == id }, set: { if !$0 { state.iconPickerNoteID = nil } }),
+                                arrowEdge: .leading
+                            ) {
+                                LazyVGrid(columns: Array(repeating: GridItem(.fixed(38)), count: 7), spacing: 8) {
+                                    ForEach(NoteIcon.choices, id: \.self) { name in
+                                        KeyboardButton(
+                                            symbol: name, pointSize: 18, keyLoopID: "note-icons-" + name, accessibilityLabel: name
+                                        ) {
+                                            state.editNote(id) { $0.iconName = name }
+                                            state.iconPickerNoteID = nil
+                                        }.fixedSize().frame(width: 34, height: 34).help(name)
+                                            .background(
+                                                note.iconName == name ? Color.accentColor.opacity(0.2) : .clear,
+                                                in: RoundedRectangle(cornerRadius: 6))
+                                    }
+                                }.padding(12)
+                                    .background(
+                                        ScreenKeyLoop(
+                                            scope: "note-icons", controlIDs: NoteIcon.choices.map { "note-icons-" + $0 },
+                                            requestedFocusID: "note-icons-"
+                                                + (NoteIcon.choices.contains(note.iconName) ? note.iconName : NoteIcon.defaultName),
+                                            focusRequest: 1))
+                            }
+                        KeyboardNoteTitle(
+                            title: Binding(get: { state.note(id)?.title ?? "" }, set: { value in state.editNote(id) { $0.title = value } }),
+                            pointSize: 22 * scale, substitutionSettings: state.workspace.settings.smartSubstitutions,
+                            focusRequest: state.focusNoteTitleID == id ? state.titleFocusNonce : nil
+                        )
+                        .frame(minWidth: 120, maxWidth: 400)
+                        KeyboardNoteCategory(
+                            labels: state.workspace.labels,
+                            categoryID: Binding(
+                                get: { state.note(id)?.labelID }, set: { value in state.editNote(id) { $0.labelID = value } })
+                        )
+                        .frame(width: 155)
                         Spacer(minLength: 0)
                         KeyboardButton(symbol: AppSymbol.delete, keyLoopID: "note-delete", accessibilityLabel: "Delete Note") {
                             state.confirmNoteDeletion(id)
                         }.fixedSize().help("Delete Note")
                     }
-                    MarkdownTextView(text: Binding(get: { state.note(id)?.contentMarkdown ?? "" }, set: { value in state.editNote(id) { $0.contentMarkdown = value } }), settings: state.workspace.settings, status: editorStatus, focusRequest: state.focusNoteEditorID == id ? state.editorFocusNonce : nil, zoomPercent: note.zoomPercent)
-                        .id(id).frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
+                    MarkdownTextView(
+                        text: Binding(
+                            get: { state.note(id)?.contentMarkdown ?? "" },
+                            set: { value in state.editNote(id) { $0.contentMarkdown = value } }), settings: state.workspace.settings,
+                        status: editorStatus, focusRequest: state.focusNoteEditorID == id ? state.editorFocusNonce : nil,
+                        zoomPercent: note.zoomPercent
+                    )
+                    .id(id).frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
                     HStack {
                         Text("Ln \(editorStatus.value.line.formatted()), Col \(editorStatus.value.column.formatted())")
                         Spacer()
-                        Text("\(editorStatus.value.words.formatted()) \(editorStatus.value.words == 1 ? "word" : "words") · \(editorStatus.value.characters.formatted()) \(editorStatus.value.characters == 1 ? "character" : "characters")")
+                        Text(
+                            "\(editorStatus.value.words.formatted()) \(editorStatus.value.words == 1 ? "word" : "words") · \(editorStatus.value.characters.formatted()) \(editorStatus.value.characters == 1 ? "character" : "characters")"
+                        )
                     }
                     .font(.system(size: 11 * scale))
                     .foregroundStyle(.secondary)
@@ -1388,7 +1619,10 @@ private struct NoteView: View {
                 }
                 .padding(.horizontal, 34).padding(.top, 28).padding(.bottom, 20)
                 .environment(\.font, .system(size: 13 * scale))
-                .background(ScreenKeyLoop(scope: "note", itemIDs: [id], controlIDs: ["note-title", "note-category", "note-editor", "note-delete", "note-icon"]))
+                .background(
+                    ScreenKeyLoop(
+                        scope: "note", itemIDs: [id],
+                        controlIDs: ["note-title", "note-category", "note-editor", "note-delete", "note-icon"]))
             } else {
                 ContentUnavailableView("Note Unavailable", systemImage: AppSymbol.unavailableNote)
             }
@@ -1401,47 +1635,89 @@ private struct HelpView: View {
     let notes: [Note]
     private var scale: CGFloat { CGFloat(state.currentZoom) / 100 }
     private var shortcuts: [AppShortcut] {
-        [AppShortcut.dashboard, .tasks, .appointments] +
-        Array(notes.prefix(6).enumerated()).map { AppShortcut.note($0.offset, title: $0.element.title) } +
-        [.help, .settings, .categoryFilter, .sidebar, .newItem, .newNote, .reorderNotes, .noteTitle, .delete, .lock, .find, .findNext, .findPrevious, .zoomIn, .zoomOut]
+        [AppShortcut.dashboard, .tasks, .appointments]
+            + Array(notes.prefix(6).enumerated()).map { AppShortcut.note($0.offset, title: $0.element.title) } + [
+                .help, .settings, .categoryFilter, .sidebar, .newItem, .newNote, .reorderNotes, .noteTitle, .delete, .lock, .find,
+                .findNext, .findPrevious, .zoomIn, .zoomOut,
+            ]
     }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 Text("Help").font(.system(size: 34 * scale, weight: .semibold))
-                Text("Passing By keeps everyday notes, to-dos, and appointments close at hand. Your information stays locally on this Mac, and changes are saved automatically.")
-                section("Categories", "Create Categories in Settings to organize To-dos, Appointments, and Notes. Work, Personal, and Sports are examples you might create. A Default Category applies to new items; a Scheduled Default can use another Category on selected weekdays and times.")
-                section("To-dos", "Create To-dos and assign them to Categories. Mark one complete to remove it from the open list. Turn on Show Completed To-dos to see completed items and restore one if you checked it off by mistake. Deleting a To-do always requires confirmation.")
-                section("Recently Deleted", "Recover deleted Notes, To-dos, and Appointments from Settings → Recently Deleted for 30 days. Select an item to preview its contents, then choose Restore. Automatic cleanup is not included.")
-                section("Appointments", "Create Appointments and assign them to Categories. Upcoming Appointments appear on the Dashboard alongside open To-dos. The Appointments view can also show past items.")
+                Text(
+                    "Passing By keeps everyday notes, to-dos, and appointments close at hand. Your information stays locally on this Mac, and changes are saved automatically."
+                )
+                section(
+                    "Categories",
+                    "Create Categories in Settings to organize To-dos, Appointments, and Notes. Work, Personal, and Sports are examples you might create. A Default Category applies to new items; a Scheduled Default can use another Category on selected weekdays and times."
+                )
+                section(
+                    "To-dos",
+                    "Create To-dos and assign them to Categories. Mark one complete to remove it from the open list. Turn on Show Completed To-dos to see completed items and restore one if you checked it off by mistake. Deleting a To-do always requires confirmation."
+                )
+                section(
+                    "Recently Deleted",
+                    "Recover deleted Notes, To-dos, and Appointments from Settings → Recently Deleted for 30 days. Select an item to preview its contents, then choose Restore. Automatic cleanup is not included."
+                )
+                section(
+                    "Appointments",
+                    "Create Appointments and assign them to Categories. Upcoming Appointments appear on the Dashboard alongside open To-dos. The Appointments view can also show past items."
+                )
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Bulk Import").font(.system(size: 22 * scale, weight: .semibold))
-                    Text("Settings → Appointments → Bulk Import adds multiple Appointments at once, such as a training plan, schedule, or list of planned dates. Use one tab-separated line per Appointment:")
+                    Text(
+                        "Settings → Appointments → Bulk Import adds multiple Appointments at once, such as a training plan, schedule, or list of planned dates. Use one tab-separated line per Appointment:"
+                    )
                     Text("DD.MM.YYYY<TAB>Title<TAB>Description")
                         .font(.system(size: 13 * scale, design: .monospaced))
                         .textSelection(.enabled)
                     Text("Description is optional.").foregroundStyle(.secondary)
                 }
-                section("Notes", "Create individual Notes and assign them to Categories. Edit Markdown source with syntax highlighting, optional line numbers, word and character counts, Find, Undo and Redo, spell checking, and space-based indentation. Standard Cut, Copy, Paste, and Select All also work. Each Note remembers its own text size.")
-                section("Dashboard", "See a compact view of open To-dos and upcoming Appointments. The Category filter narrows the view to one context.")
-                section("App Lock", "Enable App Lock in Settings to prevent casual access through Passing By. Unlock with macOS authentication, including Touch ID when available. You can also set the app to lock after it becomes inactive. App Lock does not encrypt the workspace file on disk.")
+                section(
+                    "Notes",
+                    "Create individual Notes and assign them to Categories. Edit Markdown source with syntax highlighting, optional line numbers, word and character counts, Find, Undo and Redo, spell checking, and space-based indentation. Standard Cut, Copy, Paste, and Select All also work. Each Note remembers its own text size."
+                )
+                section(
+                    "Dashboard",
+                    "See a compact view of open To-dos and upcoming Appointments. The Category filter narrows the view to one context.")
+                section(
+                    "App Lock",
+                    "Enable App Lock in Settings to prevent casual access through Passing By. Unlock with macOS authentication, including Touch ID when available. You can also set the app to lock after it becomes inactive. App Lock does not encrypt the workspace file on disk."
+                )
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Keyboard Shortcuts").font(.system(size: 22 * scale, weight: .semibold))
-                    Text("⌘N creates a To-do or Appointment in those views, and a Note elsewhere. Note shortcuts follow the first six Notes currently shown in the sidebar.")
-                        .foregroundStyle(.secondary)
-                    Text("F1 opens keyboard shortcuts for the current screen or dialog. On some Mac keyboards, use Fn+F1. Escape or F1 again closes the floating help panel and restores your previous focus. ⌘? opens the macOS Help menu.")
-                        .foregroundStyle(.secondary)
-                    Text("⌥⌘F opens the global category filter: use Up/Down, Enter to apply, or Escape to cancel. Focus then returns to your previous control. ⌥⌘S focuses the sidebar: Up/Down moves, Enter opens, and Escape returns. The global filter and sidebar are outside the main content Tab sequence.")
-                    Text("In To-do and Appointment dialogs, Tab and Shift-Tab move between fields, including Category. Return in the title or ⌘Return activates Done; Return in the description adds a new line. Escape discards a new item, or closes an existing item while keeping its changes.")
-                        .foregroundStyle(.secondary)
-                    Text("On Dashboard, Tab follows To-dos, then Appointments. Return or Space activates a focused action. Escape closes a description.")
-                        .foregroundStyle(.secondary)
-                    Text("On To-dos, Tab follows New To-do, Show Completed To-dos, then each row’s Complete or Restore, Description when present, Edit, and Delete actions. Shift-Tab reverses this order.")
-                        .foregroundStyle(.secondary)
-                    Text("On Appointments, Tab follows New Appointment, Display mode, Show past, then each row’s Description when present, Edit, and Delete. In By Category mode, each group’s Show more or Show fewer follows its rows. Left and Right change the display mode; Shift-Tab reverses the tab order.")
-                        .foregroundStyle(.secondary)
-                    Text("On Notes, focus follows Title, Category, Editor, Delete, and Icon. Tab and Shift-Tab indent and outdent inside the editor using spaces; Control-Tab leaves it forwards and Control-Shift-Tab backwards. The icon picker supports Tab, Shift-Tab, and Return or Space to choose an icon; Escape closes it.")
-                        .foregroundStyle(.secondary)
+                    Text(
+                        "⌘N creates a To-do or Appointment in those views, and a Note elsewhere. Note shortcuts follow the first six Notes currently shown in the sidebar."
+                    )
+                    .foregroundStyle(.secondary)
+                    Text(
+                        "F1 opens keyboard shortcuts for the current screen or dialog. On some Mac keyboards, use Fn+F1. Escape or F1 again closes the floating help panel and restores your previous focus. ⌘? opens the macOS Help menu."
+                    )
+                    .foregroundStyle(.secondary)
+                    Text(
+                        "⌥⌘F opens the global category filter: use Up/Down, Enter to apply, or Escape to cancel. Focus then returns to your previous control. ⌥⌘S focuses the sidebar: Up/Down moves, Enter opens, and Escape returns. The global filter and sidebar are outside the main content Tab sequence."
+                    )
+                    Text(
+                        "In To-do and Appointment dialogs, Tab and Shift-Tab move between fields, including Category. Return in the title or ⌘Return activates Done; Return in the description adds a new line. Escape discards a new item, or closes an existing item while keeping its changes."
+                    )
+                    .foregroundStyle(.secondary)
+                    Text(
+                        "On Dashboard, Tab follows To-dos, then Appointments. Return or Space activates a focused action. Escape closes a description."
+                    )
+                    .foregroundStyle(.secondary)
+                    Text(
+                        "On To-dos, Tab follows New To-do, Show Completed To-dos, then each row’s Complete or Restore, Description when present, Edit, and Delete actions. Shift-Tab reverses this order."
+                    )
+                    .foregroundStyle(.secondary)
+                    Text(
+                        "On Appointments, Tab follows New Appointment, Display mode, Show past, then each row’s Description when present, Edit, and Delete. In By Category mode, each group’s Show more or Show fewer follows its rows. Left and Right change the display mode; Shift-Tab reverses the tab order."
+                    )
+                    .foregroundStyle(.secondary)
+                    Text(
+                        "On Notes, focus follows Title, Category, Editor, Delete, and Icon. Tab and Shift-Tab indent and outdent inside the editor using spaces; Control-Tab leaves it forwards and Control-Shift-Tab backwards. The icon picker supports Tab, Shift-Tab, and Return or Space to choose an icon; Escape closes it."
+                    )
+                    .foregroundStyle(.secondary)
                     Grid(alignment: .leading, horizontalSpacing: 30, verticalSpacing: 7) {
                         ForEach(shortcuts.indices, id: \.self) { index in
                             let shortcut = shortcuts[index]
@@ -1494,13 +1770,27 @@ private struct EmptyItems: View {
     }
 }
 private func labelColor(_ value: LabelColor) -> Color {
-    switch value { case .blue: .blue; case .purple: .purple; case .pink: .pink; case .red: .red; case .orange: .orange; case .yellow: .yellow; case .green: .green; case .gray: .gray }
+    switch value {
+    case .blue: .blue;
+    case .purple: .purple;
+    case .pink: .pink;
+    case .red: .red;
+    case .orange: .orange;
+    case .yellow: .yellow;
+    case .green: .green;
+    case .gray: .gray
+    }
 }
 
 private func relativeDate(_ date: Date) -> String {
     let calendar = Calendar.current
     let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: Date()), to: calendar.startOfDay(for: date)).day ?? 0
-    return switch days { case 0: "Today"; case 1: "Tomorrow"; case -1: "Yesterday"; default: days < 0 ? "\(-days) days ago" : "in \(days) days" }
+    return switch days {
+    case 0: "Today";
+    case 1: "Tomorrow";
+    case -1: "Yesterday";
+    default: days < 0 ? "\(-days) days ago" : "in \(days) days"
+    }
 }
 
 private func availableNoteIcon(_ name: String) -> String {
@@ -1617,7 +1907,9 @@ private struct MarkdownTextView: NSViewRepresentable {
             defer { undo?.enableUndoRegistration() }
             storage.beginEditing()
             let fontSize = parent.fontSize
-            storage.setAttributes([.font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular), .foregroundColor: NSColor.labelColor], range: range)
+            storage.setAttributes(
+                [.font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular), .foregroundColor: NSColor.labelColor], range: range
+            )
             for span in parsed.spans where NSMaxRange(span.range) <= range.length {
                 switch span.style {
                 case .heading(let level):
@@ -1638,7 +1930,9 @@ private struct MarkdownTextView: NSViewRepresentable {
             }
             storage.endEditing()
             if editor.selectedRanges != selection { editor.selectedRanges = selection }
-            editor.typingAttributes = [.font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular), .foregroundColor: NSColor.labelColor]
+            editor.typingAttributes = [
+                .font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular), .foregroundColor: NSColor.labelColor,
+            ]
             if let noteEditor = editor as? NoteEditorTextView {
                 noteEditor.markdownLinks = parsed.links
                 noteEditor.markdownCheckboxes = parsed.checkboxes
@@ -1680,26 +1974,30 @@ private final class NoteLineNumberRuler: NSRulerView {
 
     override func drawHashMarksAndLabels(in rect: NSRect) {
         guard showsLineNumbers, let editor = clientView as? NSTextView,
-              let manager = editor.layoutManager, let container = editor.textContainer else { return }
+            let manager = editor.layoutManager, let container = editor.textContainer
+        else { return }
         let source = editor.string as NSString
         let origin = editor.textContainerOrigin
         let visible = editor.convert(bounds, from: self).offsetBy(dx: -origin.x, dy: -origin.y)
         let glyphs = manager.glyphRange(forBoundingRect: visible, in: container)
-        let firstCharacter = manager.numberOfGlyphs > 0 && glyphs.location < manager.numberOfGlyphs
+        let firstCharacter =
+            manager.numberOfGlyphs > 0 && glyphs.location < manager.numberOfGlyphs
             ? manager.characterIndexForGlyph(at: glyphs.location) : 0
         var lineStart = 0
         var lineNumber = 1
         while lineStart < firstCharacter {
             var start = 0, end = 0, contentsEnd = 0
-            source.getLineStart(&start, end: &end, contentsEnd: &contentsEnd,
-                                for: NSRange(location: lineStart, length: 0))
+            source.getLineStart(
+                &start, end: &end, contentsEnd: &contentsEnd,
+                for: NSRange(location: lineStart, length: 0))
             if end <= lineStart || contentsEnd == end { break }
             lineStart = end
             lineNumber += 1
         }
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 11 * CGFloat((editor as? NoteEditorTextView)?.zoomPercent ?? 100) / 100, weight: .regular),
-            .foregroundColor: NSColor.secondaryLabelColor
+            .font: NSFont.monospacedDigitSystemFont(
+                ofSize: 11 * CGFloat((editor as? NoteEditorTextView)?.zoomPercent ?? 100) / 100, weight: .regular),
+            .foregroundColor: NSColor.secondaryLabelColor,
         ]
         while lineStart <= source.length {
             let fragment: NSRect
@@ -1714,15 +2012,18 @@ private final class NoteLineNumberRuler: NSRulerView {
             if rulerRect.intersects(rect) {
                 let label = String(lineNumber) as NSString
                 let size = label.size(withAttributes: attributes)
-                label.draw(at: NSPoint(x: bounds.maxX - size.width - 9,
-                                       y: rulerRect.minY + (rulerRect.height - size.height) / 2),
-                           withAttributes: attributes)
+                label.draw(
+                    at: NSPoint(
+                        x: bounds.maxX - size.width - 9,
+                        y: rulerRect.minY + (rulerRect.height - size.height) / 2),
+                    withAttributes: attributes)
             }
             if rulerRect.minY > rect.maxY && isFlipped { break }
             if lineStart == source.length { break }
             var start = 0, end = 0, contentsEnd = 0
-            source.getLineStart(&start, end: &end, contentsEnd: &contentsEnd,
-                                for: NSRange(location: lineStart, length: 0))
+            source.getLineStart(
+                &start, end: &end, contentsEnd: &contentsEnd,
+                for: NSRange(location: lineStart, length: 0))
             if end <= lineStart || contentsEnd == end { break }
             lineStart = end
             lineNumber += 1
@@ -1732,10 +2033,14 @@ private final class NoteLineNumberRuler: NSRulerView {
 
 final class NoteEditorTextView: SubstitutionTextView {
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 48, event.modifierFlags.contains(.control), !event.modifierFlags.contains(.command), !event.modifierFlags.contains(.option),
-           let target = event.modifierFlags.contains(.shift) ? previousKeyView : nextKeyView {
+        if event.keyCode == 48, event.modifierFlags.contains(.control), !event.modifierFlags.contains(.command),
+            !event.modifierFlags.contains(.option),
+            let target = event.modifierFlags.contains(.shift) ? previousKeyView : nextKeyView
+        {
             focusKeyboardControl(target)
-        } else { super.keyDown(with: event) }
+        } else {
+            super.keyDown(with: event)
+        }
     }
     var zoomPercent = 100
     var markdownLinks: [MarkdownHighlight.Link] = []
@@ -1784,7 +2089,8 @@ final class NoteEditorTextView: SubstitutionTextView {
     }
     private func checkboxRect(for checkbox: MarkdownHighlight.Checkbox) -> NSRect? {
         guard let manager = layoutManager, let container = textContainer,
-              let storage = textStorage, NSMaxRange(checkbox.range) <= storage.length else { return nil }
+            let storage = textStorage, NSMaxRange(checkbox.range) <= storage.length
+        else { return nil }
         let glyphs = manager.glyphRange(forCharacterRange: checkbox.range, actualCharacterRange: nil)
         let rect = manager.boundingRect(forGlyphRange: glyphs, in: container)
         return rect.offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y)
@@ -1792,7 +2098,8 @@ final class NoteEditorTextView: SubstitutionTextView {
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         if !event.modifierFlags.contains(.command), event.clickCount == 1,
-           let checkbox = markdownCheckboxes.first(where: { checkboxRect(for: $0)?.contains(point) == true }) {
+            let checkbox = markdownCheckboxes.first(where: { checkboxRect(for: $0)?.contains(point) == true })
+        {
             let valueRange = NSRange(location: checkbox.range.location + 1, length: 1)
             let replacement = checkbox.checked ? " " : "x"
             window?.makeFirstResponder(self)
@@ -1802,7 +2109,8 @@ final class NoteEditorTextView: SubstitutionTextView {
             return
         }
         if event.modifierFlags.contains(.command), event.clickCount == 1,
-           let manager = layoutManager, let container = textContainer, manager.numberOfGlyphs > 0 {
+            let manager = layoutManager, let container = textContainer, manager.numberOfGlyphs > 0
+        {
             let point = convert(event.locationInWindow, from: nil)
             let origin = textContainerOrigin
             let containerPoint = NSPoint(x: point.x - origin.x, y: point.y - origin.y)
@@ -1811,7 +2119,8 @@ final class NoteEditorTextView: SubstitutionTextView {
             let glyphBounds = manager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: container)
             let index = manager.characterIndexForGlyph(at: glyph)
             if glyphBounds.contains(containerPoint),
-               let link = markdownLinks.first(where: { NSLocationInRange(index, $0.range) }) {
+                let link = markdownLinks.first(where: { NSLocationInRange(index, $0.range) })
+            {
                 NSWorkspace.shared.open(link.url)
                 return
             }

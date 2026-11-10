@@ -7,7 +7,11 @@ public enum LabelContext: Codable, Hashable, Identifiable {
     case label(UUID)
 
     public var id: String {
-        switch self { case .all: "all"; case .unlabelled: "unlabelled"; case .label(let id): id.uuidString }
+        switch self {
+        case .all: "all";
+        case .unlabelled: "unlabelled";
+        case .label(let id): id.uuidString
+        }
     }
 }
 
@@ -38,7 +42,7 @@ public enum NoteIcon {
         "bag", "cart", "gift", "fork.knife", "cup.and.saucer", "birthday.cake", "banknote",
         "car", "bicycle", "airplane", "map", "suitcase", "globe", "building.2",
         "figure.run", "dumbbell", "cross.case", "pills", "pawprint", "leaf", "hammer",
-        "wrench.and.screwdriver", "washer", "creditcard", "gamecontroller", "tv", "music.note", "camera"
+        "wrench.and.screwdriver", "washer", "creditcard", "gamecontroller", "tv", "music.note", "camera",
     ]
     public static let legacyNames: Set<String> = ["checklist", "pencil"]
     public static func safeName(_ name: String) -> String {
@@ -65,7 +69,7 @@ public enum AppSymbol {
     public static let unavailableNote = "note.text"
     public static let reserved: Set<String> = [
         dashboard, todos, appointments, help, settings, locked, add, delete, edit,
-        incomplete, complete, details, more, error, unavailableNote
+        incomplete, complete, details, more, error, unavailableNote,
     ]
 }
 
@@ -96,7 +100,13 @@ public struct Note: Codable, Identifiable, Hashable {
     public var updatedAt = Date()
     public var iconName: String = NoteIcon.defaultName
     public var zoomPercent = 100
-    public init(id: UUID = UUID(), title: String, contentMarkdown: String = "", labelID: UUID? = nil, createdAt: Date = Date(), updatedAt: Date = Date(), iconName: String = NoteIcon.defaultName) { self.id = id; self.title = title; self.contentMarkdown = contentMarkdown; self.labelID = labelID; self.createdAt = createdAt; self.updatedAt = updatedAt; self.iconName = NoteIcon.safeName(iconName) }
+    public init(
+        id: UUID = UUID(), title: String, contentMarkdown: String = "", labelID: UUID? = nil, createdAt: Date = Date(),
+        updatedAt: Date = Date(), iconName: String = NoteIcon.defaultName
+    ) {
+        self.id = id; self.title = title; self.contentMarkdown = contentMarkdown; self.labelID = labelID; self.createdAt = createdAt;
+        self.updatedAt = updatedAt; self.iconName = NoteIcon.safeName(iconName)
+    }
     private enum CodingKeys: String, CodingKey { case id, title, contentMarkdown, labelID, createdAt, updatedAt, iconName, zoomPercent }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -119,7 +129,13 @@ public struct Task: Codable, Identifiable, Hashable {
     public var createdAt = Date()
     public var completedAt: Date?
     public var restoredAt: Date?
-    public init(id: UUID = UUID(), title: String, taskDescription: String = "", labelID: UUID? = nil, createdAt: Date = Date(), completedAt: Date? = nil) { self.id = id; self.title = title; self.taskDescription = taskDescription; self.labelID = labelID; self.createdAt = createdAt; self.completedAt = completedAt }
+    public init(
+        id: UUID = UUID(), title: String, taskDescription: String = "", labelID: UUID? = nil, createdAt: Date = Date(),
+        completedAt: Date? = nil
+    ) {
+        self.id = id; self.title = title; self.taskDescription = taskDescription; self.labelID = labelID; self.createdAt = createdAt;
+        self.completedAt = completedAt
+    }
 }
 
 public struct DateItem: Codable, Identifiable, Hashable {
@@ -130,7 +146,11 @@ public struct DateItem: Codable, Identifiable, Hashable {
     public var restoredAt: Date?
     public var labelID: UUID?
     public var createdAt = Date()
-    public init(id: UUID = UUID(), title: String, date: Date, itemDescription: String = "", labelID: UUID? = nil, createdAt: Date = Date()) { self.id = id; self.title = title; self.date = date; self.itemDescription = itemDescription; self.labelID = labelID; self.createdAt = createdAt }
+    public init(id: UUID = UUID(), title: String, date: Date, itemDescription: String = "", labelID: UUID? = nil, createdAt: Date = Date())
+    {
+        self.id = id; self.title = title; self.date = date; self.itemDescription = itemDescription; self.labelID = labelID;
+        self.createdAt = createdAt
+    }
 }
 
 public struct DateGroup: Identifiable {
@@ -180,7 +200,7 @@ public struct AppSettings: Codable, Hashable {
     public var scheduledDefaultEnabled = false
     public var scheduledCategoryConfigured = false
     public var scheduledLabelID: UUID?
-    public var scheduledWeekdays: Set<Int> = [2, 3, 4, 5, 6] // Calendar: Sunday = 1.
+    public var scheduledWeekdays: Set<Int> = [2, 3, 4, 5, 6]  // Calendar: Sunday = 1.
     public var scheduledStartMinute = 8 * 60
     public var scheduledEndMinute = 17 * 60
     public var showLineNumbers = true
@@ -194,8 +214,13 @@ public struct AppSettings: Codable, Hashable {
     public var appLockEnabled = false
     public var lockWhenInactive = false
     public var inactivityMinutes = 5
-    public init(labelContext: LabelContext = .all, dateDisplayMode: DateDisplayMode = .chronological, taskRetention: RetentionPeriod = .thirty, dateRetention: RetentionPeriod = .thirty, maximumUpcomingDatesPerLabel: Int = 5, upcomingHorizonDays: Int = 14, maximumDashboardTasks: Int = 4, maximumDashboardAppointments: Int = 4) {
-        self.labelContext = labelContext; self.dateDisplayMode = dateDisplayMode; self.taskRetention = taskRetention; self.dateRetention = dateRetention
+    public init(
+        labelContext: LabelContext = .all, dateDisplayMode: DateDisplayMode = .chronological, taskRetention: RetentionPeriod = .thirty,
+        dateRetention: RetentionPeriod = .thirty, maximumUpcomingDatesPerLabel: Int = 5, upcomingHorizonDays: Int = 14,
+        maximumDashboardTasks: Int = 4, maximumDashboardAppointments: Int = 4
+    ) {
+        self.labelContext = labelContext; self.dateDisplayMode = dateDisplayMode; self.taskRetention = taskRetention;
+        self.dateRetention = dateRetention
         self.maximumUpcomingDatesPerLabel = maximumUpcomingDatesPerLabel
         self.upcomingHorizonDays = (1...365).contains(upcomingHorizonDays) ? upcomingHorizonDays : 14
         self.maximumDashboardTasks = (1...10).contains(maximumDashboardTasks) ? maximumDashboardTasks : 4
@@ -204,7 +229,8 @@ public struct AppSettings: Codable, Hashable {
     private enum CodingKeys: String, CodingKey {
         case labelContext, dateDisplayMode, taskRetention, dateRetention, maximumUpcomingDatesPerLabel, upcomingHorizonDays
         case maximumDashboardTasks, maximumDashboardAppointments, todoCompletionConfirmation
-        case defaultLabelID, scheduledDefaultEnabled, scheduledCategoryConfigured, scheduledLabelID, scheduledWeekdays, scheduledStartMinute, scheduledEndMinute
+        case defaultLabelID, scheduledDefaultEnabled, scheduledCategoryConfigured, scheduledLabelID, scheduledWeekdays,
+            scheduledStartMinute, scheduledEndMinute
         case showLineNumbers, indentWidth, checkSpelling, automaticCorrection, smartQuotes, smartDashes, screenZoom
         case smartSubstitutions
         case appLockEnabled, lockWhenInactive, inactivityMinutes
@@ -213,7 +239,8 @@ public struct AppSettings: Codable, Hashable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         labelContext = try values.decodeIfPresent(LabelContext.self, forKey: .labelContext) ?? .all
         dateDisplayMode = try values.decodeIfPresent(DateDisplayMode.self, forKey: .dateDisplayMode) ?? .chronological
-        todoCompletionConfirmation = try values.decodeIfPresent(TodoCompletionConfirmation.self, forKey: .todoCompletionConfirmation) ?? .off
+        todoCompletionConfirmation =
+            try values.decodeIfPresent(TodoCompletionConfirmation.self, forKey: .todoCompletionConfirmation) ?? .off
         taskRetention = try values.decodeIfPresent(RetentionPeriod.self, forKey: .taskRetention) ?? .thirty
         dateRetention = try values.decodeIfPresent(RetentionPeriod.self, forKey: .dateRetention) ?? .thirty
         let dashboardTasks = try values.decodeIfPresent(Int.self, forKey: .maximumDashboardTasks) ?? 4
@@ -236,7 +263,8 @@ public struct AppSettings: Codable, Hashable {
         checkSpelling = try values.decodeIfPresent(Bool.self, forKey: .checkSpelling) ?? true
         automaticCorrection = try values.decodeIfPresent(Bool.self, forKey: .automaticCorrection) ?? false
         smartQuotes = try values.decodeIfPresent(Bool.self, forKey: .smartQuotes) ?? false
-        smartSubstitutions = try values.decodeIfPresent(SmartSubstitutionSettings.self, forKey: .smartSubstitutions) ?? SmartSubstitutionSettings()
+        smartSubstitutions =
+            try values.decodeIfPresent(SmartSubstitutionSettings.self, forKey: .smartSubstitutions) ?? SmartSubstitutionSettings()
         smartDashes = try values.decodeIfPresent(Bool.self, forKey: .smartDashes) ?? false
         screenZoom = (try values.decodeIfPresent([String: Int].self, forKey: .screenZoom) ?? [:]).mapValues(ZoomLevel.validated)
         appLockEnabled = try values.decodeIfPresent(Bool.self, forKey: .appLockEnabled) ?? false
@@ -248,9 +276,10 @@ public struct AppSettings: Codable, Hashable {
     public func resolvedDefaultLabelID(at date: Date = Date(), calendar: Calendar = .current, validLabels: [Label]) -> UUID? {
         let fallback = validLabels.contains { $0.id == defaultLabelID } ? defaultLabelID : nil
         guard scheduledDefaultEnabled, scheduledCategoryConfigured,
-              scheduledStartMinute >= 0, scheduledEndMinute <= 24 * 60,
-              scheduledStartMinute < scheduledEndMinute,
-              scheduledWeekdays.contains(calendar.component(.weekday, from: date)) else { return fallback }
+            scheduledStartMinute >= 0, scheduledEndMinute <= 24 * 60,
+            scheduledStartMinute < scheduledEndMinute,
+            scheduledWeekdays.contains(calendar.component(.weekday, from: date))
+        else { return fallback }
         let components = calendar.dateComponents([.hour, .minute], from: date)
         let minute = (components.hour ?? 0) * 60 + (components.minute ?? 0)
         guard scheduledStartMinute <= minute && minute < scheduledEndMinute else { return fallback }
@@ -273,14 +302,22 @@ public struct Workspace: Codable, Equatable {
     // Version 1 stores the user-defined order directly in `notes`. Older files
     // displayed Notes by creation time, regardless of their array order.
     private var noteOrderVersion = 1
-    public init(labels: [Label] = [], notes: [Note] = [], tasks: [Task] = [], scheduledTodos: [ScheduledTodo] = [], dates: [DateItem] = [], settings: AppSettings = AppSettings(), statisticsStartedAt: Date? = nil, historicalCompletedTodoCount: Int = 0, historicalPassedAppointmentCount: Int = 0) {
-        self.labels = labels; self.notes = notes; self.tasks = tasks; self.scheduledTodos = scheduledTodos; self.dates = dates; self.settings = settings
+    public init(
+        labels: [Label] = [], notes: [Note] = [], tasks: [Task] = [], scheduledTodos: [ScheduledTodo] = [], dates: [DateItem] = [],
+        settings: AppSettings = AppSettings(), statisticsStartedAt: Date? = nil, historicalCompletedTodoCount: Int = 0,
+        historicalPassedAppointmentCount: Int = 0
+    ) {
+        self.labels = labels; self.notes = notes; self.tasks = tasks; self.scheduledTodos = scheduledTodos; self.dates = dates;
+        self.settings = settings
         self.statisticsStartedAt = statisticsStartedAt
         self.historicalCompletedTodoCount = historicalCompletedTodoCount
         self.historicalPassedAppointmentCount = historicalPassedAppointmentCount
     }
 
-    private enum CodingKeys: String, CodingKey { case labels, notes, tasks, scheduledTodos, dates, recentlyDeleted, settings, noteOrderVersion, statisticsStartedAt, historicalCompletedTodoCount, historicalPassedAppointmentCount }
+    private enum CodingKeys: String, CodingKey {
+        case labels, notes, tasks, scheduledTodos, dates, recentlyDeleted, settings, noteOrderVersion, statisticsStartedAt,
+            historicalCompletedTodoCount, historicalPassedAppointmentCount
+    }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         labels = try values.decode([Label].self, forKey: .labels)
@@ -317,11 +354,15 @@ public struct Workspace: Codable, Equatable {
         dates.indices.forEach { if dates[$0].labelID == id { dates[$0].labelID = nil } }
         if settings.labelContext == .label(id) { settings.labelContext = .all }
         if settings.defaultLabelID == id { settings.defaultLabelID = nil }
-        if settings.scheduledLabelID == id { settings.scheduledLabelID = nil; settings.scheduledCategoryConfigured = false; settings.scheduledDefaultEnabled = false }
+        if settings.scheduledLabelID == id {
+            settings.scheduledLabelID = nil; settings.scheduledCategoryConfigured = false; settings.scheduledDefaultEnabled = false
+        }
     }
 
     public mutating func createNote(at now: Date = Date(), calendar: Calendar = .current) -> Note {
-        let note = Note(title: "Untitled Note", labelID: settings.resolvedDefaultLabelID(at: now, calendar: calendar, validLabels: labels), createdAt: now, updatedAt: now)
+        let note = Note(
+            title: "Untitled Note", labelID: settings.resolvedDefaultLabelID(at: now, calendar: calendar, validLabels: labels),
+            createdAt: now, updatedAt: now)
         notes.append(note)
         return note
     }
@@ -367,7 +408,9 @@ public struct Workspace: Codable, Equatable {
     }
 
     public func makeAppointmentDraft(at now: Date = Date(), calendar: Calendar = .current) -> DateItem {
-        DateItem(title: "New Appointment", date: calendar.startOfDay(for: now), labelID: settings.resolvedDefaultLabelID(at: now, calendar: calendar, validLabels: labels), createdAt: now)
+        DateItem(
+            title: "New Appointment", date: calendar.startOfDay(for: now),
+            labelID: settings.resolvedDefaultLabelID(at: now, calendar: calendar, validLabels: labels), createdAt: now)
     }
 
     public mutating func addAppointmentDraft(_ draft: DateItem) {
@@ -398,7 +441,8 @@ public struct Workspace: Codable, Equatable {
 
     public func daysPassed(now: Date = Date(), calendar: Calendar = .current) -> Int {
         guard let statisticsStartedAt else { return 0 }
-        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: statisticsStartedAt), to: calendar.startOfDay(for: now)).day ?? 0
+        let days =
+            calendar.dateComponents([.day], from: calendar.startOfDay(for: statisticsStartedAt), to: calendar.startOfDay(for: now)).day ?? 0
         return max(1, days + 1)
     }
 
@@ -456,7 +500,8 @@ public struct Workspace: Codable, Equatable {
             var removed = 0
             tasks.removeAll { task in
                 guard let completed = task.completedAt,
-                      let expiry = calendar.date(byAdding: .day, value: days, to: max(completed, task.restoredAt ?? completed)) else { return false }
+                    let expiry = calendar.date(byAdding: .day, value: days, to: max(completed, task.restoredAt ?? completed))
+                else { return false }
                 if now > expiry { removed += 1; return true }
                 return false
             }
@@ -467,7 +512,9 @@ public struct Workspace: Codable, Equatable {
             var removed = 0
             dates.removeAll { item in
                 guard item.date < today,
-                      let expiry = calendar.date(byAdding: .day, value: days, to: calendar.startOfDay(for: max(item.date, item.restoredAt ?? item.date))) else { return false }
+                    let expiry = calendar.date(
+                        byAdding: .day, value: days, to: calendar.startOfDay(for: max(item.date, item.restoredAt ?? item.date)))
+                else { return false }
                 if today > expiry { removed += 1; return true }
                 return false
             }

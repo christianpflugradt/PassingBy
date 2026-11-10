@@ -1,0 +1,8 @@
+id = "swift-tests"
+description = "Run all Swift unit and compatibility tests"
+run_at = ["pre-push", "check", "release-candidate"]
+
+[check]
+command = "swift run PassingByTests"
+timeout_seconds = 300
+resource = "swift"

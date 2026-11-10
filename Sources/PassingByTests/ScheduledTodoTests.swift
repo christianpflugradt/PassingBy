@@ -50,7 +50,8 @@ func testScheduledTodoDatesAndCompatibility() throws {
     expect(next(lastWeekday, day(2024, 2, 29)) == day(2024, 3, 29), "last weekday advances after leap February")
 
     let category = Label(name: "Work")
-    let schedule = ScheduledTodo(title: "Review", categoryID: category.id, recurrence: biweekly, startingOn: day(2026, 10, 3), calendar: calendar)
+    let schedule = ScheduledTodo(
+        title: "Review", categoryID: category.id, recurrence: biweekly, startingOn: day(2026, 10, 3), calendar: calendar)
     var workspace = Workspace(labels: [category], scheduledTodos: [schedule])
     let persisted = try JSONEncoder().encode(workspace)
     let reloaded = try JSONDecoder().decode(Workspace.self, from: persisted)
@@ -72,39 +73,62 @@ func testScheduledTodoGenerationAndAtomicPersistence() throws {
     }
     let category = Label(name: "Finances")
     let fallback = Label(name: "Default")
-    let monthly = ScheduledTodo(title: "Finances previous month", categoryID: category.id, recurrence: .monthly(.firstDay), startingOn: day(2030, 7, 1), calendar: calendar)
+    let monthly = ScheduledTodo(
+        title: "Finances previous month", categoryID: category.id, recurrence: .monthly(.firstDay), startingOn: day(2030, 7, 1),
+        calendar: calendar)
     var settings = AppSettings()
     settings.defaultLabelID = fallback.id
     var workspace = Workspace(labels: [category, fallback], scheduledTodos: [monthly], settings: settings)
 
-    expect(workspace.evaluateScheduledTodos(at: day(2030, 6, 30), calendar: calendar) == 0 && workspace.tasks.isEmpty, "future occurrence generates nothing")
+    expect(
+        workspace.evaluateScheduledTodos(at: day(2030, 6, 30), calendar: calendar) == 0 && workspace.tasks.isEmpty,
+        "future occurrence generates nothing")
     expect(workspace.evaluateScheduledTodos(at: day(2030, 7, 1), calendar: calendar) == 1, "occurrence due today generates a To-do")
-    expect(workspace.tasks[0].title == monthly.title && workspace.tasks[0].labelID == category.id, "generated To-do uses static title and selected Category instead of Default Category")
+    expect(
+        workspace.tasks[0].title == monthly.title && workspace.tasks[0].labelID == category.id,
+        "generated To-do uses static title and selected Category instead of Default Category")
     expect(workspace.scheduledTodos[0].lastGeneratedOccurrence == day(2030, 7, 1), "generated identity records its due date")
     expect(workspace.scheduledTodos[0].nextOccurrence == day(2030, 8, 1), "next occurrence advances after generation")
-    expect(workspace.evaluateScheduledTodos(at: day(2030, 7, 1), calendar: calendar) == 0 && workspace.tasks.count == 1, "repeated evaluation is idempotent")
-    expect(workspace.evaluateScheduledTodos(at: day(2030, 7, 31), calendar: calendar) == 0, "subsequent evaluation waits for next occurrence")
-    expect(workspace.evaluateScheduledTodos(at: day(2030, 10, 3), calendar: calendar) == 1 && workspace.tasks.count == 2, "several missed monthly dates create one To-do")
+    expect(
+        workspace.evaluateScheduledTodos(at: day(2030, 7, 1), calendar: calendar) == 0 && workspace.tasks.count == 1,
+        "repeated evaluation is idempotent")
+    expect(
+        workspace.evaluateScheduledTodos(at: day(2030, 7, 31), calendar: calendar) == 0, "subsequent evaluation waits for next occurrence")
+    expect(
+        workspace.evaluateScheduledTodos(at: day(2030, 10, 3), calendar: calendar) == 1 && workspace.tasks.count == 2,
+        "several missed monthly dates create one To-do")
     expect(workspace.scheduledTodos[0].lastGeneratedOccurrence == day(2030, 10, 1), "monthly catch-up uses latest due occurrence")
     expect(workspace.scheduledTodos[0].nextOccurrence == day(2030, 11, 1), "monthly catch-up advances to first future occurrence")
 
     workspace.tasks[0].completedAt = day(2030, 10, 3)
-    expect(workspace.evaluateScheduledTodos(at: day(2030, 11, 1), calendar: calendar) == 1, "completed previous To-do does not suppress generation")
+    expect(
+        workspace.evaluateScheduledTodos(at: day(2030, 11, 1), calendar: calendar) == 1,
+        "completed previous To-do does not suppress generation")
     workspace.tasks.removeLast()
-    expect(workspace.evaluateScheduledTodos(at: day(2030, 12, 1), calendar: calendar) == 1, "deleted previous To-do does not suppress generation")
+    expect(
+        workspace.evaluateScheduledTodos(at: day(2030, 12, 1), calendar: calendar) == 1,
+        "deleted previous To-do does not suppress generation")
     let remaining = workspace.tasks
     workspace.scheduledTodos.removeAll()
-    expect(workspace.tasks == remaining && workspace.evaluateScheduledTodos(at: day(2031, 1, 1), calendar: calendar) == 0, "deleting schedule leaves generated To-dos untouched")
+    expect(
+        workspace.tasks == remaining && workspace.evaluateScheduledTodos(at: day(2031, 1, 1), calendar: calendar) == 0,
+        "deleting schedule leaves generated To-dos untouched")
 
-    let weekly = ScheduledTodo(title: "Weekly", categoryID: nil, recurrence: .weekly(interval: .everyWeek, weekday: .monday), startingOn: day(2030, 9, 2), calendar: calendar)
+    let weekly = ScheduledTodo(
+        title: "Weekly", categoryID: nil, recurrence: .weekly(interval: .everyWeek, weekday: .monday), startingOn: day(2030, 9, 2),
+        calendar: calendar)
     var weeklyWorkspace = Workspace(labels: [fallback], tasks: [Task(title: "Weekly")], scheduledTodos: [weekly], settings: settings)
-    expect(weeklyWorkspace.evaluateScheduledTodos(at: day(2030, 10, 3), calendar: calendar) == 1 && weeklyWorkspace.tasks.count == 2, "several missed weekly dates create one To-do even with an open item of the same title")
+    expect(
+        weeklyWorkspace.evaluateScheduledTodos(at: day(2030, 10, 3), calendar: calendar) == 1 && weeklyWorkspace.tasks.count == 2,
+        "several missed weekly dates create one To-do even with an open item of the same title")
     expect(weeklyWorkspace.tasks[1].labelID == nil, "explicit Uncategorized schedule does not use Default Category")
     expect(weeklyWorkspace.scheduledTodos[0].lastGeneratedOccurrence == day(2030, 9, 30), "weekly catch-up uses latest due Monday")
     expect(weeklyWorkspace.scheduledTodos[0].nextOccurrence == day(2030, 10, 7), "weekly catch-up advances to first future Monday")
     expect(weeklyWorkspace.evaluateScheduledTodos(at: day(2030, 10, 3), calendar: calendar) == 0, "weekly catch-up is idempotent")
 
-    let biweekly = ScheduledTodo(title: "Biweekly", categoryID: nil, recurrence: .weekly(interval: .everyTwoWeeks, weekday: .friday), startingOn: day(2030, 9, 6), calendar: calendar)
+    let biweekly = ScheduledTodo(
+        title: "Biweekly", categoryID: nil, recurrence: .weekly(interval: .everyTwoWeeks, weekday: .friday), startingOn: day(2030, 9, 6),
+        calendar: calendar)
     var biweeklyWorkspace = Workspace(scheduledTodos: [biweekly])
     expect(biweeklyWorkspace.evaluateScheduledTodos(at: day(2030, 10, 3), calendar: calendar) == 1, "biweekly catch-up creates one To-do")
     expect(biweeklyWorkspace.scheduledTodos[0].lastGeneratedOccurrence == day(2030, 9, 20), "biweekly catch-up retains original anchor")
@@ -120,12 +144,16 @@ func testScheduledTodoGenerationAndAtomicPersistence() throws {
     let blockedBackup = persistence.url.appendingPathExtension("backup")
     try files.createDirectory(at: blockedBackup, withIntermediateDirectories: false)
     expect(store.evaluateScheduledTodos(at: day(2030, 10, 3), calendar: calendar) == 0, "failed save does not publish generated To-do")
-    expect(store.workspace.tasks.isEmpty && store.workspace.scheduledTodos[0].nextOccurrence == day(2030, 7, 1), "failed save retains old cursor and task list")
+    expect(
+        store.workspace.tasks.isEmpty && store.workspace.scheduledTodos[0].nextOccurrence == day(2030, 7, 1),
+        "failed save retains old cursor and task list")
     let unchanged = try persistence.load()
     expect(unchanged == stored, "failed save leaves persisted workspace unchanged")
     try files.removeItem(at: blockedBackup)
     expect(store.evaluateScheduledTodos(at: day(2030, 10, 3), calendar: calendar) == 1, "retry persists one latest due To-do")
     let reloaded = try AppStore(persistence: persistence)
-    expect(reloaded.workspace.tasks.count == 1 && reloaded.workspace.scheduledTodos[0].lastGeneratedOccurrence == day(2030, 10, 1), "restart preserves generated occurrence identity")
+    expect(
+        reloaded.workspace.tasks.count == 1 && reloaded.workspace.scheduledTodos[0].lastGeneratedOccurrence == day(2030, 10, 1),
+        "restart preserves generated occurrence identity")
     expect(reloaded.evaluateScheduledTodos(at: day(2030, 10, 3), calendar: calendar) == 0, "restart does not duplicate occurrence")
 }

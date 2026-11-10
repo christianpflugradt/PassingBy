@@ -2,7 +2,8 @@ import AppKit
 import PassingByCore
 
 @MainActor func runSmartSubstitutionNativeTests() {
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 680, height: 570), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 680, height: 570), styleMask: [.titled, .closable], backing: .buffered, defer: false)
     defer { window.orderOut(nil) }
     func check(_ condition: @autoclosure () -> Bool, _ message: String) {
         guard condition() else { fatalError("Smart substitutions: " + message) }
@@ -26,7 +27,10 @@ import PassingByCore
         for char in value {
             let chars = String(char)
             let code: UInt16 = chars == "\t" ? 48 : chars == "\r" ? 36 : 0
-            let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: chars, charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code)!
+            let event = NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, characters: chars, charactersIgnoringModifiers: chars, isARepeat: false,
+                keyCode: code)!
             if target.undoManager?.groupingLevel == 0 { target.undoManager?.beginUndoGrouping() }
             target.keyDown(with: event)
             if target.undoManager?.groupingLevel == 1 { target.undoManager?.endUndoGrouping() }
@@ -38,7 +42,9 @@ import PassingByCore
     check(editor.selectedRange() == NSRange(location: 1, length: 0), "caret follows replacement")
     check(editor.undoManager?.canUndo == true, "native Undo registration")
     editor.undoManager?.undo()
-    check(editor.string == "|sqrt|", "one Undo restores complete explicit sequence, got: \(editor.string.debugDescription), selection \(editor.selectedRange())")
+    check(
+        editor.string == "|sqrt|",
+        "one Undo restores complete explicit sequence, got: \(editor.string.debugDescription), selection \(editor.selectedRange())")
     check(editor.selectedRange() == NSRange(location: 6, length: 0), "Undo restores trigger caret")
     editor.undoManager?.redo()
     check(editor.string == "√", "Redo restores replacement without recursively matching")
@@ -67,7 +73,10 @@ import PassingByCore
     let didPaste = editor.readSelection(from: pasteboard, type: .string)
     editor.undoManager?.endUndoGrouping()
     check(didPaste && editor.string == "|sqrt| :) ", "paste remains literal")
-    reset(); editor.undoManager?.beginUndoGrouping(); editor.setMarkedText("|sqrt", selectedRange: NSRange(location: 5, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0)); editor.undoManager?.endUndoGrouping(); type("|")
+    reset(); editor.undoManager?.beginUndoGrouping();
+    editor.setMarkedText(
+        "|sqrt", selectedRange: NSRange(location: 5, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0));
+    editor.undoManager?.endUndoGrouping(); type("|")
     check(!editor.string.contains("√"), "marked-text composition cannot trigger conversion")
     editor.unmarkText()
     reset("before |sqrt| middle |sqrt after |sqrt|")
@@ -93,7 +102,9 @@ import PassingByCore
     editor.setSelectedRange(NSRange(location: prefix.utf16.count + 7, length: 0))
     let nativeStart = Date(); type(" ")
     check(editor.string == prefix + "output " + suffix, "large-note middle edit changes only the current trigger")
-    print("Smart substitutions native: \(editor.string.utf16.count) UTF-16 units, 361 mappings, boundary edit \(Date().timeIntervalSince(nativeStart))s")
+    print(
+        "Smart substitutions native: \(editor.string.utf16.count) UTF-16 units, 361 mappings, boundary edit \(Date().timeIntervalSince(nativeStart))s"
+    )
     editor.substitutionSettings = SmartSubstitutionSettings(); editor.substitutionSettings.enabled = true
     reset()
     editor.substitutionSettings.custom = [.init(input: "nested", replacement: "|sqrt| 👩🏽‍💻")]
@@ -118,7 +129,9 @@ import PassingByCore
     title.frame = NSRect(x: 0, y: 0, width: 400, height: 28)
     title.substitutionSettings.enabled = true
     window.contentView?.addSubview(title); window.makeFirstResponder(title)
-    guard let fieldEditor = title.currentEditor() as? SubstitutionTextView else { fatalError("Title did not receive substitution field editor") }
+    guard let fieldEditor = title.currentEditor() as? SubstitutionTextView else {
+        fatalError("Title did not receive substitution field editor")
+    }
     fieldEditor.setSelectedRange(NSRange(location: 0, length: fieldEditor.string.utf16.count))
     type("|sqrt|", into: fieldEditor)
     check(fieldEditor.string == "√", "title field uses same native matcher")
@@ -140,8 +153,12 @@ import PassingByCore
     let customInput = descendants(form).compactMap { $0 as? NSTextField }.first { $0.accessibilityLabel() == "Custom input" }!
     let customOutput = descendants(form).compactMap { $0 as? NSTextView }.first { $0.accessibilityLabel() == "Custom replacement" }!
     table.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-    check(!customInput.isEnabled && !customOutput.isEditable && !button("Delete Custom Mapping").isEnabled, "built-in mappings cannot be edited or deleted")
-    let space = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: " ", charactersIgnoringModifiers: " ", isARepeat: false, keyCode: 49)!
+    check(
+        !customInput.isEnabled && !customOutput.isEditable && !button("Delete Custom Mapping").isEnabled,
+        "built-in mappings cannot be edited or deleted")
+    let space = NSEvent.keyEvent(
+        with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: " ",
+        charactersIgnoringModifiers: " ", isARepeat: false, keyCode: 49)!
     table.keyDown(with: space)
     check(managed.automaticOverrides[":)"] == false, "table Space toggles built-in Automatic")
     button("New Custom Mapping").performClick(nil)
@@ -162,13 +179,17 @@ import PassingByCore
     customOutput.insertTab(nil)
     check(window.firstResponder === button("Automatic"), "Tab leaves Replacement for Automatic")
     button("Delete Custom Mapping").performClick(nil)
-    check(managed.custom.isEmpty && window.firstResponder === customInput.currentEditor(), "deletion restores focus to surviving custom input")
+    check(
+        managed.custom.isEmpty && window.firstResponder === customInput.currentEditor(), "deletion restores focus to surviving custom input"
+    )
     form.layoutSubtreeIfNeeded()
     for title in ["New Custom Mapping", "Add Custom Mapping", "Delete Custom Mapping", "Done"] {
         let bounds = form.convert(button(title).bounds, from: button(title))
         check(form.bounds.contains(bounds), "management action stays within sheet: " + title)
     }
-    if let snapshotPath = ProcessInfo.processInfo.environment["PASSING_BY_SUBSTITUTIONS_SNAPSHOT"], let bitmap = form.bitmapImageRepForCachingDisplay(in: form.bounds) {
+    if let snapshotPath = ProcessInfo.processInfo.environment["PASSING_BY_SUBSTITUTIONS_SNAPSHOT"],
+        let bitmap = form.bitmapImageRepForCachingDisplay(in: form.bounds)
+    {
         form.cacheDisplay(in: form.bounds, to: bitmap)
         try? bitmap.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: snapshotPath))
     }
@@ -177,5 +198,7 @@ import PassingByCore
 
 @MainActor private final class SubstitutionVetoDelegate: NSObject, NSTextViewDelegate {
     var denied = "√"
-    func textView(_ textView: NSTextView, shouldChangeTextIn affectedCharRange: NSRange, replacementString: String?) -> Bool { replacementString != denied }
+    func textView(_ textView: NSTextView, shouldChangeTextIn affectedCharRange: NSRange, replacementString: String?) -> Bool {
+        replacementString != denied
+    }
 }

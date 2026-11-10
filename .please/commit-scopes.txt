@@ -1,0 +1,13 @@
+app
+ui
+notes
+todos
+appointments
+settings
+persistence
+security
+build
+release
+docs
+deps
+tests

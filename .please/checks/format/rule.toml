@@ -1,0 +1,7 @@
+id = "format"
+description = "Verify Swift formatting"
+run_at = ["pre-commit", "pre-push", "check", "release-candidate"]
+
+[check]
+command = "swift format lint --strict --recursive Sources Scripts Package.swift"
+timeout_seconds = 120

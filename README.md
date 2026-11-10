@@ -42,33 +42,55 @@ From the repository root:
 ```sh
 mise install
 mise run build
-mise run test
+mise run test # All three unit-test suites.
 mise run test-ui # Native Settings focus and substitution editing tests; requires a macOS desktop session.
 ```
 
 `mise run build` creates `build/Passing By.app`. Open that bundle from Finder to run it. The build is ad hoc signed. Local builds have a separate development app identity and display “Development build” in About.
 
-After cloning, run `sh Scripts/setup-git-hooks.sh` to enable the repository commit-message hook. Commit subjects use `type: description` or `type(scope): description` with a non-empty description. If included, the scope must be one of those listed below.
+### Please Behave
 
-Allowed types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`, `style`, `revert`.
+Use the published governor pinned in [.please-version](.please-version). Prepare
+Python 3, actionlint, Gitleaks and Node release dependencies, then run
+`sh Scripts/setup-git-hooks.sh --yes`. See [.please/README.md](.please/README.md)
+for setup, execution points and the release contract.
 
-Allowed scopes: `app`, `ui`, `notes`, `todos`, `appointments`, `settings`, `persistence`, `security`, `build`, `release`, `docs`, `deps`, `tests`.
+Pre-commit checks Swift formatting. Pre-push runs all unit tests, the verified app
+build, native UI tests, workflow validation and offline release-tooling tests,
+plus shared security/license checks. CI runs the same gate without native UI tests
+and adds the npm audit. `please status --details` shows saved results.
 
-Examples: `build: assemble local app`, `fix(ui): correct sidebar alignment`, `docs: clarify setup`.
+Commit subjects use Conventional Commits with optional scopes from
+[.please/commit-scopes.txt](.please/commit-scopes.txt). Types and syntax are checked
+by the shared external Rule Set. Its advisory Gemini Flash-Lite Review evaluates
+only the header for specific English imperative wording. Export GEMINI_API_KEY
+for the hook; review failures or unavailable credentials remain visible without
+blocking commits. CI does not validate commit ranges or PR titles.
 
-### Hannes checks
+Examples: `build: assemble local app`, `fix(ui): correct sidebar alignment`,
+`docs: clarify setup`.
 
-Run `hannes pass auf`, then `hannes mach was` from this repository. Seven checks
-cover release compilation, domain rules, persistence/legacy data, Markdown and
-substitutions, native Settings interactions, the app bundle, and Swift style.
-All reviews are disabled, so this setup makes no Codex calls.
-`hannes was ist phase --details` shows captured output from the saved report.
-See [.hannes/README.md](.hannes/README.md) for commands and requirements.
-
+Run individual suites with `mise run test-domain`, `mise run test-persistence`,
+or `mise run test-editor`; `mise run test` still runs all of them.
+`mise run lint` checks the four-space, 140-column Swift style;
+`mise run format` applies it. Use the same Swift toolchain locally and in CI
+for consistent formatter results. `mise run compile` only compiles;
+`mise run build` also assembles and verifies the signed development app bundle.
+The standalone verifier is `./Scripts/check-app-bundle.sh [path-to-app]`;
+release bundles require the matching `RELEASE_VERSION`.
 
 ### Releases
 
-Releases use Semantic Release and SemVer. Run `mise run release` to start the manual GitHub workflow; Conventional Commits determine the next version. After tests pass, Semantic Release passes that version directly to the release build and packaging steps, creates the `v<version>` tag, and publishes the GitHub Release with the ZIP attached. For local packaging checks, run `RELEASE_VERSION=1.2.3 mise run build && RELEASE_VERSION=1.2.3 mise run package` with a test version.
+Run `mise run release` to dispatch Release on main. Plan calculates the version;
+Readiness checks exact-commit CI proof, source security and current advisories;
+Candidate tests, builds and packages the app. Publish verifies and publishes that
+same ZIP without rebuilding. See the [release contract](.please/README.md#release-contract)
+for version semantics and reruns. Passing By remains a native macOS app with one
+release artifact; native UI tests run only locally at pre-push.
+
+For local packaging, run `RELEASE_VERSION=1.2.3 mise run build` followed by
+`RELEASE_VERSION=1.2.3 mise run package`. The ZIP remains in `build/`; `dist/`
+contains the ZIP, SHA256SUMS and source-bound metadata for release verification.
 
 ## License
 

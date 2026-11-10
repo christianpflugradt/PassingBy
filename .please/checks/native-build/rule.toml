@@ -1,0 +1,8 @@
+id = "native-build"
+description = "Build and verify the native app bundle"
+run_at = ["pre-push", "check", "release-candidate"]
+
+[check]
+command = "./Scripts/build-release.sh"
+timeout_seconds = 600
+resource = "swift"

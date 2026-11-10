@@ -6,9 +6,12 @@ struct SubstitutionsView: View {
     @ObservedObject var state: WorkspaceState
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        SubstitutionsFormView(settings: state.workspace.settings.smartSubstitutions, onChange: { value in
-            state.change { $0.settings.smartSubstitutions = value }
-        }, onDone: { dismiss() })
+        SubstitutionsFormView(
+            settings: state.workspace.settings.smartSubstitutions,
+            onChange: { value in
+                state.change { $0.settings.smartSubstitutions = value }
+            }, onDone: { dismiss() }
+        )
         .frame(width: 680, height: 560)
     }
 }
@@ -48,7 +51,10 @@ private struct SubstitutionsFormView: NSViewRepresentable {
         super.init(frame: .zero)
         let title = NSTextField(labelWithString: "Smart Substitutions")
         title.font = .boldSystemFont(ofSize: 17)
-        let help = NSTextField(wrappingLabelWithString: #"Type |sqrt| to insert √. Escape a literal sequence as \|sqrt|; the backslash stays. Within a rule, type \| for a pipe and \\ for a backslash. Undo restores the typed sequence. Automatic uses Space, Tab or Return after a whole token. Select a row and press Space to toggle Automatic. Code fences and inline code are protected."#)
+        let help = NSTextField(
+            wrappingLabelWithString:
+                #"Type |sqrt| to insert √. Escape a literal sequence as \|sqrt|; the backslash stays. Within a rule, type \| for a pipe and \\ for a backslash. Undo restores the typed sequence. Automatic uses Space, Tab or Return after a whole token. Select a row and press Space to toggle Automatic. Code fences and inline code are protected."#
+        )
         help.font = .systemFont(ofSize: 11)
         for (name, width) in [("Input", 140.0), ("Replacement", 350.0), ("Automatic", 110.0)] {
             let column = NSTableColumn(identifier: .init(name)); column.title = name; column.width = width
@@ -74,13 +80,19 @@ private struct SubstitutionsFormView: NSViewRepresentable {
         output.isAutomaticDashSubstitutionEnabled = false
         output.isAutomaticSpellingCorrectionEnabled = false
         output.isVerticallyResizable = true; output.autoresizingMask = [.width]; output.textContainer?.widthTracksTextView = true
-        let outputScroll = NSScrollView(); outputScroll.hasVerticalScroller = true; outputScroll.borderType = .bezelBorder; outputScroll.documentView = output
+        let outputScroll = NSScrollView(); outputScroll.hasVerticalScroller = true; outputScroll.borderType = .bezelBorder;
+        outputScroll.documentView = output
         outputScroll.heightAnchor.constraint(equalToConstant: 50).isActive = true
-        let grid = NSGridView(views: [[NSTextField(labelWithString: "Input"), input], [NSTextField(labelWithString: "Replacement"), outputScroll]])
+        let grid = NSGridView(views: [
+            [NSTextField(labelWithString: "Input"), input], [NSTextField(labelWithString: "Replacement"), outputScroll],
+        ])
         grid.column(at: 1).xPlacement = .fill; grid.columnSpacing = 12; grid.rowSpacing = 8
         message.font = .systemFont(ofSize: 11); message.textColor = .secondaryLabelColor
         syntax.font = .systemFont(ofSize: 11); syntax.textColor = .secondaryLabelColor
-        for (button, action) in [(automatic, #selector(toggleDraft)), (add, #selector(addCustom)), (new, #selector(newCustom)), (delete, #selector(deleteCustom)), (done, #selector(close))] {
+        for (button, action) in [
+            (automatic, #selector(toggleDraft)), (add, #selector(addCustom)), (new, #selector(newCustom)),
+            (delete, #selector(deleteCustom)), (done, #selector(close)),
+        ] {
             button.target = self; button.action = action
             if button !== automatic { button.bezelStyle = .rounded }
         }
@@ -89,8 +101,14 @@ private struct SubstitutionsFormView: NSViewRepresentable {
         let stack = NSStackView(views: [title, help, scroll, syntax, grid, automatic, message, actions])
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false; addSubview(stack)
-        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20), stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20), stack.topAnchor.constraint(equalTo: topAnchor, constant: 20)])
-        for view in [help, scroll, syntax, grid, message, actions] { view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 20),
+        ])
+        for view in [help, scroll, syntax, grid, message, actions] {
+            view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
         configureKeyLoop()
         loadSelection()
     }
@@ -125,7 +143,9 @@ private struct SubstitutionsFormView: NSViewRepresentable {
             button.setAccessibilityLabel("Automatic for " + rule.input)
             return button
         default:
-            let field = NSTextField(labelWithString: tableColumn?.identifier.rawValue == "Input" ? rule.input : rule.replacement.replacingOccurrences(of: "\n", with: " ↵ "))
+            let field = NSTextField(
+                labelWithString: tableColumn?.identifier.rawValue == "Input"
+                    ? rule.input : rule.replacement.replacingOccurrences(of: "\n", with: " ↵ "))
             field.lineBreakMode = .byTruncatingTail
             field.toolTip = rule.replacement
             return field
@@ -142,15 +162,24 @@ private struct SubstitutionsFormView: NSViewRepresentable {
         automatic.state = rule?.automatic == true ? .on : .off
         input.isEnabled = !builtIn; output.isEditable = !builtIn; automatic.isEnabled = !builtIn
         delete.isEnabled = editingCustom != nil; add.isEnabled = rule == nil
-        syntax.stringValue = rule.map { (builtIn ? "Built-in (input and replacement are fixed). " : "Custom mapping. ") + "Explicit: " + $0.explicitSequence } ?? "New custom mapping; Automatic defaults off."
+        syntax.stringValue =
+            rule.map {
+                (builtIn ? "Built-in (input and replacement are fixed). " : "Custom mapping. ") + "Explicit: " + $0.explicitSequence
+            } ?? "New custom mapping; Automatic defaults off."
         validateAndPersist()
     }
     private func validateAndPersist() {
         let builtIn = table.selectedRow >= 0 && table.selectedRow < SmartSubstitutionSettings.builtIns.count
-        guard !builtIn else { message.stringValue = "Toggle Automatic in the table. Explicit syntax remains available while the global switch is on."; return }
-        let others = SmartSubstitutionSettings.builtIns.map(\.input) + settings.custom.enumerated().filter { $0.offset != editingCustom }.map { $0.element.input }
+        guard !builtIn else {
+            message.stringValue = "Toggle Automatic in the table. Explicit syntax remains available while the global switch is on."; return
+        }
+        let others =
+            SmartSubstitutionSettings.builtIns.map(\.input)
+            + settings.custom.enumerated().filter { $0.offset != editingCustom }.map { $0.element.input }
         let error = SmartSubstitutionSettings.validation(input: input.stringValue, replacement: output.string, otherInputs: others)
-        message.stringValue = error.map { $0 + " Changes are not saved until valid." } ?? "1–10 input characters; no pipes, backticks, edge whitespace, tabs or line breaks. Replacement: up to 16,384 UTF-16 units."
+        message.stringValue =
+            error.map { $0 + " Changes are not saved until valid." }
+            ?? "1–10 input characters; no pipes, backticks, edge whitespace, tabs or line breaks. Replacement: up to 16,384 UTF-16 units."
         add.isEnabled = editingCustom == nil && error == nil
         guard !loading, error == nil, let index = editingCustom else { return }
         settings.custom[index] = draft
@@ -160,9 +189,13 @@ private struct SubstitutionsFormView: NSViewRepresentable {
     private var draft: SubstitutionRule { .init(input: input.stringValue, replacement: output.string, automatic: automatic.state == .on) }
     func control(_ control: NSControl, textView: NSTextView, doCommandBy command: Selector) -> Bool {
         let target: NSView?
-        if command == #selector(NSResponder.insertTab(_:)) { target = output }
-        else if command == #selector(NSResponder.insertBacktab(_:)) { target = table }
-        else { return false }
+        if command == #selector(NSResponder.insertTab(_:)) {
+            target = output
+        } else if command == #selector(NSResponder.insertBacktab(_:)) {
+            target = table
+        } else {
+            return false
+        }
         if let target { window?.makeFirstResponder(target) }
         return true
     }
@@ -178,8 +211,11 @@ private struct SubstitutionsFormView: NSViewRepresentable {
     @objc private func toggleDraft() { validateAndPersist() }
     @objc private func toggleRow(_ sender: NSButton) {
         let row = sender.tag
-        if row < SmartSubstitutionSettings.builtIns.count { settings.automaticOverrides[rules[row].input] = sender.state == .on }
-        else { settings.custom[row - SmartSubstitutionSettings.builtIns.count].automatic = sender.state == .on }
+        if row < SmartSubstitutionSettings.builtIns.count {
+            settings.automaticOverrides[rules[row].input] = sender.state == .on
+        } else {
+            settings.custom[row - SmartSubstitutionSettings.builtIns.count].automatic = sender.state == .on
+        }
         onChange(settings)
         if table.selectedRow == row { automatic.state = sender.state }
     }
@@ -201,8 +237,11 @@ private struct SubstitutionsFormView: NSViewRepresentable {
 @MainActor private final class SubstitutionsTable: NSTableView {
     var toggleAutomatic: (() -> Void)?
     override func keyDown(with event: NSEvent) {
-        if event.charactersIgnoringModifiers == " ", event.modifierFlags.intersection([.command, .control, .option]).isEmpty { toggleAutomatic?() }
-        else { super.keyDown(with: event) }
+        if event.charactersIgnoringModifiers == " ", event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+            toggleAutomatic?()
+        } else {
+            super.keyDown(with: event)
+        }
     }
 }
 

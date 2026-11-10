@@ -1,0 +1,7 @@
+id = "release-rules"
+description = "Test release policy and artifact verification offline"
+run_at = ["pre-push", "check"]
+
+[check]
+command = "npm test --offline"
+timeout_seconds = 180

@@ -41,7 +41,8 @@ extension Workspace {
 
     @discardableResult public mutating func restoreDeletedItem(_ id: UUID, at now: Date = Date(), calendar: Calendar = .current) -> Bool {
         guard let index = recentlyDeleted.firstIndex(where: { $0.id == id }),
-              !recentlyDeleted[index].hasExpired(at: now, calendar: calendar) else { return false }
+            !recentlyDeleted[index].hasExpired(at: now, calendar: calendar)
+        else { return false }
         let deleted = recentlyDeleted[index]
         switch deleted.content {
         case .note(var note):

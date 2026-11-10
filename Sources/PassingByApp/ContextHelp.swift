@@ -30,7 +30,8 @@ struct ContextHelpDocument: Equatable {
         sourceResponder = window.firstResponder
         sourceSelection = nil
         if let editor = window.firstResponder as? NSTextView, editor.isFieldEditor,
-           let root = window.contentView {
+            let root = window.contentView
+        {
             func field(in view: NSView) -> NSTextField? {
                 if let field = view as? NSTextField, field.currentEditor() === editor { return field }
                 return view.subviews.lazy.compactMap { field(in: $0) }.first
@@ -41,8 +42,9 @@ struct ContextHelpDocument: Equatable {
             }
         }
         restoreOnClose = true
-        let panel = HelpPanel(contentRect: NSRect(x: 0, y: 0, width: 520, height: 560),
-                              styleMask: [.titled, .closable, .resizable, .utilityWindow], backing: .buffered, defer: false)
+        let panel = HelpPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 560),
+            styleMask: [.titled, .closable, .resizable, .utilityWindow], backing: .buffered, defer: false)
         panel.title = document.title
         panel.isReleasedWhenClosed = false
         panel.isFloatingPanel = true
@@ -60,19 +62,23 @@ struct ContextHelpDocument: Equatable {
         content.alignment = .leading
         content.spacing = 18
         content.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
-        let introduction = NSTextField(wrappingLabelWithString: "F1 or Escape closes this help and returns to your previous control. Close help before using the commands below. Use Up/Down or Page Up/Page Down to scroll. Some Mac keyboards require Fn+F1.")
+        let introduction = NSTextField(
+            wrappingLabelWithString:
+                "F1 or Escape closes this help and returns to your previous control. Close help before using the commands below. Use Up/Down or Page Up/Page Down to scroll. Some Mac keyboards require Fn+F1."
+        )
         introduction.textColor = .secondaryLabelColor
         content.addArrangedSubview(introduction)
         for section in document.sections {
             let heading = NSTextField(labelWithString: section.title)
             heading.font = .systemFont(ofSize: 15, weight: .semibold)
             content.addArrangedSubview(heading)
-            let grid = NSGridView(views: section.rows.map { row in
-                let key = NSTextField(wrappingLabelWithString: row.key)
-                key.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
-                let action = NSTextField(wrappingLabelWithString: row.action)
-                return [key, action]
-            })
+            let grid = NSGridView(
+                views: section.rows.map { row in
+                    let key = NSTextField(wrappingLabelWithString: row.key)
+                    key.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
+                    let action = NSTextField(wrappingLabelWithString: row.action)
+                    return [key, action]
+                })
             grid.columnSpacing = 18
             grid.rowSpacing = 9
             grid.column(at: 0).width = 110
@@ -86,7 +92,7 @@ struct ContextHelpDocument: Equatable {
         content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             content.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
-            introduction.widthAnchor.constraint(equalTo: content.widthAnchor, constant: -40)
+            introduction.widthAnchor.constraint(equalTo: content.widthAnchor, constant: -40),
         ])
         for view in content.arrangedSubviews where view is NSGridView {
             view.widthAnchor.constraint(equalTo: content.widthAnchor, constant: -40).isActive = true
@@ -95,13 +101,15 @@ struct ContextHelpDocument: Equatable {
         self.panel = panel
         window.addChildWindow(panel, ordered: .above)
         let screen = window.screen?.visibleFrame ?? window.frame
-        let origin = NSPoint(x: min(max(screen.minX, window.frame.midX - panel.frame.width / 2), screen.maxX - panel.frame.width),
-                             y: min(max(screen.minY, window.frame.midY - panel.frame.height / 2), screen.maxY - panel.frame.height))
+        let origin = NSPoint(
+            x: min(max(screen.minX, window.frame.midX - panel.frame.width / 2), screen.maxX - panel.frame.width),
+            y: min(max(screen.minY, window.frame.midY - panel.frame.height / 2), screen.maxY - panel.frame.height))
         panel.setFrameOrigin(origin)
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(panel)
         content.layoutSubtreeIfNeeded()
-        scroll.contentView.scroll(to: NSPoint(x: 0, y: content.isFlipped ? 0 : max(0, content.frame.height - scroll.contentView.bounds.height)))
+        scroll.contentView.scroll(
+            to: NSPoint(x: 0, y: content.isFlipped ? 0 : max(0, content.frame.height - scroll.contentView.bounds.height)))
     }
     func close(restoringFocus: Bool = true) {
         restoreOnClose = restoringFocus
@@ -120,13 +128,17 @@ struct ContextHelpDocument: Equatable {
             window.makeKeyAndOrderFront(nil)
             if let responder { window.makeFirstResponder(responder) }
             if let field = responder as? NSTextField, let selection,
-               let editor = field.currentEditor() as? NSTextView { editor.setSelectedRange(selection) }
+                let editor = field.currentEditor() as? NSTextView
+            {
+                editor.setSelectedRange(selection)
+            }
         }
     }
     func handle(_ event: NSEvent) -> NSEvent? {
         guard event.window === panel, panel != nil else { return event }
-        if event.keyCode == 53 || event.keyCode == 122 ||
-            (event.charactersIgnoringModifiers == "w" && event.modifierFlags.contains(.command)) {
+        if event.keyCode == 53 || event.keyCode == 122
+            || (event.charactersIgnoringModifiers == "w" && event.modifierFlags.contains(.command))
+        {
             if !event.isARepeat { close() }
             return nil
         }
@@ -134,7 +146,10 @@ struct ContextHelpDocument: Equatable {
         if event.keyCode == 36 || event.keyCode == 76 { return nil }
         if event.modifierFlags.contains(.command), event.characters != "?", event.charactersIgnoringModifiers != "q" { return nil }
         if event.modifierFlags.intersection([.command, .option, .control]).isEmpty,
-           (panel as? HelpPanel)?.scrollKey(event) == true { return nil }
+            (panel as? HelpPanel)?.scrollKey(event) == true
+        {
+            return nil
+        }
         return event
     }
     private final class HelpPanel: NSPanel {

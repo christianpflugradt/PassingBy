@@ -100,17 +100,14 @@ public struct WorkspacePersistence {
     }
 
     private func fileExists() throws -> Bool {
-        do { return try Self.exists(url) }
-        catch { throw WorkspacePersistenceError.readFailed(error) }
+        do { return try Self.exists(url) } catch { throw WorkspacePersistenceError.readFailed(error) }
     }
 
     public func load() throws -> Workspace {
         if try !fileExists() { return Workspace() }
         let data: Data
-        do { data = try Data(contentsOf: url) }
-        catch { throw WorkspacePersistenceError.readFailed(error) }
-        do { return try JSONDecoder().decode(Workspace.self, from: data) }
-        catch { throw WorkspacePersistenceError.decodeFailed(error) }
+        do { data = try Data(contentsOf: url) } catch { throw WorkspacePersistenceError.readFailed(error) }
+        do { return try JSONDecoder().decode(Workspace.self, from: data) } catch { throw WorkspacePersistenceError.decodeFailed(error) }
     }
 
     public func save(_ workspace: Workspace) throws {
@@ -157,8 +154,7 @@ public final class AppStore {
         var candidate = workspace
         guard candidate.restoreDeletedItem(id, at: now, calendar: calendar) else { return false }
         candidate.purgeExpired(now: now, calendar: calendar)
-        do { try persistence.save(candidate) }
-        catch {
+        do { try persistence.save(candidate) } catch {
             persistenceError = error.localizedDescription
             onPersistenceError?(error.localizedDescription)
             throw error
@@ -170,13 +166,15 @@ public final class AppStore {
 
     public func importAppointments(_ parsed: AppointmentTSVImport, categoryID: UUID?) throws {
         guard parsed.canImport else { throw AppointmentImportError.invalidRows }
-        guard categoryID == nil || workspace.labels.contains(where: { $0.id == categoryID }) else { throw AppointmentImportError.unknownCategory }
+        guard categoryID == nil || workspace.labels.contains(where: { $0.id == categoryID }) else {
+            throw AppointmentImportError.unknownCategory
+        }
         var candidate = workspace
-        candidate.dates.append(contentsOf: parsed.rows.map {
-            DateItem(title: $0.title, date: $0.date, itemDescription: $0.description, labelID: categoryID)
-        })
-        do { try persistence.save(candidate) }
-        catch {
+        candidate.dates.append(
+            contentsOf: parsed.rows.map {
+                DateItem(title: $0.title, date: $0.date, itemDescription: $0.description, labelID: categoryID)
+            })
+        do { try persistence.save(candidate) } catch {
             persistenceError = error.localizedDescription
             onPersistenceError?(error.localizedDescription)
             throw error
@@ -195,8 +193,7 @@ public final class AppStore {
         var candidate = workspace
         let created = candidate.evaluateScheduledTodos(at: now, calendar: calendar)
         guard candidate != workspace else { return 0 }
-        do { try persistence.save(candidate) }
-        catch {
+        do { try persistence.save(candidate) } catch {
             persistenceError = error.localizedDescription
             onPersistenceError?(error.localizedDescription)
             return 0
@@ -207,8 +204,9 @@ public final class AppStore {
     }
 
     @discardableResult public func flush() -> Bool {
-        do { try persistence.save(workspace); persistenceError = nil }
-        catch { persistenceError = error.localizedDescription; onPersistenceError?(error.localizedDescription) }
+        do { try persistence.save(workspace); persistenceError = nil } catch {
+            persistenceError = error.localizedDescription; onPersistenceError?(error.localizedDescription)
+        }
         return persistenceError == nil
     }
     private func save() { _ = flush() }

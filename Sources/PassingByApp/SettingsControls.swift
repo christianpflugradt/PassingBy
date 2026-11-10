@@ -86,7 +86,8 @@ struct SettingsKeyLoop: NSViewRepresentable {
         }
         func refresh(request: Int, id: String?) {
             guard let anchor, !anchor.isHiddenOrHasHiddenAncestor,
-                  let window = anchor.window, window.attachedSheet == nil else { return }
+                let window = anchor.window, window.attachedSheet == nil
+            else { return }
             if lastRequest != request, let target = controls.first(where: { $0.identifier?.rawValue == id }) {
                 lastRequest = request
                 select(target)
@@ -94,7 +95,9 @@ struct SettingsKeyLoop: NSViewRepresentable {
                 focused = current; focusedID = current.identifier?.rawValue
                 if let root = anchor.window?.contentView { SettingsFocusRestoration.capture(in: root) }
             } else if let focusedID,
-                      focused?.window == nil || window.firstResponder === focused || (focused as? NSControl)?.currentEditor() === window.firstResponder {
+                focused?.window == nil || window.firstResponder === focused
+                    || (focused as? NSControl)?.currentEditor() === window.firstResponder
+            {
                 if let id = (window.firstResponder as? NSView)?.identifier?.rawValue, id.hasPrefix("sidebar-") { return }
                 // Prefer the preceding control when a conditional form or selected row disappears.
                 if let target = controls.last(where: { $0.identifier!.rawValue < focusedID }) ?? controls.first { select(target) }
@@ -102,8 +105,9 @@ struct SettingsKeyLoop: NSViewRepresentable {
         }
         func handle(_ event: NSEvent) -> NSEvent? {
             guard let anchor, !anchor.isHiddenOrHasHiddenAncestor,
-                  let window = anchor.window, event.window === window,
-                  window.attachedSheet == nil else { return event }
+                let window = anchor.window, event.window === window,
+                window.attachedSheet == nil
+            else { return event }
             if event.type == .leftMouseUp || event.type == .keyUp {
                 DispatchQueue.main.async { [weak self] in self?.refresh(request: self?.lastRequest ?? 0, id: nil) }
                 return event
@@ -131,7 +135,9 @@ struct SettingsKeyLoop: NSViewRepresentable {
     override func keyDown(with event: NSEvent) {
         if event.charactersIgnoringModifiers == " " || event.charactersIgnoringModifiers == "\r" {
             if !event.isARepeat { performClick(nil) }
-        } else { super.keyDown(with: event) }
+        } else {
+            super.keyDown(with: event)
+        }
     }
 }
 
@@ -189,8 +195,11 @@ struct SettingsToggle: View {
 @MainActor final class SettingsNativePicker: NSPopUpButton {
     override var acceptsFirstResponder: Bool { true }
     override func keyDown(with event: NSEvent) {
-        if event.charactersIgnoringModifiers == " " || event.charactersIgnoringModifiers == "\r" { performClick(nil) }
-        else { super.keyDown(with: event) }
+        if event.charactersIgnoringModifiers == " " || event.charactersIgnoringModifiers == "\r" {
+            performClick(nil)
+        } else {
+            super.keyDown(with: event)
+        }
     }
 }
 
@@ -201,7 +210,9 @@ struct SettingsToggle: View {
             let delta = (event.keyCode == 124 || event.keyCode == 126) ? increment : -increment
             doubleValue = min(maxValue, max(minValue, doubleValue + delta))
             sendAction(action, to: target)
-        } else { super.keyDown(with: event) }
+        } else {
+            super.keyDown(with: event)
+        }
     }
 }
 
@@ -283,7 +294,10 @@ struct SettingsPicker<Value: Hashable>: NSViewRepresentable {
         editor.isAutomaticTextReplacementEnabled = false
         return editor
     }()
-    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate anObject: Any?, start selStart: Int, length selLength: Int) {
+    override func select(
+        withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate anObject: Any?, start selStart: Int,
+        length selLength: Int
+    ) {
         let previous = editor.history.resumingSession
         editor.history.resumingSession = true
         defer { editor.history.resumingSession = previous }
@@ -413,7 +427,8 @@ struct SettingsNumberField: NSViewRepresentable {
         init(_ parent: SettingsNumberField) { self.parent = parent }
         func controlTextDidChange(_ notification: Notification) {
             guard let field = notification.object as? NSTextField,
-                  let number = Int(field.stringValue), parent.range.contains(number) else { return }
+                let number = Int(field.stringValue), parent.range.contains(number)
+            else { return }
             parent.value = number
         }
         func controlTextDidEndEditing(_ notification: Notification) {
@@ -481,8 +496,11 @@ struct SettingsCategoryList: NSViewRepresentable {
         defer { coordinator.updating = false }
         if changed || table.numberOfRows != labels.count { table.reloadData() }
         let index = labels.firstIndex { $0.id == selection }
-        if let index, table.selectedRow != index { table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false) }
-        else if index == nil { table.deselectAll(nil) }
+        if let index, table.selectedRow != index {
+            table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+        } else if index == nil {
+            table.deselectAll(nil)
+        }
     }
     @MainActor final class Coordinator: NSObject, NSTableViewDelegate, NSTableViewDataSource {
         var parent: SettingsCategoryList
@@ -492,7 +510,10 @@ struct SettingsCategoryList: NSViewRepresentable {
         func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
             let label = parent.labels[row]
             let field = NSTextField(labelWithString: "●  " + label.name)
-            let colors: [LabelColor: NSColor] = [.blue: .systemBlue, .purple: .systemPurple, .pink: .systemPink, .red: .systemRed, .orange: .systemOrange, .yellow: .systemYellow, .green: .systemGreen, .gray: .systemGray]
+            let colors: [LabelColor: NSColor] = [
+                .blue: .systemBlue, .purple: .systemPurple, .pink: .systemPink, .red: .systemRed, .orange: .systemOrange,
+                .yellow: .systemYellow, .green: .systemGreen, .gray: .systemGray,
+            ]
             field.font = .systemFont(ofSize: parent.pointSize)
             let text = NSMutableAttributedString(string: field.stringValue, attributes: [.font: field.font!])
             text.addAttribute(.foregroundColor, value: colors[label.color] ?? .labelColor, range: NSRange(location: 0, length: 1))

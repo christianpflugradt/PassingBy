@@ -39,8 +39,9 @@ public struct AppointmentTSVImport {
             }
             let parts = dateText.split(separator: ".").compactMap { Int($0) }
             guard parts.count == 3,
-                  let date = calendar.date(from: DateComponents(year: parts[2], month: parts[1], day: parts[0])),
-                  calendar.dateComponents([.day, .month, .year], from: date) == DateComponents(year: parts[2], month: parts[1], day: parts[0]) else {
+                let date = calendar.date(from: DateComponents(year: parts[2], month: parts[1], day: parts[0])),
+                calendar.dateComponents([.day, .month, .year], from: date) == DateComponents(year: parts[2], month: parts[1], day: parts[0])
+            else {
                 issues.append(.init(line: line, reason: "Invalid date: \(dateText)"))
                 continue
             }

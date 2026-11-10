@@ -1,0 +1,8 @@
+id = "native-ui"
+description = "Test native Settings navigation and substitutions"
+run_at = ["pre-push"]
+
+[check]
+command = "./Scripts/test-settings-navigation.sh"
+timeout_seconds = 300
+resource = "swift"

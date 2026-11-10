@@ -52,7 +52,8 @@ public enum MarkdownHighlight {
             guard start < end else { return nil }
             let value = String(decoding: chars[start..<end], as: UTF16.self)
             guard let url = URL(string: value), let scheme = url.scheme?.lowercased(),
-                  ["http", "https"].contains(scheme), url.host != nil else { return nil }
+                ["http", "https"].contains(scheme), url.host != nil
+            else { return nil }
             return url
         }
         var line = 0
@@ -68,7 +69,9 @@ public enum MarkdownHighlight {
             if fenceWidth > 0 {
                 if ticks >= fenceWidth && chars[(p + ticks)..<end].allSatisfy({ $0 == 32 || $0 == 9 }) {
                     add(p, end, .syntax); fenceWidth = 0
-                } else { add(line, end, .code) }
+                } else {
+                    add(line, end, .code)
+                }
                 mark(line, next); line = next; continue
             }
             if ticks >= 3 {
@@ -94,12 +97,16 @@ public enum MarkdownHighlight {
                 content += 2
             } else {
                 while content < end && chars[content] >= 48 && chars[content] <= 57 { content += 1 }
-                if content == marker || content + 1 >= end || chars[content] != 46 || chars[content + 1] != 32 { content = marker }
-                else { content += 2 }
+                if content == marker || content + 1 >= end || chars[content] != 46 || chars[content + 1] != 32 {
+                    content = marker
+                } else {
+                    content += 2
+                }
             }
             if content > marker {
-                if content + 2 < end && chars[content] == 91 && [UInt16(32), 120, 88].contains(chars[content + 1]) && chars[content + 2] == 93 &&
-                    (content + 3 == end || chars[content + 3] == 32) {
+                if content + 2 < end && chars[content] == 91 && [UInt16(32), 120, 88].contains(chars[content + 1])
+                    && chars[content + 2] == 93 && (content + 3 == end || chars[content + 3] == 32)
+                {
                     checkboxes.append(Checkbox(range: NSRange(location: content, length: 3), checked: chars[content + 1] != 32))
                     content += content + 3 == end ? 3 : 4
                 }
@@ -123,9 +130,10 @@ public enum MarkdownHighlight {
                     continue
                 }
                 if chars[i] == 91, let close = ((i + 1)..<end).first(where: { chars[$0] == 93 && !escaped($0) }),
-                   close + 1 < end && chars[close + 1] == 40,
-                   let finish = ((close + 2)..<end).first(where: { chars[$0] == 41 && !escaped($0) }),
-                   close > i + 1, finish > close + 2 {
+                    close + 1 < end && chars[close + 1] == 40,
+                    let finish = ((close + 2)..<end).first(where: { chars[$0] == 41 && !escaped($0) }),
+                    close > i + 1, finish > close + 2
+                {
                     add(i, i + 1, .syntax); add(i + 1, close, .linkText)
                     add(close, close + 2, .syntax); add(close + 2, finish, .linkURL); add(finish, finish + 1, .syntax)
                     if let target = url(close + 2, finish) {
@@ -133,36 +141,47 @@ public enum MarkdownHighlight {
                     }
                     mark(i, finish + 1); i = finish + 1; continue
                 }
-                if chars[i] == 60, let finish = ((i + 1)..<end).first(where: { chars[$0] == 62 && !escaped($0) }), let target = url(i + 1, finish) {
+                if chars[i] == 60, let finish = ((i + 1)..<end).first(where: { chars[$0] == 62 && !escaped($0) }),
+                    let target = url(i + 1, finish)
+                {
                     add(i, i + 1, .syntax); add(i + 1, finish, .linkURL); add(finish, finish + 1, .syntax)
                     links.append(Link(range: NSRange(location: i + 1, length: finish - i - 1), url: target))
                     mark(i, finish + 1); i = finish + 1; continue
                 }
                 i += 1
             }
-            for (delimiter, style) in [("***", Style.bold), ("___", .bold), ("**", .bold), ("__", .bold), ("~~", .strike), ("*", .italic), ("_", .italic)] {
+            for (delimiter, style) in [
+                ("***", Style.bold), ("___", .bold), ("**", .bold), ("__", .bold), ("~~", .strike), ("*", .italic), ("_", .italic),
+            ] {
                 let token = Array(delimiter.utf16)
                 let width = token.count
                 var k = content
                 while k + width < end {
-                    if protected[k] || escaped(k) || !prefix(k, end, token) ||
-                        chars[k + width] == 32 || chars[k + width] == 9 ||
-                        (width == 1 && k + 1 < end && chars[k + 1] == token[0]) ||
-                        (token[0] == 95 && k > line && isWord(chars[k - 1])) { k += 1; continue }
+                    if protected[k] || escaped(k) || !prefix(k, end, token) || chars[k + width] == 32 || chars[k + width] == 9
+                        || (width == 1 && k + 1 < end && chars[k + 1] == token[0]) || (token[0] == 95 && k > line && isWord(chars[k - 1]))
+                    {
+                        k += 1; continue
+                    }
                     var close = k + width + 1
                     while close + width <= end {
                         if protected[close] { break }
-                        if !protected[close] && !escaped(close) && chars[close - 1] != 32 && chars[close - 1] != 9 && prefix(close, end, token) &&
-                            !(token[0] == 95 && close + width < end && isWord(chars[close + width])) { break }
+                        if !protected[close] && !escaped(close) && chars[close - 1] != 32 && chars[close - 1] != 9
+                            && prefix(close, end, token) && !(token[0] == 95 && close + width < end && isWord(chars[close + width]))
+                        {
+                            break
+                        }
                         close += 1
                     }
-                    if close + width <= end && !protected[close] && chars[close - 1] != 32 && chars[close - 1] != 9 && prefix(close, end, token) {
+                    if close + width <= end && !protected[close] && chars[close - 1] != 32 && chars[close - 1] != 9
+                        && prefix(close, end, token)
+                    {
                         add(k, k + width, .syntax); add(close, close + width, .syntax)
-                        if width == 3 { add(k + width, close, .bold); add(k + width, close, .italic) }
-                        else { add(k + width, close, style) }
+                        if width == 3 { add(k + width, close, .bold); add(k + width, close, .italic) } else { add(k + width, close, style) }
                         mark(k, k + width); mark(close, close + width)
                         k = close + width
-                    } else { k += width }
+                    } else {
+                        k += width
+                    }
                 }
             }
             line = next

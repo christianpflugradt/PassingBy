@@ -37,14 +37,18 @@ struct KeyboardButton: NSViewRepresentable {
         context.coordinator.taskTitle = taskTitle
         button.title = title
         if let checked { button.state = checked ? .on : .off }
-        button.identifier = keyLoopID.map { NSUserInterfaceItemIdentifier($0) } ?? todoOrder.map { NSUserInterfaceItemIdentifier("todos-\($0)") } ?? dashboardOrder.map { NSUserInterfaceItemIdentifier("dashboard-\($0)") }
+        button.identifier =
+            keyLoopID.map { NSUserInterfaceItemIdentifier($0) } ?? todoOrder.map { NSUserInterfaceItemIdentifier("todos-\($0)") }
+            ?? dashboardOrder.map { NSUserInterfaceItemIdentifier("dashboard-\($0)") }
         button.advancesFocus = advancesFocus
         button.font = .systemFont(ofSize: pointSize, weight: bold ? .semibold : .regular)
         if checked != nil {
-            button.attributedTitle = NSAttributedString(string: title, attributes: [.font: button.font!, .foregroundColor: NSColor.secondaryLabelColor])
+            button.attributedTitle = NSAttributedString(
+                string: title, attributes: [.font: button.font!, .foregroundColor: NSColor.secondaryLabelColor])
         }
         if checked == nil {
-            button.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }?.withSymbolConfiguration(.init(pointSize: pointSize, weight: .regular))
+            button.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }?.withSymbolConfiguration(
+                .init(pointSize: pointSize, weight: .regular))
             button.imagePosition = symbol == nil ? .noImage : .imageOnly
         }
         button.contentTintColor = symbol == nil ? .labelColor : .secondaryLabelColor
@@ -66,7 +70,9 @@ struct KeyboardButton: NSViewRepresentable {
         }
         @objc func activate(_ sender: KeyboardActionButton) {
             let next = sender.advancesFocus && sender.window?.firstResponder === sender ? sender.focusAfterActivation : nil
-            guard let taskTitle, completionConfirmation.requiresConfirmation(isKeyboard: sender.isKeyboardActivation), let window = sender.window else {
+            guard let taskTitle, completionConfirmation.requiresConfirmation(isKeyboard: sender.isKeyboardActivation),
+                let window = sender.window
+            else {
                 performAction(focusing: next)
                 return
             }
@@ -125,7 +131,9 @@ struct KeyboardButton: NSViewRepresentable {
             isKeyboardActivation = true
             defer { isKeyboardActivation = false }
             performClick(nil)
-        } else { super.keyDown(with: event) }
+        } else {
+            super.keyDown(with: event)
+        }
     }
 }
 
@@ -173,9 +181,13 @@ struct KeyboardNoteTitle: NSViewRepresentable {
         }
         func control(_ control: NSControl, textView: NSTextView, doCommandBy command: Selector) -> Bool {
             let target: NSView?
-            if command == #selector(NSResponder.insertTab(_:)) { target = control.nextKeyView }
-            else if command == #selector(NSResponder.insertBacktab(_:)) { target = control.previousKeyView }
-            else { return false }
+            if command == #selector(NSResponder.insertTab(_:)) {
+                target = control.nextKeyView
+            } else if command == #selector(NSResponder.insertBacktab(_:)) {
+                target = control.previousKeyView
+            } else {
+                return false
+            }
             guard let target else { return false }
             focusKeyboardControl(target)
             return true
@@ -243,8 +255,7 @@ struct KeyboardCategoryFilter: NSViewRepresentable {
         context.coordinator.parent = self
         let titles = ["All"] + labels.map(\.name)
         let index: Int
-        if case .label(let id) = selection { index = labels.firstIndex(where: { $0.id == id }).map { $0 + 1 } ?? 0 }
-        else { index = 0 }
+        if case .label(let id) = selection { index = labels.firstIndex(where: { $0.id == id }).map { $0 + 1 } ?? 0 } else { index = 0 }
         if let segments = view as? NSSegmentedControl {
             if context.coordinator.titles != titles {
                 segments.segmentCount = titles.count
@@ -316,7 +327,7 @@ struct KeyboardAppointmentDisplay: NSViewRepresentable {
             return
         }
         switch event.keyCode {
-        case 123, 124: // Left and Right change the selection within this one Tab stop.
+        case 123, 124:  // Left and Right change the selection within this one Tab stop.
             selectedSegment = min(segmentCount - 1, max(0, selectedSegment + (event.keyCode == 123 ? -1 : 1)))
             sendAction(action, to: target)
         case 36, 49:
@@ -340,7 +351,9 @@ struct KeyboardAppointmentDisplay: NSViewRepresentable {
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 48, let target = event.modifierFlags.contains(.shift) ? orderedPrevious : orderedNext {
             focusKeyboardControl(target)
-        } else { super.keyDown(with: event) }
+        } else {
+            super.keyDown(with: event)
+        }
     }
 }
 
@@ -362,11 +375,16 @@ struct ScreenKeyLoop: NSViewRepresentable {
             let prefix = "\(scope)-"
             @MainActor func controls(in parent: NSView) -> [NSView] {
                 var result: [NSView] = []
-                if let id = parent.identifier?.rawValue, id.hasPrefix(prefix), controlIDs.isEmpty || controlIDs.contains(id) { result.append(parent) }
+                if let id = parent.identifier?.rawValue, id.hasPrefix(prefix), controlIDs.isEmpty || controlIDs.contains(id) {
+                    result.append(parent)
+                }
                 for child in parent.subviews { result += controls(in: child) }
                 return result
             }
-            @MainActor func order(_ control: NSView) -> Int { controlIDs.isEmpty ? Int(control.identifier!.rawValue.dropFirst(prefix.count))! : controlIDs.firstIndex(of: control.identifier!.rawValue)! }
+            @MainActor func order(_ control: NSView) -> Int {
+                controlIDs.isEmpty
+                    ? Int(control.identifier!.rawValue.dropFirst(prefix.count))! : controlIDs.firstIndex(of: control.identifier!.rawValue)!
+            }
             let ordered = controls(in: root).sorted { order($0) < order($1) }
             guard !ordered.isEmpty else { return }
             let completions = ordered.filter { scope == "todos" && order($0) >= 10 && (order($0) - 10).isMultiple(of: 4) }
@@ -379,7 +397,9 @@ struct ScreenKeyLoop: NSViewRepresentable {
                     button.orderedPrevious = previous
                     if scope == "todos" {
                         let rowStart = 10 + max(0, (order(control) - 10) / 4) * 4
-                        button.focusAfterActivation = completions.first { order($0) > rowStart } ?? completions.last { order($0) < rowStart } ?? ordered.first { order($0) == 1 }
+                        button.focusAfterActivation =
+                            completions.first { order($0) > rowStart } ?? completions.last { order($0) < rowStart }
+                            ?? ordered.first { order($0) == 1 }
                         let isRow = order(control) >= 10
                         button.onFocus = { [weak coordinator, weak button] _ in
                             coordinator?.recordFocus(button, isRow: isRow, fallback: button?.focusAfterActivation)
@@ -389,13 +409,19 @@ struct ScreenKeyLoop: NSViewRepresentable {
                         let rowID = control.identifier!.rawValue.components(separatedBy: "-").dropLast().joined(separator: "-")
                         let rowEdit = edits.first { $0.identifier?.rawValue == rowID + "-edit" }
                         let rowOrder = rowEdit.map(order) ?? order(control)
-                        button.focusAfterActivation = edits.first { order($0) > rowOrder } ?? edits.last { order($0) < rowOrder } ?? ordered.first { $0.identifier?.rawValue == "appointments-1" }
-                        let isRow = control.identifier!.rawValue.hasSuffix("-edit") || control.identifier!.rawValue.hasSuffix("-delete") || control.identifier!.rawValue.hasSuffix("-description")
+                        button.focusAfterActivation =
+                            edits.first { order($0) > rowOrder } ?? edits.last { order($0) < rowOrder }
+                            ?? ordered.first { $0.identifier?.rawValue == "appointments-1" }
+                        let isRow =
+                            control.identifier!.rawValue.hasSuffix("-edit") || control.identifier!.rawValue.hasSuffix("-delete")
+                            || control.identifier!.rawValue.hasSuffix("-description")
                         button.onFocus = { [weak coordinator, weak button] _ in
                             coordinator?.recordFocus(button, isRow: isRow, fallback: button?.focusAfterActivation)
                         }
                     } else if button.advancesFocus {
-                        button.focusAfterActivation = ordered.dropFirst(index + 1).first { ($0 as? KeyboardActionButton)?.advancesFocus == true } ?? ordered.first { order($0) == 100 }
+                        button.focusAfterActivation =
+                            ordered.dropFirst(index + 1).first { ($0 as? KeyboardActionButton)?.advancesFocus == true }
+                            ?? ordered.first { order($0) == 100 }
                     }
                 } else if let segments = control as? KeyboardSegments {
                     segments.orderedNext = next
@@ -418,15 +444,20 @@ struct ScreenKeyLoop: NSViewRepresentable {
             if let focused = coordinator.focused as? KeyboardActionButton, focused.window != nil {
                 coordinator.fallback = focused.focusAfterActivation
             }
-            if (scope == "appointments" || scope == "note-icons"), coordinator.lastFocusRequest != focusRequest, root.window?.attachedSheet == nil {
+            if (scope == "appointments" || scope == "note-icons"), coordinator.lastFocusRequest != focusRequest,
+                root.window?.attachedSheet == nil
+            {
                 if let target = ordered.first(where: { $0.identifier?.rawValue == requestedFocusID }) {
                     coordinator.lastFocusRequest = focusRequest
                     target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
                     target.window?.makeFirstResponder(target)
                 }
             }
-            if (scope == "todos" || scope == "appointments"), root.window?.attachedSheet == nil, coordinator.rowWasFocused, coordinator.focused?.window == nil {
-                let target = coordinator.fallback?.window != nil ? coordinator.fallback : ordered.first { $0.identifier?.rawValue == "\(scope)-1" }
+            if (scope == "todos" || scope == "appointments"), root.window?.attachedSheet == nil, coordinator.rowWasFocused,
+                coordinator.focused?.window == nil
+            {
+                let target =
+                    coordinator.fallback?.window != nil ? coordinator.fallback : ordered.first { $0.identifier?.rawValue == "\(scope)-1" }
                 if let target {
                     target.scrollToVisible(target.bounds.insetBy(dx: 0, dy: -16))
                     target.window?.makeFirstResponder(target)
@@ -468,7 +499,8 @@ struct ScreenKeyLoop: NSViewRepresentable {
     private func captureFocus() -> (NSResponder?, NSRange?) {
         guard let window, let root = window.contentView else { return (nil, nil) }
         if let editor = window.firstResponder as? NSTextView, editor.isFieldEditor,
-           let field = views(in: root).compactMap({ $0 as? NSTextField }).first(where: { $0.currentEditor() === editor }) {
+            let field = views(in: root).compactMap({ $0 as? NSTextField }).first(where: { $0.currentEditor() === editor })
+        {
             return (field, editor.selectedRange())
         }
         return (window.firstResponder, nil)
@@ -478,11 +510,15 @@ struct ScreenKeyLoop: NSViewRepresentable {
         if let view = responder as? NSView, view.window !== window { focusContent(); return }
         guard let responder, window.makeFirstResponder(responder) else { focusContent(); return }
         if let field = responder as? NSTextField, let selection,
-           let editor = field.currentEditor() as? NSTextView { editor.setSelectedRange(selection) }
+            let editor = field.currentEditor() as? NSTextView
+        {
+            editor.setSelectedRange(selection)
+        }
     }
     func focusSidebar(id: String) {
         guard let window, window.attachedSheet == nil,
-              let target = sidebar.first(where: { $0.identifier?.rawValue == id }) else { return }
+            let target = sidebar.first(where: { $0.identifier?.rawValue == id })
+        else { return }
         if !sidebar.contains(where: { $0 === window.firstResponder }) {
             (returnResponder, returnSelection) = captureFocus()
         }
@@ -490,8 +526,9 @@ struct ScreenKeyLoop: NSViewRepresentable {
     }
     func handle(_ event: NSEvent) -> NSEvent? {
         guard event.window === window, window?.attachedSheet == nil,
-              let index = sidebar.firstIndex(where: { $0 === window?.firstResponder }),
-              event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return event }
+            let index = sidebar.firstIndex(where: { $0 === window?.firstResponder }),
+            event.modifierFlags.intersection([.command, .option, .control]).isEmpty
+        else { return event }
         let entries = sidebar
         switch event.keyCode {
         case 125, 126, 48:
@@ -507,25 +544,30 @@ struct ScreenKeyLoop: NSViewRepresentable {
     func focusContent() {
         DispatchQueue.main.async { [weak self] in
             guard let self, let window = self.window, window.attachedSheet == nil,
-                  let root = window.contentView else { return }
+                let root = window.contentView
+            else { return }
             let all = self.views(in: root)
             if all.contains(where: { $0 is SettingsSectionButton && !$0.isHiddenOrHasHiddenAncestor }),
-               SettingsFocusRestoration.restore(in: root) { return }
+                SettingsFocusRestoration.restore(in: root)
+            {
+                return
+            }
             let first = all.first { view in
                 guard !view.isHiddenOrHasHiddenAncestor, let id = view.identifier?.rawValue else { return false }
                 return ["dashboard-10", "todos-1", "appointments-1", "note-title", "settings-010-todos"].contains(id)
             }
-            if let first { focusKeyboardControl(first) }
-            else { window.makeFirstResponder(self.contentAnchor) }
+            if let first { focusKeyboardControl(first) } else { window.makeFirstResponder(self.contentAnchor) }
         }
     }
     func scrollContent(keyCode: UInt16) -> Bool {
         guard let root = window?.contentView,
-              let scroll = views(in: root).compactMap({ $0 as? NSScrollView }).first(where: { scroll in
-                  !scroll.isHiddenOrHasHiddenAncestor && !views(in: scroll).contains {
-                      $0 is SettingsSectionButton || $0.identifier?.rawValue.hasPrefix("sidebar-") == true
-                  }
-              }), let document = scroll.documentView else { return false }
+            let scroll = views(in: root).compactMap({ $0 as? NSScrollView }).first(where: { scroll in
+                !scroll.isHiddenOrHasHiddenAncestor
+                    && !views(in: scroll).contains {
+                        $0 is SettingsSectionButton || $0.identifier?.rawValue.hasPrefix("sidebar-") == true
+                    }
+            }), let document = scroll.documentView
+        else { return false }
         let clip = scroll.contentView
         let maximum = max(0, document.bounds.height - clip.bounds.height)
         let direction: CGFloat = document.isFlipped ? 1 : -1
@@ -550,8 +592,7 @@ struct ScreenKeyLoop: NSViewRepresentable {
         let menu = NSMenu(title: "Category Filter")
         menu.autoenablesItems = false
         let selected: Int
-        if case .label(let id) = selection { selected = labels.firstIndex { $0.id == id }.map { $0 + 1 } ?? 0 }
-        else { selected = 0 }
+        if case .label(let id) = selection { selected = labels.firstIndex { $0.id == id }.map { $0 + 1 } ?? 0 } else { selected = 0 }
         for (index, title) in (["All"] + labels.map(\.name)).enumerated() {
             let item = NSMenuItem(title: title, action: #selector(selectCategory(_:)), keyEquivalent: "")
             item.target = self
@@ -562,7 +603,8 @@ struct ScreenKeyLoop: NSViewRepresentable {
         chosenCategory = nil
         // The contextual header is the anchor when present; Notes use the top of the content area.
         let anchor = views(in: root).first { $0.identifier?.rawValue == "global-category-filter" }
-        let point = anchor.map { root.convert(NSPoint(x: 0, y: $0.bounds.maxY), from: $0) }
+        let point =
+            anchor.map { root.convert(NSPoint(x: 0, y: $0.bounds.maxY), from: $0) }
             ?? NSPoint(x: 90, y: root.isFlipped ? 30 : root.bounds.height - 30)
         menu.popUp(positioning: menu.item(at: selected), at: point, in: root)
         if let index = chosenCategory {
@@ -592,7 +634,10 @@ struct WorkspaceKeyboardBridge: NSViewRepresentable {
             navigation.window = view?.window
             navigation.contentAnchor = view
             if let helpMenu = NSApp.mainMenu?.items.first(where: { $0.title == "Help" })?.submenu,
-               NSApp.helpMenu !== helpMenu { NSApp.helpMenu = helpMenu }
+                NSApp.helpMenu !== helpMenu
+            {
+                NSApp.helpMenu = helpMenu
+            }
         }
     }
     static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
@@ -605,7 +650,10 @@ struct WorkspaceKeyboardBridge: NSViewRepresentable {
         override var acceptsFirstResponder: Bool { true }
         override func keyDown(with event: NSEvent) {
             if event.modifierFlags.intersection([.command, .option, .control]).isEmpty,
-               navigation?.scrollContent(keyCode: event.keyCode) == true { return }
+                navigation?.scrollContent(keyCode: event.keyCode) == true
+            {
+                return
+            }
             super.keyDown(with: event)
         }
     }

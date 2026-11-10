@@ -19,7 +19,13 @@ archive="$root/build/Passing-By-$RELEASE_VERSION.zip"
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")" == "local.passingby.app" ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$app/Contents/Info.plist")" == "Passing By" ]]
 
+"$root/Scripts/check-app-bundle.sh" "$app"
 rm -f "$archive"
 ditto -c -k --norsrc --keepParent "$app" "$archive"
 unzip -tqq "$archive"
+mkdir -p "$root/dist"
+# Keep the local build/ ZIP and replace only the generated release directory.
+rm -f "$root/dist/Passing-By-"*.zip(N) "$root/dist/metadata.json" "$root/dist/SHA256SUMS"
+cp "$archive" "$root/dist/"
+python3 "$root/Scripts/release-artifacts.py" record
 print "Packaged $archive"

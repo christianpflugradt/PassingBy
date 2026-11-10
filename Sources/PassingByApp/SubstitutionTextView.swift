@@ -63,14 +63,17 @@ import PassingByCore
         }
     }
     private func insertionSucceeded(_ inserted: String, at selection: NSRange, previousLength: Int) -> Bool {
-        selection.length == 0 && textStorage?.length == previousLength + inserted.utf16.count &&
-            selectedRange() == NSRange(location: selection.location + inserted.utf16.count, length: 0)
+        selection.length == 0 && textStorage?.length == previousLength + inserted.utf16.count
+            && selectedRange() == NSRange(location: selection.location + inserted.utf16.count, length: 0)
     }
     private func observeStorageIfNeeded() {
         guard let textStorage, observedStorage !== textStorage else { return }
-        if let observedStorage { NotificationCenter.default.removeObserver(self, name: NSTextStorage.didProcessEditingNotification, object: observedStorage) }
+        if let observedStorage {
+            NotificationCenter.default.removeObserver(self, name: NSTextStorage.didProcessEditingNotification, object: observedStorage)
+        }
         observedStorage = textStorage
-        NotificationCenter.default.addObserver(self, selector: #selector(storageEdited(_:)), name: NSTextStorage.didProcessEditingNotification, object: textStorage)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(storageEdited(_:)), name: NSTextStorage.didProcessEditingNotification, object: textStorage)
         markdownContext.invalidate(from: 0)
     }
     @objc private func storageEdited(_ note: Notification) {
@@ -82,7 +85,8 @@ import PassingByCore
         let source = string as NSString
         let caret = caret ?? selectedRange().location
         guard let match = matcher.match(in: source, caret: caret, typed: typed),
-              markdownContext.allows(source, range: match.range) else { return }
+            markdownContext.allows(source, range: match.range)
+        else { return }
         // Close the typing group so one Undo restores the entire trigger, including its typed delimiter/boundary.
         breakUndoCoalescing()
         let manager = undoManager
@@ -94,7 +98,9 @@ import PassingByCore
         super.insertText(match.replacement, replacementRange: match.range)
         // A native delegate may veto the change. Leave its selection untouched in that case.
         guard let storage = textStorage, storage.length == expectedLength,
-              (storage.string as NSString).substring(with: NSRange(location: match.range.location, length: match.replacement.utf16.count)) == match.replacement else { return }
+            (storage.string as NSString).substring(with: NSRange(location: match.range.location, length: match.replacement.utf16.count))
+                == match.replacement
+        else { return }
         setSelectedRange(NSRange(location: selection.location + match.replacement.utf16.count - match.range.length, length: 0))
         undoManager?.setActionName("Smart Substitution")
         breakUndoCoalescing()

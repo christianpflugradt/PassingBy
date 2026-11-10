@@ -8,7 +8,9 @@ public struct SubstitutionRule: Codable, Hashable, Identifiable, Sendable {
     public init(input: String, replacement: String, automatic: Bool = false) {
         self.input = input; self.replacement = replacement; self.automatic = automatic
     }
-    public var explicitSequence: String { "|" + input.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "|", with: "\\|") + "|" }
+    public var explicitSequence: String {
+        "|" + input.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "|", with: "\\|") + "|"
+    }
 }
 
 public struct SmartSubstitutionSettings: Codable, Hashable {
@@ -32,7 +34,9 @@ public struct SmartSubstitutionSettings: Codable, Hashable {
         if input.first?.isWhitespace == true || input.last?.isWhitespace == true || input.contains(where: { $0.isNewline || $0 == "\t" }) {
             return "Input cannot start or end with whitespace, or contain tabs or line breaks."
         }
-        if input.unicodeScalars.contains(where: { $0.properties.generalCategory == .control }) { return "Input cannot contain control characters." }
+        if input.unicodeScalars.contains(where: { $0.properties.generalCategory == .control }) {
+            return "Input cannot contain control characters."
+        }
         if otherInputs.contains(input) { return "This input already exists." }
         if replacement.isEmpty { return "Replacement cannot be empty." }
         if replacement.utf16.count > 16_384 { return "Replacement must use at most 16,384 UTF-16 units." }
@@ -126,8 +130,9 @@ public struct SmartSubstitutionMatcher {
     }
     public func match(in source: NSString, caret: Int, typed: String) -> Match? {
         guard maximumWindow > 0, caret > 0, caret <= source.length,
-              typed == "|" || [" ", "\t", "\n", "\r"].contains(typed),
-              source.substring(with: NSRange(location: caret - typed.utf16.count, length: typed.utf16.count)) == typed else { return nil }
+            typed == "|" || [" ", "\t", "\n", "\r"].contains(typed),
+            source.substring(with: NSRange(location: caret - typed.utf16.count, length: typed.utf16.count)) == typed
+        else { return nil }
         let start = max(0, caret - maximumWindow - 1)
         let local = source.substring(with: NSRange(location: start, length: caret - start))
         let end = typed == "|" ? local.endIndex : local.index(before: local.endIndex)
@@ -138,13 +143,16 @@ public struct SmartSubstitutionMatcher {
             guard let replacement = candidates[candidate] else { continue }
             let location = start + local[..<index].utf16.count
             if typed != "|" {
-                guard location == 0 || String(decoding: [source.character(at: location - 1)], as: UTF16.self).first?.isWhitespace == true else { continue }
+                guard location == 0 || String(decoding: [source.character(at: location - 1)], as: UTF16.self).first?.isWhitespace == true
+                else { continue }
             } else if location > 0 {
                 let preceding = String(decoding: [source.character(at: location - 1)], as: UTF16.self)
                 // Explicit triggers start a token or follow an opening bracket/quote. This also
                 // leaves escaped openers, identifiers, paths, and URL components untouched.
                 var openingStart = location
-                while openingStart > 0 && location - openingStart < 8 && [UInt16(40), 91, 123, 34, 39].contains(source.character(at: openingStart - 1)) { openingStart -= 1 }
+                while openingStart > 0 && location - openingStart < 8
+                    && [UInt16(40), 91, 123, 34, 39].contains(source.character(at: openingStart - 1))
+                { openingStart -= 1 }
                 let beforeOpenings = openingStart > 0 ? String(decoding: [source.character(at: openingStart - 1)], as: UTF16.self) : " "
                 guard preceding.first?.isWhitespace == true || beforeOpenings.first?.isWhitespace == true else { continue }
             }
@@ -206,11 +214,14 @@ public final class SubstitutionMarkdownContext {
             let marker: UInt16 = p < line.count ? line[p] : 0
             if marker == 96 || marker == 126 { while p + width < line.count && line[p + width] == marker { width += 1 } }
             if hadFence {
-                if validClosingIndent && indent <= state.containerIndent + 3 && quoteDepth == state.quoteDepth && marker == state.fence && width >= state.width && line.dropFirst(p + width).allSatisfy({ [UInt16(32), 9, 10, 13].contains($0) }) {
+                if validClosingIndent && indent <= state.containerIndent + 3 && quoteDepth == state.quoteDepth && marker == state.fence
+                    && width >= state.width && line.dropFirst(p + width).allSatisfy({ [UInt16(32), 9, 10, 13].contains($0) })
+                {
                     state.fence = 0; state.width = 0; state.inlineWidth = 0
                 }
             } else if width >= 3 {
-                state.fence = marker; state.width = width; state.quoteDepth = quoteDepth; state.containerIndent = containerIndent; state.inlineWidth = 0
+                state.fence = marker; state.width = width; state.quoteDepth = quoteDepth; state.containerIndent = containerIndent;
+                state.inlineWidth = 0
             }
             if offset + line.count > range.location {
                 if hadFence || state.fence != 0 { return false }
@@ -223,10 +234,11 @@ public final class SubstitutionMarkdownContext {
                     if line[i] == 96 {
                         var run = 1
                         while i + run < line.count && line[i + run] == 96 { run += 1 }
-                        if state.inlineWidth == 0 { state.inlineWidth = run }
-                        else if state.inlineWidth == run { state.inlineWidth = 0 }
+                        if state.inlineWidth == 0 { state.inlineWidth = run } else if state.inlineWidth == run { state.inlineWidth = 0 }
                         i += run
-                    } else { i += 1 }
+                    } else {
+                        i += 1
+                    }
                     if offset + i >= range.location && state.inlineWidth > 0 { protected = true }
                 }
                 return !protected && state.inlineWidth == 0
@@ -238,10 +250,11 @@ public final class SubstitutionMarkdownContext {
                     if line[i] == 96 {
                         var run = 1
                         while i + run < line.count && line[i + run] == 96 { run += 1 }
-                        if state.inlineWidth == 0 { state.inlineWidth = run }
-                        else if state.inlineWidth == run { state.inlineWidth = 0 }
+                        if state.inlineWidth == 0 { state.inlineWidth = run } else if state.inlineWidth == run { state.inlineWidth = 0 }
                         i += run
-                    } else { i += 1 }
+                    } else {
+                        i += 1
+                    }
                 }
             }
             offset += line.count

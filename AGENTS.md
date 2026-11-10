@@ -43,12 +43,15 @@ Then make the smallest coherent change that fully satisfies the task.
 
 Work incrementally and keep the project in a valid state.
 
-After changes:
-
-1. build the application,
-2. run relevant automated tests,
-3. fix regressions,
-4. verify the result against the applicable requirements in `Product.md`.
+After changes, use the published Please Behave governor pinned in `.please-version`.
+Git hooks are the authoritative validation gates: pre-commit checks formatting;
+pre-push builds the app and runs the complete local suite, including native UI tests.
+Do not manually repeat the full gate before Git operations. Targeted diagnostic
+checks and source formatting are permitted. Inspect captured failures with
+`please status --details`, fix regressions and retry the Git operation. Never bypass
+hooks. Prepare dependencies explicitly; checks do not install tools. See
+[repository governance](.please/README.md) for setup and execution points.
+Verify the result against the applicable requirements in `Product.md`.
 
 Fix violations and regressions introduced by the task before declaring it complete. Report unrelated pre-existing discrepancies or failing checks separately; do not silently expand the task to repair them. For documentation-only work, verify claims against source, tests, and history, and check links and cross-references; do not change application code or tests unless requested.
 

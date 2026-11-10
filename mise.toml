@@ -5,6 +5,30 @@ node = "24.21.0"
 description = "Build a local macOS app bundle"
 run = "./Scripts/build-release.sh"
 
+[tasks.compile]
+description = "Compile the release application without assembling the bundle"
+run = "swift build -c release --product PassingByApp"
+
+[tasks.lint]
+description = "Check Swift formatting and style without changing files"
+run = "swift format lint --strict --recursive Sources Scripts Package.swift"
+
+[tasks.format]
+description = "Apply the repository Swift formatting rules"
+run = "swift format format --in-place --recursive Sources Scripts Package.swift"
+
+[tasks.test-domain]
+description = "Test filtering, retention and domain rules"
+run = "swift run PassingByTests --suite domain"
+
+[tasks.test-persistence]
+description = "Test persistence, compatibility and data safety"
+run = "swift run PassingByTests --suite persistence"
+
+[tasks.test-editor]
+description = "Test Markdown and smart substitutions"
+run = "swift run PassingByTests --suite editor"
+
 [tasks.test]
 description = "Run the Swift unit tests"
 run = "swift run PassingByTests"
@@ -21,3 +45,11 @@ run = "./Scripts/package-release.sh"
 description = "Trigger the manual GitHub release workflow"
 tools.gh = "2.101.0"
 run = "gh workflow run release.yml"
+
+[tasks.hooks-install]
+description = "Synchronize managed Please Behave hooks and imports"
+run = "sh Scripts/setup-git-hooks.sh"
+
+[tasks.check]
+description = "Run the complete local Please Behave gate"
+run = "please run --at pre-push"

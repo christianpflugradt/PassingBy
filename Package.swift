@@ -6,11 +6,11 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "PassingByApp", targets: ["PassingByApp"]),
-        .executable(name: "PassingByTests", targets: ["PassingByTests"])
+        .executable(name: "PassingByTests", targets: ["PassingByTests"]),
     ],
     targets: [
         .target(name: "PassingByCore"),
         .executableTarget(name: "PassingByApp", dependencies: ["PassingByCore"]),
-        .executableTarget(name: "PassingByTests", dependencies: ["PassingByCore"])
+        .executableTarget(name: "PassingByTests", dependencies: ["PassingByCore"], resources: [.copy("Fixtures")]),
     ]
 )

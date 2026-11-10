@@ -29,7 +29,9 @@ import PassingByCore
     @MainActor static func runTests() {
         runSmartSubstitutionNativeTests()
         let app = NSApplication.shared
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 360), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 360), styleMask: [.titled, .closable, .resizable], backing: .buffered,
+            defer: false)
         let root = NSView(frame: window.contentView!.bounds)
         window.contentView = root
         let anchor = NSView()
@@ -65,9 +67,15 @@ import PassingByCore
         app.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         RunLoop.current.run(until: Date().addingTimeInterval(0.15))
-        check(loop.controls.map { $0.identifier!.rawValue } == ["settings-010-first", "settings-120-name", "settings-130-color", "settings-180-time", "settings-900-last"], "Reading order excludes hidden, disabled, and sidebar controls")
+        check(
+            loop.controls.map { $0.identifier!.rawValue } == [
+                "settings-010-first", "settings-120-name", "settings-130-color", "settings-180-time", "settings-900-last",
+            ], "Reading order excludes hidden, disabled, and sidebar controls")
         func tab(_ backwards: Bool = false, modifiers: NSEvent.ModifierFlags = []) -> NSEvent {
-            NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: backwards ? modifiers.union(.shift) : modifiers, timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: "\t", charactersIgnoringModifiers: "\t", isARepeat: false, keyCode: 48)!
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: backwards ? modifiers.union(.shift) : modifiers, timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, characters: "\t", charactersIgnoringModifiers: "\t", isARepeat: false,
+                keyCode: 48)!
         }
         for control in loop.controls {
             loop.select(control)
@@ -93,17 +101,22 @@ import PassingByCore
         loop.refresh(request: 1, id: nil)
         check(loop.currentControl() === first, "Removing focused field restores nearby focus")
         loop.select(first)
-        let up = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: 126)!
+        let up = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil,
+            characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: 126)!
         first.keyDown(with: up)
         check(first.integerValue == 5, "Arrow keys adjust numeric settings")
         first.integerValue = 10; first.keyDown(with: up)
         check(first.integerValue == 10, "Stepper honors upper bound")
-        let sheet = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        let sheet = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled, .closable, .resizable], backing: .buffered,
+            defer: false)
         window.beginSheet(sheet)
         check(loop.handle(tab()) != nil, "Parent focus loop yields to dialogs")
         window.endSheet(sheet)
         var minutes = 5
-        let numeric = SettingsNumberField(title: "Minutes", id: "settings-620-minutes", value: Binding(get: { minutes }, set: { minutes = $0 }), range: 1...120)
+        let numeric = SettingsNumberField(
+            title: "Minutes", id: "settings-620-minutes", value: Binding(get: { minutes }, set: { minutes = $0 }), range: 1...120)
         let delegate = SettingsNumberField.Coordinator(numeric)
         let input = NSTextField(string: "60")
         let notification = Notification(name: NSControl.textDidChangeNotification, object: input)
@@ -124,7 +137,11 @@ import PassingByCore
         let state = WorkspaceState(store)
         state.change { workspace in
             workspace.labels = [PassingByCore.Label(name: "Personal"), PassingByCore.Label(name: "Work", color: .green)]
-            workspace.scheduledTodos = [ScheduledTodo(title: "Weekly review", categoryID: nil, recurrence: .weekly(interval: .everyWeek, weekday: .monday), startingOn: Date().addingTimeInterval(7 * 86_400))]
+            workspace.scheduledTodos = [
+                ScheduledTodo(
+                    title: "Weekly review", categoryID: nil, recurrence: .weekly(interval: .everyWeek, weekday: .monday),
+                    startingOn: Date().addingTimeInterval(7 * 86_400))
+            ]
         }
         state.destination = .settings
         let hosting = NSHostingView(rootView: SettingsSurfaceTestView(state: state))
@@ -138,7 +155,9 @@ import PassingByCore
         }
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         func control(_ id: String) -> NSView {
-            guard let view = descendants(hosting).first(where: { $0.identifier?.rawValue == id }) else { fatalError("Missing control: " + id) }
+            guard let view = descendants(hosting).first(where: { $0.identifier?.rawValue == id }) else {
+                fatalError("Missing control: " + id)
+            }
             return view
         }
         func activate(_ id: String) {
@@ -153,7 +172,8 @@ import PassingByCore
         }
         settle()
         let sectionButtons = SettingsSection.allCases.map { control($0.navigationID) as! NSButton }
-        check(sectionButtons.map(\.title) == SettingsSection.allCases.map(\.title), "Every top-level section has navigation in content order")
+        check(
+            sectionButtons.map(\.title) == SettingsSection.allCases.map(\.title), "Every top-level section has navigation in content order")
         let probes = descendants(hosting).compactMap { $0 as? SettingsAnchorView }
         check(probes.count == SettingsSection.allCases.count, "Content and navigation share the complete section list")
         let navigation = probes.first!.navigation!
@@ -177,7 +197,9 @@ import PassingByCore
             activate(section.navigationID)
             check(navigation.active == section, "Section activation stays selected after scrolling: " + section.title)
             check(abs(scrollTop() - max(0, top(section) - 12)) < 2, "Navigation aligns the requested heading: " + section.title)
-            check((control(section.navigationID) as! NSButton).accessibilityValue() as? String == "Current section", "Navigation exposes the active state to accessibility")
+            check(
+                (control(section.navigationID) as! NSButton).accessibilityValue() as? String == "Current section",
+                "Navigation exposes the active state to accessibility")
         }
         activate(SettingsSection.todos.navigationID)
         let focusedNavigation = window.firstResponder
@@ -191,8 +213,12 @@ import PassingByCore
         manuallyScroll(to: top(.appointments) - 30)
         check(navigation.active == .todos, "Scrolling clearly above a boundary selects the preceding section")
         let starts: [(SettingsSection, CGFloat)] = [(.dashboard, 0), (.todos, 100), (.appointments, 200)]
-        check(SettingsNavigationState.section(at: 79, starts: starts, current: .dashboard) == .dashboard, "Reference line holds within the forward dead band")
-        check(SettingsNavigationState.section(at: 85, starts: starts, current: .dashboard) == .todos, "Reference line advances outside the dead band")
+        check(
+            SettingsNavigationState.section(at: 79, starts: starts, current: .dashboard) == .dashboard,
+            "Reference line holds within the forward dead band")
+        check(
+            SettingsNavigationState.section(at: 85, starts: starts, current: .dashboard) == .todos,
+            "Reference line advances outside the dead band")
         let suiteName = "PassingBy.SettingsTests." + UUID().uuidString
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.set("data", forKey: "settings.section")
@@ -246,10 +272,15 @@ import PassingByCore
         let readingOrder = finalLoop.controls
         finalLoop.select(readingOrder.first!)
         for index in readingOrder.indices {
-            check(finalLoop.handle(tab()) == nil && finalLoop.currentControl() === readingOrder[(index + 1) % readingOrder.count], "Full Settings traverses forward in reading order")
+            check(
+                finalLoop.handle(tab()) == nil && finalLoop.currentControl() === readingOrder[(index + 1) % readingOrder.count],
+                "Full Settings traverses forward in reading order")
         }
         for index in readingOrder.indices {
-            check(finalLoop.handle(tab(true)) == nil && finalLoop.currentControl() === readingOrder[(readingOrder.count - index - 1) % readingOrder.count], "Full Settings traverses backward in reading order")
+            check(
+                finalLoop.handle(tab(true)) == nil
+                    && finalLoop.currentControl() === readingOrder[(readingOrder.count - index - 1) % readingOrder.count],
+                "Full Settings traverses backward in reading order")
         }
         if let monitor = finalLoop.monitor { NSEvent.removeMonitor(monitor); finalLoop.monitor = nil }
         finalLoop.select(control("settings-610-inactive"))
@@ -259,9 +290,12 @@ import PassingByCore
         finalLoop.refresh(request: 0, id: nil)
         check(focused("settings-610-inactive"), "Removing inactivity field preserves nearby focus")
         // Recovery uses isolated data and the real native sheet, including keyboard focus.
-        let recoveryNote = Note(title: "Working notes", contentMarkdown: "# Research\n\n- [x] Preserve this Markdown\n\n```swift\nlet value = 42\n```", labelID: state.workspace.labels[0].id, iconName: "book")
+        let recoveryNote = Note(
+            title: "Working notes", contentMarkdown: "# Research\n\n- [x] Preserve this Markdown\n\n```swift\nlet value = 42\n```",
+            labelID: state.workspace.labels[0].id, iconName: "book")
         let recoveryTask = Task(title: "Completed task", taskDescription: "Keep completion state", completedAt: Date())
-        let recoveryAppointment = DateItem(title: "Past meeting", date: Date().addingTimeInterval(-86_400), itemDescription: "Original details")
+        let recoveryAppointment = DateItem(
+            title: "Past meeting", date: Date().addingTimeInterval(-86_400), itemDescription: "Original details")
         state.change { workspace in
             workspace.notes.append(recoveryNote)
             workspace.tasks.append(recoveryTask)
@@ -272,21 +306,31 @@ import PassingByCore
         }
         state.change { $0.deleteNote(recoveryNote.id) }
         settle()
-        check(state.workspace.notes.isEmpty && state.workspace.recentlyDeleted.count == 3, "Deletion preserves the complete Note for recovery")
+        check(
+            state.workspace.notes.isEmpty && state.workspace.recentlyDeleted.count == 3, "Deletion preserves the complete Note for recovery"
+        )
         state.destination = .settings
         activate("settings-700-deleted")
         guard let recoverySheet = window.attachedSheet else { fatalError("Recently Deleted opens a native sheet") }
         func recoveryControl(_ id: String) -> NSView {
-            guard let view = descendants(recoverySheet.contentView!).first(where: { $0.identifier?.rawValue == id }) else { fatalError("Missing recovery control: " + id) }
+            guard let view = descendants(recoverySheet.contentView!).first(where: { $0.identifier?.rawValue == id }) else {
+                fatalError("Missing recovery control: " + id)
+            }
             return view
         }
         let recoveryList = recoveryControl("settings-010-deleted-list") as! NSTableView
         let preview = recoveryControl("settings-020-deleted-preview") as! NSTextView
-        check(recoveryList.numberOfRows == 3 && recoverySheet.firstResponder === recoveryList, "Recovery ignores the global Category filter and initially focuses its list")
-        check(preview.string == recoveryNote.contentMarkdown && !preview.isEditable && preview.isSelectable, "Newest deletion is selected with complete, selectable, read-only raw Markdown")
+        check(
+            recoveryList.numberOfRows == 3 && recoverySheet.firstResponder === recoveryList,
+            "Recovery ignores the global Category filter and initially focuses its list")
+        check(
+            preview.string == recoveryNote.contentMarkdown && !preview.isEditable && preview.isSelectable,
+            "Newest deletion is selected with complete, selectable, read-only raw Markdown")
         recoveryList.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false)
         settle()
-        check(recoveryControl("settings-010-deleted-list") === recoveryList && recoveryControl("settings-020-deleted-preview") === preview, "Selection preserves native list and preview identity")
+        check(
+            recoveryControl("settings-010-deleted-list") === recoveryList && recoveryControl("settings-020-deleted-preview") === preview,
+            "Selection preserves native list and preview identity")
         check(preview.string == recoveryAppointment.itemDescription, "Selection updates the preview incrementally")
         recoveryList.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
         settle()
@@ -310,7 +354,9 @@ import PassingByCore
                 settle()
                 let capture = Process()
                 capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-                capture.arguments = ["-x", "-l", String(recoverySheet.windowNumber), output.appendingPathComponent("recently-deleted-" + name + ".png").path]
+                capture.arguments = [
+                    "-x", "-l", String(recoverySheet.windowNumber), output.appendingPathComponent("recently-deleted-" + name + ".png").path,
+                ]
                 try! capture.run()
                 capture.waitUntilExit()
                 check(capture.terminationStatus == 0, "Recovery screenshot succeeds")
@@ -320,40 +366,59 @@ import PassingByCore
             (recoveryControl("settings-030-deleted-restore") as! NSButton).performClick(nil)
             settle()
         }
-        check(state.workspace.recentlyDeleted.isEmpty && state.workspace.notes == [recoveryNote], "Restore returns full Note content without duplicates")
-        check(state.workspace.tasks.last?.completedAt == recoveryTask.completedAt && state.workspace.dates.last?.date == recoveryAppointment.date, "Recovery preserves completion and passed dates through the actual save path")
-        check(!(recoveryControl("settings-030-deleted-restore") as! NSButton).isEnabled && recoverySheet.firstResponder === recoveryControl("settings-040-deleted-done"), "Empty recovery disables Restore and moves focus to Done")
+        check(
+            state.workspace.recentlyDeleted.isEmpty && state.workspace.notes == [recoveryNote],
+            "Restore returns full Note content without duplicates")
+        check(
+            state.workspace.tasks.last?.completedAt == recoveryTask.completedAt
+                && state.workspace.dates.last?.date == recoveryAppointment.date,
+            "Recovery preserves completion and passed dates through the actual save path")
+        check(
+            !(recoveryControl("settings-030-deleted-restore") as! NSButton).isEnabled
+                && recoverySheet.firstResponder === recoveryControl("settings-040-deleted-done"),
+            "Empty recovery disables Restore and moves focus to Done")
         (recoveryControl("settings-040-deleted-done") as! NSButton).performClick(nil)
         settle()
         check(window.attachedSheet == nil && focused("settings-700-deleted"), "Closing recovery restores focus to its Settings action")
         state.change { $0.deleteNote(recoveryNote.id) }
         activate("settings-700-deleted")
         let reopenedSheet = window.attachedSheet!
-        let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: reopenedSheet.windowNumber, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
+        let escape = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: reopenedSheet.windowNumber, context: nil,
+            characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
         app.sendEvent(escape)
         settle()
         check(window.attachedSheet == nil && focused("settings-700-deleted"), "Escape closes recovery and restores Settings focus")
         activate("settings-700-deleted")
         state.lockNow()
         settle()
-        check(!state.showRecentlyDeleted && window.attachedSheet == nil, "App Lock dismisses recovery so private content cannot remain visible")
+        check(
+            !state.showRecentlyDeleted && window.attachedSheet == nil,
+            "App Lock dismisses recovery so private content cannot remain visible")
         if let destination = ProcessInfo.processInfo.environment["SETTINGS_TEST_SCREENSHOT_DIR"] {
             let output = URL(fileURLWithPath: destination)
             try! FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
             for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                 window.appearance = NSAppearance(named: appearance)
-                for (section, id) in [("top", "settings-010-todos"), ("middle", "settings-300-confirmation"), ("bottom", "settings-900-zoom")] {
+                for (section, id) in [
+                    ("top", "settings-010-todos"), ("middle", "settings-300-confirmation"), ("bottom", "settings-900-zoom"),
+                ] {
                     let target = control(id)
                     if section != "middle", let scroll = target.enclosingScrollView, let document = scroll.documentView {
                         let maximum = max(0, document.bounds.height - scroll.contentView.bounds.height)
                         let y = (section == "top") == document.isFlipped ? 0 : maximum
                         scroll.contentView.scroll(to: NSPoint(x: 0, y: y))
                         scroll.reflectScrolledClipView(scroll.contentView)
-                    } else { target.scrollToVisible(target.bounds) }
+                    } else {
+                        target.scrollToVisible(target.bounds)
+                    }
                     settle()
                     let capture = Process()
                     capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-                    capture.arguments = ["-x", "-l", String(window.windowNumber), output.appendingPathComponent("settings-" + name + "-" + section + ".png").path]
+                    capture.arguments = [
+                        "-x", "-l", String(window.windowNumber),
+                        output.appendingPathComponent("settings-" + name + "-" + section + ".png").path,
+                    ]
                     try! capture.run()
                     capture.waitUntilExit()
                     check(capture.terminationStatus == 0, "Window screenshot succeeds")
@@ -369,13 +434,19 @@ import PassingByCore
             check(control("settings-010-todos") === preservedControl, "Resize and zoom preserve native control identity")
             for section in SettingsSection.allCases {
                 activate(section.navigationID)
-                check(navigation.active == section, "Navigation works at width \(width), zoom \(zoom), section \(section), active \(navigation.active), offset \(scrollTop()), heading \(top(section))")
+                check(
+                    navigation.active == section,
+                    "Navigation works at width \(width), zoom \(zoom), section \(section), active \(navigation.active), offset \(scrollTop()), heading \(top(section))"
+                )
             }
             if let directory = ProcessInfo.processInfo.environment["SETTINGS_TEST_SCREENSHOT_DIR"] {
                 activate(SettingsSection.categories.navigationID)
                 let capture = Process()
                 capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-                capture.arguments = ["-x", "-l", String(window.windowNumber), directory + "/settings-width-" + String(Int(width)) + "-zoom-" + String(zoom) + ".png"]
+                capture.arguments = [
+                    "-x", "-l", String(window.windowNumber),
+                    directory + "/settings-width-" + String(Int(width)) + "-zoom-" + String(zoom) + ".png",
+                ]
                 try! capture.run()
                 capture.waitUntilExit()
                 check(capture.terminationStatus == 0, "Compact layout screenshot succeeds")
@@ -408,17 +479,23 @@ import PassingByCore
         state.destination = .settings
         settle()
         check(control("settings-120-name") === nameField, "Returning preserves the editor instance and Undo context")
-        check(focused("settings-120-name") && (nameField.currentEditor() as! NSTextView).selectedRange() == NSRange(location: 1, length: 2), "Returning restores focus and text selection")
+        check(
+            focused("settings-120-name") && (nameField.currentEditor() as! NSTextView).selectedRange() == NSRange(location: 1, length: 2),
+            "Returning restores focus and text selection")
         check(abs(scrollTop() - savedScroll) < 2 && navigation.active == .categories, "Returning preserves scroll and active section")
         check(state.workspace.settings == configurationBeforeNavigation, "Navigation never changes saved configuration")
         let returnedEditor = nameField.currentEditor() as! NSTextView
         check(returnedEditor.undoManager?.canUndo == true, "Native Undo history survives Settings navigation")
         check(returnedEditor.tryToPerform(Selector(("undo:")), with: nil), "Native Undo command is available")
         settle()
-        check(nameField.stringValue == originalName && state.label?.name == originalName, "Undo after returning restores and persists the Category name")
+        check(
+            nameField.stringValue == originalName && state.label?.name == originalName,
+            "Undo after returning restores and persists the Category name")
         check(returnedEditor.tryToPerform(Selector(("redo:")), with: nil), "Native Redo command is available")
         settle()
-        check(nameField.stringValue == "X" + originalName && state.label?.name == "X" + originalName, "Redo after returning reapplies and persists the Category edit")
+        check(
+            nameField.stringValue == "X" + originalName && state.label?.name == "X" + originalName,
+            "Redo after returning reapplies and persists the Category edit")
         let editedCategory = state.labelID!
         let otherCategory = state.workspace.labels.first { $0.id != editedCategory }!
         state.labelID = otherCategory.id
@@ -431,11 +508,15 @@ import PassingByCore
         check(originalEditor.undoManager?.canUndo == true, "Each Category retains its own in-memory editing history")
         check(originalEditor.tryToPerform(Selector(("undo:")), with: nil), "Undo remains available in the original Category")
         settle()
-        check(state.label?.name == originalName && state.workspace.labels.first { $0.id == otherCategory.id }?.name == otherCategory.name, "Undo stays bound to the edited Category: field=\(nameField.stringValue), model=\(state.label?.name ?? "nil"), original=\(originalName), other=\(state.workspace.labels.first { $0.id == otherCategory.id }?.name ?? "nil"), expectedOther=\(otherCategory.name)")
+        check(
+            state.label?.name == originalName && state.workspace.labels.first { $0.id == otherCategory.id }?.name == otherCategory.name,
+            "Undo stays bound to the edited Category: field=\(nameField.stringValue), model=\(state.label?.name ?? "nil"), original=\(originalName), other=\(state.workspace.labels.first { $0.id == otherCategory.id }?.name ?? "nil"), expectedOther=\(otherCategory.name)"
+        )
         activate(SettingsSection.todos.navigationID)
         let persistedOffset = scrollTop()
         state.flush()
-        let reloadedState = WorkspaceState(try! AppStore(persistence: WorkspacePersistence(url: directory.appendingPathComponent("workspace.json"))))
+        let reloadedState = WorkspaceState(
+            try! AppStore(persistence: WorkspacePersistence(url: directory.appendingPathComponent("workspace.json"))))
         reloadedState.destination = .settings
         let replacementHost = NSHostingView(rootView: SettingsSurfaceTestView(state: reloadedState))
         window.contentView = replacementHost
@@ -444,8 +525,12 @@ import PassingByCore
         let restoredProbe = descendants(replacementHost).compactMap { $0 as? SettingsAnchorView }.first!
         let restoredScroll = restoredProbe.enclosingScrollView!
         let restoredDocument = restoredScroll.documentView!
-        let restoredOffset = restoredDocument.isFlipped ? restoredScroll.contentView.bounds.minY : restoredDocument.bounds.height - restoredScroll.contentView.bounds.maxY
-        check(abs(restoredOffset - persistedOffset) < 2 && restoredProbe.navigation!.active == .todos, "Reloading Settings restores persisted scroll and section")
+        let restoredOffset =
+            restoredDocument.isFlipped
+            ? restoredScroll.contentView.bounds.minY : restoredDocument.bounds.height - restoredScroll.contentView.bounds.maxY
+        check(
+            abs(restoredOffset - persistedOffset) < 2 && restoredProbe.navigation!.active == .todos,
+            "Reloading Settings restores persisted scroll and section")
         check(reloadedState.labelID == editedCategory, "Reloading restores the selected Category by identity")
         let freshField = descendants(replacementHost).first { $0.identifier?.rawValue == "settings-120-name" } as! NSTextField
         window.makeFirstResponder(freshField)

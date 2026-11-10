@@ -85,8 +85,10 @@ struct RecentlyDeletedView: View {
                     Text(recovery.notice).font(.callout).foregroundStyle(.secondary).lineLimit(1)
                         .help(recovery.notice).frame(height: 18).accessibilityLabel(recovery.notice)
                     HStack {
-                        SettingsButton(title: "Restore", id: "settings-030-deleted-restore", enabled: selected != nil && !state.isLocked) { restore() }
-                            .disabled(selected == nil || state.isLocked)
+                        SettingsButton(title: "Restore", id: "settings-030-deleted-restore", enabled: selected != nil && !state.isLocked) {
+                            restore()
+                        }
+                        .disabled(selected == nil || state.isLocked)
                         Spacer()
                         SettingsButton(title: "Done", id: "settings-040-deleted-done", isDefault: true) { dismiss() }
                     }
@@ -101,9 +103,14 @@ struct RecentlyDeletedView: View {
             focus.focus(items.isEmpty ? "settings-040-deleted-done" : "settings-010-deleted-list")
         }
         .onExitCommand { dismiss() }
-        .alert("Could Not Restore Item", isPresented: Binding(get: { recovery.restoreError != nil }, set: { if !$0 { recovery.restoreError = nil } })) {
+        .alert(
+            "Could Not Restore Item",
+            isPresented: Binding(get: { recovery.restoreError != nil }, set: { if !$0 { recovery.restoreError = nil } })
+        ) {
             Button("OK") { recovery.restoreError = nil }
-        } message: { Text(recovery.restoreError ?? "The item is still available in Recently Deleted. Try again.") }
+        } message: {
+            Text(recovery.restoreError ?? "The item is still available in Recently Deleted. Try again.")
+        }
     }
 
     private func restore() {
@@ -113,8 +120,14 @@ struct RecentlyDeletedView: View {
             if try state.restoreDeletedItem(item.id) {
                 switch item.content {
                 case .note: recovery.notice = "Restored “\(item.title)” to Notes."
-                case .task(let task): recovery.notice = task.completedAt == nil ? "Restored “\(item.title)” to To-dos." : "Restored to To-dos. Turn on Show Completed To-dos to see it."
-                case .appointment(let appointment): recovery.notice = state.workspace.isPassed(appointment) ? "Restored to Appointments. Turn on Show past to see it." : "Restored “\(item.title)” to Appointments."
+                case .task(let task):
+                    recovery.notice =
+                        task.completedAt == nil
+                        ? "Restored “\(item.title)” to To-dos." : "Restored to To-dos. Turn on Show Completed To-dos to see it."
+                case .appointment(let appointment):
+                    recovery.notice =
+                        state.workspace.isPassed(appointment)
+                        ? "Restored to Appointments. Turn on Show past to see it." : "Restored “\(item.title)” to Appointments."
                 }
             } else {
                 state.refresh()
@@ -159,7 +172,9 @@ struct DeletedItemsTable: NSViewRepresentable {
         if changed || table.numberOfRows != items.count { table.reloadData() }
         if let index = items.firstIndex(where: { $0.id == selection }) {
             if table.selectedRow != index { table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false) }
-        } else { table.deselectAll(nil) }
+        } else {
+            table.deselectAll(nil)
+        }
     }
     @MainActor final class Coordinator: NSObject, NSTableViewDelegate, NSTableViewDataSource {
         var parent: DeletedItemsTable
@@ -168,7 +183,9 @@ struct DeletedItemsTable: NSViewRepresentable {
         func numberOfRows(in tableView: NSTableView) -> Int { parent.items.count }
         func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
             let item = parent.items[row]
-            let field = NSTextField(wrappingLabelWithString: item.title + "\n" + item.kind + " · Deleted " + item.deletedAt.formatted(date: .abbreviated, time: .shortened))
+            let field = NSTextField(
+                wrappingLabelWithString: item.title + "\n" + item.kind + " · Deleted "
+                    + item.deletedAt.formatted(date: .abbreviated, time: .shortened))
             field.maximumNumberOfLines = 2
             field.lineBreakMode = .byTruncatingTail
             field.font = .systemFont(ofSize: 13)

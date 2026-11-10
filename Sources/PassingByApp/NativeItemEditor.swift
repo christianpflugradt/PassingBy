@@ -155,7 +155,7 @@ struct NativeItemEditor: NSViewRepresentable {
             grid.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
             grid.topAnchor.constraint(equalTo: topAnchor, constant: 24),
             doneButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
-            doneButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
+            doneButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
         ])
         titleField.nextKeyView = hasDate ? datePicker : descriptionView
         if hasDate { datePicker.nextKeyView = descriptionView }
@@ -217,7 +217,6 @@ struct NativeItemEditor: NSViewRepresentable {
     override var acceptsFirstResponder: Bool { true }
     override var needsPanelToBecomeKey: Bool { true }
     override func keyDown(with event: NSEvent) {
-        if event.charactersIgnoringModifiers == "\r" { performClick(nil) }
-        else { super.keyDown(with: event) }
+        if event.charactersIgnoringModifiers == "\r" { performClick(nil) } else { super.keyDown(with: event) }
     }
 }

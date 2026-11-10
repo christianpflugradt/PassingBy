@@ -1,6 +1,0 @@
-id = "04-editor"
-description = "Test Markdown and smart substitutions"
-enabled = true
-command = "swift run PassingByTests --suite editor"
-working_directory = "."
-timeout_seconds = 180

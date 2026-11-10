@@ -65,8 +65,9 @@ private final class SettingsObservationTokens: @unchecked Sendable {
         let reference = offset + 20
         let candidate = starts.last(where: { $0.1 <= reference })?.0 ?? starts.first?.0 ?? current
         if candidate != current,
-           let candidateIndex = starts.firstIndex(where: { $0.0 == candidate }),
-           let currentIndex = starts.firstIndex(where: { $0.0 == current }) {
+            let candidateIndex = starts.firstIndex(where: { $0.0 == candidate }),
+            let currentIndex = starts.firstIndex(where: { $0.0 == current })
+        {
             let boundary = starts[max(candidateIndex, currentIndex)].1
             if abs(reference - boundary) < 4 { return current }
         }
@@ -92,10 +93,13 @@ private final class SettingsObservationTokens: @unchecked Sendable {
         self.scroll = scroll
         scroll.contentView.postsBoundsChangedNotifications = true
         scroll.documentView?.postsFrameChangedNotifications = true
-        for (name, object) in [(NSView.boundsDidChangeNotification, scroll.contentView), (NSView.frameDidChangeNotification, scroll.documentView)] {
-            observations.values.append(NotificationCenter.default.addObserver(forName: name, object: object, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.scheduleUpdate() }
-            })
+        for (name, object) in [
+            (NSView.boundsDidChangeNotification, scroll.contentView), (NSView.frameDidChangeNotification, scroll.documentView),
+        ] {
+            observations.values.append(
+                NotificationCenter.default.addObserver(forName: name, object: object, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.scheduleUpdate() }
+                })
         }
     }
     private var starts: [(SettingsSection, CGFloat)] {
@@ -119,12 +123,15 @@ private final class SettingsObservationTokens: @unchecked Sendable {
     }
     private func update() {
         guard let anchor = anchors[.dashboard], anchor.window != nil, !anchor.isHiddenOrHasHiddenAncestor,
-              let scroll = anchor.enclosingScrollView else { return }
+            let scroll = anchor.enclosingScrollView
+        else { return }
         observe(scroll)
         guard starts.count == SettingsSection.allCases.count else { return }
         if !restored {
             restored = true
-            let horizontal = min(max(0, defaults.double(forKey: "settings.scrollX")), max(0, (scroll.documentView?.bounds.width ?? 0) - scroll.contentView.bounds.width))
+            let horizontal = min(
+                max(0, defaults.double(forKey: "settings.scrollX")),
+                max(0, (scroll.documentView?.bounds.width ?? 0) - scroll.contentView.bounds.width))
             scroll.contentView.scroll(to: NSPoint(x: horizontal, y: scroll.contentView.bounds.minY))
             setOffset(CGFloat(defaults.double(forKey: "settings.scroll")))
         }
@@ -187,7 +194,8 @@ struct SettingsSectionNavigation: View {
                 ForEach(SettingsSection.allCases) { section in
                     SettingsNavigationButton(section: section, active: navigation.active == section) { navigation.navigate(to: section) }
                         .frame(height: 28)
-                        .background(navigation.active == section ? Color.primary.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 5))
+                        .background(
+                            navigation.active == section ? Color.primary.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 5))
                 }
             }
         }
@@ -197,7 +205,9 @@ struct SettingsSectionNavigation: View {
 
 @MainActor final class SettingsSectionButton: SettingsNativeButton {
     override func keyDown(with event: NSEvent) {
-        if [125, 126].contains(event.keyCode), event.modifierFlags.intersection([.command, .option, .control]).isEmpty, let parent = window?.contentView {
+        if [125, 126].contains(event.keyCode), event.modifierFlags.intersection([.command, .option, .control]).isEmpty,
+            let parent = window?.contentView
+        {
             func entries(_ view: NSView) -> [SettingsSectionButton] {
                 if let entry = view as? SettingsSectionButton { return [entry] }
                 return view.subviews.flatMap(entries)
@@ -208,7 +218,9 @@ struct SettingsSectionNavigation: View {
                 next.scrollToVisible(next.bounds)
                 window?.makeFirstResponder(next)
             }
-        } else { super.keyDown(with: event) }
+        } else {
+            super.keyDown(with: event)
+        }
     }
 }
 struct SettingsNavigationButton: NSViewRepresentable {
@@ -217,7 +229,8 @@ struct SettingsNavigationButton: NSViewRepresentable {
     let action: () -> Void
     func makeCoordinator() -> SettingsButton.Coordinator { SettingsButton.Coordinator() }
     func makeNSView(context: Context) -> SettingsSectionButton {
-        let button = SettingsSectionButton(title: section.title, target: context.coordinator, action: #selector(SettingsButton.Coordinator.activate))
+        let button = SettingsSectionButton(
+            title: section.title, target: context.coordinator, action: #selector(SettingsButton.Coordinator.activate))
         button.isBordered = false
         button.alignment = .left
         button.setButtonType(.onOff)
@@ -255,9 +268,11 @@ struct SettingsSurface: NSViewRepresentable {
     static func controls(in view: NSView) -> [NSView] { [view] + view.subviews.flatMap { controls(in: $0) } }
     static func capture(in root: NSView) {
         guard let responder = root.window?.firstResponder,
-              controls(in: root).contains(where: { $0 is SettingsSectionButton }) else { return }
+            controls(in: root).contains(where: { $0 is SettingsSectionButton })
+        else { return }
         guard let control = controls(in: root).first(where: { $0 === responder || ($0 as? NSControl)?.currentEditor() === responder }),
-              let id = control.identifier?.rawValue, id.hasPrefix("settings-") else { return }
+            let id = control.identifier?.rawValue, id.hasPrefix("settings-")
+        else { return }
         UserDefaults.standard.set(id, forKey: "settings.focus")
         if let text = (control as? NSControl)?.currentEditor() as? NSTextView {
             UserDefaults.standard.set(NSStringFromRange(text.selectedRange()), forKey: "settings.selection." + id)
@@ -265,11 +280,15 @@ struct SettingsSurface: NSViewRepresentable {
     }
     @discardableResult static func restore(in root: NSView) -> Bool {
         guard !root.isHiddenOrHasHiddenAncestor, let window = root.window, window.attachedSheet == nil,
-              let id = UserDefaults.standard.string(forKey: "settings.focus"),
-              let control = controls(in: root).first(where: { $0.identifier?.rawValue == id && !$0.isHiddenOrHasHiddenAncestor && ($0 as? NSControl)?.isEnabled != false }) else { return false }
+            let id = UserDefaults.standard.string(forKey: "settings.focus"),
+            let control = controls(in: root).first(where: {
+                $0.identifier?.rawValue == id && !$0.isHiddenOrHasHiddenAncestor && ($0 as? NSControl)?.isEnabled != false
+            })
+        else { return false }
         window.makeFirstResponder(control)
         if let text = (control as? NSControl)?.currentEditor() as? NSTextView,
-           let saved = UserDefaults.standard.string(forKey: "settings.selection." + id) {
+            let saved = UserDefaults.standard.string(forKey: "settings.selection." + id)
+        {
             let range = NSRangeFromString(saved)
             let start = min(range.location, text.string.utf16.count)
             text.setSelectedRange(NSRange(location: start, length: min(range.length, text.string.utf16.count - start)))

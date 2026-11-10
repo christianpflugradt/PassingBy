@@ -15,8 +15,9 @@ public struct NoteEditorStatus: Equatable {
             var start = 0
             var end = 0
             var contentsEnd = 0
-            text.getLineStart(&start, end: &end, contentsEnd: &contentsEnd,
-                              for: NSRange(location: lineStart, length: 0))
+            text.getLineStart(
+                &start, end: &end, contentsEnd: &contentsEnd,
+                for: NSRange(location: lineStart, length: 0))
             if end > offset || end <= lineStart || contentsEnd == end { break }
             lineStart = end
             lineNumber += 1
