@@ -19,8 +19,10 @@ sh Scripts/setup-git-hooks.sh --yes
 If the published governor is unavailable, `python3 Scripts/install-governor.py`
 downloads it with checksum and executable-version verification into the ignored
 repository-local `.tools/please/bin`. Add that directory to PATH before setup or
-Git operations. This does not install a machine-wide tool. CI uses the same
-installer. Hook setup retrieves external sources; runtime uses the immutable cache.
+Git operations. This does not install a machine-wide tool. CI and release jobs
+install through published Please Behave Action v1.2.0 pinned to
+`722d5967c094e5ac4bfe25e9f82b020ff34e9487`. Hook setup retrieves external sources;
+runtime uses the immutable cache.
 Managed wrappers live at Git’s effective hook path, preserve compatible custom
 content and are not versioned. Setup retires an old local .githooks setting only
 when its three event files are absent; any remaining custom hook is preserved
@@ -90,6 +92,10 @@ and `publish` / `Publish`, matching the CLI. Readiness and Candidate depend only
 on Plan and run in parallel; Publish requires both to succeed. Only Plan and
 Publish request repository write permission. CI and Candidate use macos-15;
 Readiness uses Ubuntu. The app remains one native macOS artifact.
+CI, Readiness and Candidate execute through the same published Action with the
+CLI version from `.please-version`, `checks-only: 'true'` and `summary: 'true'`.
+Install-only mode precedes explicit synchronization; the execution invocation
+produces the Job Summary.
 
 Plan runs Semantic Release without preparation, tagging or publication and binds
 the version to the dispatched source SHA. Candidate builds that version, runs
