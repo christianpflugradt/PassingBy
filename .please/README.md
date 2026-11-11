@@ -2,7 +2,7 @@
 
 The separately installed published CLI in `.please-version` governs this project.
 Candidate binaries never govern their own validation. Local Rules contain only
-Passing By tooling; the baseline Rule Sets and independent provider import use immutable pins. The release binding is pinned independently.
+Passing By tooling; the baseline Rule Sets and independent provider import use immutable pins. All four Rule Sets and the provider share one reviewed revision.
 
 ## Setup
 
@@ -55,10 +55,10 @@ commands build their own inputs, so they do not depend on the release app build.
 Native UI tests are excluded from CI and Release Candidate. Formatting never edits
 files; `mise run format` is the explicit editing command.
 
-The external `multi-point/security` and `repository-conventions` sets run filename,
+The external `rulesets/multi-point/security` and `rulesets/multi-point/open-source-software` sets run filename,
 Gitleaks and byte-for-byte license checks at check and pre-push. Check reads the
 working tree; pre-push reads HEAD. Release Readiness uses the external
-`release/releasable-project` set for successful
+`rulesets/multi-point/releasable-open-source-software` set for successful
 push CI for the exact source SHA, trusted repository, workflow, main branch and
 `Check` job. Partial CI reruns may retain successful jobs from the same run.
 
@@ -128,8 +128,8 @@ artifact rejection. Workflow syntax is checked by actionlint.
 
 ## Shared release evidence
 
-The separate external `release/releasable-project` Rule Set is pinned independently
-from the repository baseline. Its `release-contract` Check uses
+The separate external `rulesets/multi-point/releasable-open-source-software` Rule Set shares the reviewed
+immutable revision with the other imports. Its `release-contract` Check uses
 `release-ci.json` and `release-artifacts.json`. Readiness trusts exact-source CI
 without an age limit or repeated source/security checks. Candidate builds and
 artifact-specific tests remain local. After they pass, `release-record` writes
