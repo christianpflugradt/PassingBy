@@ -1,6 +1,6 @@
 # Repository governance
 
-The separately installed published CLI in `.please-version` governs this project.
+The separately installed published CLI in `mise.toml` governs this project.
 Candidate binaries never govern their own validation. Local Rules contain only
 Passing By tooling; the baseline Rule Sets and independent provider import use immutable pins. All four Rule Sets and the provider share one reviewed revision.
 
@@ -9,7 +9,7 @@ Passing By tooling; the baseline Rule Sets and independent provider import use i
 Prepare Swift 6+ and Apple Command Line Tools on macOS. Run `mise trust`,
 `mise install` and `mise run setup` to install the exact Node, Python, actionlint
 and Gitleaks versions in `mise.toml` and fetch locked npm dependencies.
-Use the published Please Behave version in `.please-version`, then synchronize:
+Use the published Please Behave version in `mise.toml`, then synchronize:
 
 ```sh
 mise exec -- sh Scripts/setup-git-hooks.sh --yes
@@ -99,7 +99,7 @@ on Plan and run in parallel; Publish requires both to succeed. Only Plan and
 Publish request repository write permission. CI and Candidate use macos-15;
 Readiness uses Ubuntu. The app remains one native macOS artifact.
 CI, Readiness and Candidate execute through the same published Action with the
-CLI version from `.please-version`, `checks-only: 'true'` and `summary: 'true'`.
+CLI version from `mise.toml`, `checks-only: 'true'` and `summary: 'true'`.
 Install-only mode precedes explicit synchronization; the execution invocation
 produces the Job Summary.
 
@@ -147,10 +147,18 @@ Offline lifecycle fixtures exercise the actual pinned external module from cache
 
 ## Published governor updates
 
-`.please-version` records the exact latest stable published governor. The shared
+`mise.toml` records the exact latest stable published governor. The shared
 `renovate-governor` preset in the external ruleset repository tracks GitHub
 Releases and auto-merges newer stable versions, including major updates, after
 checks pass. Governor updates have no dependency cooldown; ordinary dependency
 policies remain unchanged. CI installs the proposed pin before running checks.
 Renovate runs determine update timing. Local governor preparation uses the same
 pin; candidate binaries never become the governor.
+
+## Governor version source
+
+The exact published governor version is the `github:please-behave/cli` tool entry
+in `mise.toml`. `mise install` installs the released executable through the GitHub
+backend with checksum and available artifact-attestation verification. Run
+`mise exec -- please --version` to inspect it. CI reads this same entry for the
+published Action. Candidate binaries never become the governor.

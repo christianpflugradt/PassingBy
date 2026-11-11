@@ -43,7 +43,7 @@ Then make the smallest coherent change that fully satisfies the task.
 
 Work incrementally and keep the project in a valid state.
 
-After changes, use the published Please Behave governor pinned in `.please-version`.
+After changes, use the published Please Behave governor pinned in `mise.toml`.
 Git hooks are the authoritative validation gates: pre-commit checks formatting;
 pre-push builds the app and runs the complete local suite, including native UI tests.
 Do not manually repeat the full gate before Git operations. Targeted diagnostic

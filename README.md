@@ -50,7 +50,7 @@ mise run test-ui # Native Settings focus and substitution editing tests; require
 
 ### Please Behave
 
-Use the published governor pinned in [.please-version](.please-version). Prepare
+Use the published governor pinned in [mise.toml](mise.toml). Prepare
 the tools with `mise install` and locked Node release dependencies with
 `mise run setup`, then run `mise exec -- sh Scripts/setup-git-hooks.sh --yes`.
 Use `mise exec -- please run --at pre-push` for manual checks and
