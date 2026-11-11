@@ -1,6 +1,6 @@
 id = "swift-tests"
 description = "Run all Swift unit and compatibility tests"
-run_at = ["pre-push", "check", "release-candidate"]
+run_at = ["pre-push", "check"]
 
 [check]
 command = "swift run PassingByTests"

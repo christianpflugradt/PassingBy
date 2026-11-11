@@ -2,8 +2,7 @@
 
 The separately installed published CLI in `.please-version` governs this project.
 Candidate binaries never govern their own validation. Local Rules contain only
-Passing By tooling; the four external Rule Sets and independent provider import
-share the same reviewed immutable Git revision as the CLI and Action repositories.
+Passing By tooling; the baseline Rule Sets and independent provider import use immutable pins. The release binding is pinned independently.
 
 ## Setup
 
@@ -32,14 +31,14 @@ and requires manual integration. Other configured hook paths are retained.
 
 | Local Rule | Execution points |
 | --- | --- |
-| format | pre-commit, pre-push, check, release-candidate |
-| swift-tests | pre-push, check, release-candidate |
+| format | pre-commit, pre-push, check |
+| swift-tests | pre-push, check |
 | native-build | pre-push, check, release-candidate |
 | native-ui | pre-push only; requires a macOS desktop session |
 | workflows | pre-push, check |
 | release-rules | pre-push, check |
-| npm-audit | check, release-readiness |
-| release-package | release-candidate; depends on format, swift-tests and native-build |
+| npm-audit | check |
+| release-package | release-candidate; depends on native-build |
 | release-package-verify | release-candidate; depends on release-package |
 
 `swift run PassingByTests` runs all unit and compatibility tests in one Rule.
@@ -52,7 +51,7 @@ files; `mise run format` is the explicit editing command.
 The external `multi-point/security` and `repository-conventions` sets run filename,
 Gitleaks and byte-for-byte license checks at check and pre-push. Check reads the
 working tree; pre-push reads HEAD. Release Readiness uses the external
-`release/readiness` set for committed-source security/license checks and successful
+`release/releasable-project` set for successful
 push CI for the exact source SHA, trusted repository, workflow, main branch and
 `Check` job. Partial CI reruns may retain successful jobs from the same run.
 
@@ -73,7 +72,7 @@ Targeted diagnostics and explicit source formatting are permitted. Tests use
 synthetic data and mocked services, without live model calls. The normal commit
 hook may call its advisory provider. Dependency preparation is separate from checks.
 Builds reuse ignored `.build/` and `build/` outputs and never install the app.
-The npm audit needs current advisory access in CI/readiness.
+The npm audit needs advisory access in CI; release reuses its result.
 
 ## Dependency updates
 
@@ -98,12 +97,11 @@ Install-only mode precedes explicit synchronization; the execution invocation
 produces the Job Summary.
 
 Plan runs Semantic Release without preparation, tagging or publication and binds
-the version to the dispatched source SHA. Candidate builds that version, runs
-formatting and all unit tests, verifies the app bundle, then packages it. Packaging
+the version to the dispatched source SHA. Candidate builds that version, verifies the app bundle and packages it; source checks and unit tests are reused from CI. Packaging
 records the archive and executable SHA-256, source SHA, version and workflow
 run/attempt. Both Candidate and Publish verify the exact artifact set, safe ZIP
 paths, executable permission, app metadata, icon and code signature. Publish runs
-on macOS to verify the extracted app; it never rebuilds or invokes Please Behave.
+on macOS to verify the extracted app; it never rebuilds; the published governor verifies common release evidence.
 Only artifacts from the same workflow run and attempt are accepted. A release
 rerun missing the current attempt’s artifact requires rerunning all jobs.
 
@@ -120,3 +118,22 @@ release unless breaking; breaking changes are major because Passing By is alread
 There is no commit-history or PR-title validation; history analysis for versioning
 remains. Offline release tests cover policy, lifecycle, source/version guards and
 artifact rejection. Workflow syntax is checked by actionlint.
+
+## Shared release evidence
+
+The separate external `release/releasable-project` Rule Set is pinned independently
+from the repository baseline. Its `release-contract` Check uses
+`release-ci.json` and `release-artifacts.json`. Readiness trusts exact-source CI
+without an age limit or repeated source/security checks. Candidate builds and
+artifact-specific tests remain local. After they pass, `release-record` writes
+internal `release-evidence/TARGET.json` manifests. Publish collects every expected
+target and invokes `release-verify` before publication. The shared Check verifies
+repository, workflow, source, version, current run/attempt and artifact hashes.
+Missing or altered evidence blocks publication; partial release reruns require
+rerunning all jobs. Evidence is transferred separately and is not a public asset.
+
+Before tagging, thin local Semantic Release adapters load the cached external
+publication guard exported by `release-verify`. The shared implementation checks
+the recalculated version, checkout, dispatched SHA, repository, main branch and
+current remote main. Custom prerelease/image publication reuses that source guard.
+Offline lifecycle fixtures exercise the actual pinned external module from cache.

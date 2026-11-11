@@ -1,7 +1,7 @@
 id = "release-package"
 description = "Package the verified native release"
 run_at = ["release-candidate"]
-depends_on = ["format", "swift-tests", "native-build"]
+depends_on = ["native-build"]
 
 [check]
 command = "./Scripts/package-release.sh"

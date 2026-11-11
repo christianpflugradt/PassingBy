@@ -1,6 +1,6 @@
 id = "format"
 description = "Verify Swift formatting"
-run_at = ["pre-commit", "pre-push", "check", "release-candidate"]
+run_at = ["pre-commit", "pre-push", "check"]
 
 [check]
 command = "swift format lint --strict --recursive Sources Scripts Package.swift"

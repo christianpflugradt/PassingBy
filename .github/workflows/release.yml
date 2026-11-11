@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: false
       - run: npm ci --ignore-scripts
@@ -54,29 +54,18 @@ jobs:
           ref: ${{ needs.plan.outputs.source_sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Set up Mise
-        uses: jdx/mise-action@v4
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          cache: false
-      - run: npm ci --ignore-scripts
-      - name: Prepare validation tools
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: stable
-          cache: false
-      - name: Prepare Gitleaks and actionlint
-        run: |
-          go install github.com/zricethezav/gitleaks/v8@v8.30.1
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          python-version: '3.15'
       - name: Read pinned governor version
         id: governor
         run: echo "version=$(cat .please-version)" >> "$GITHUB_OUTPUT"
-      - name: Install pinned published governor
+      - name: Install published governor
         uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
         with:
           version: ${{ steps.governor.outputs.version }}
           run: 'false'
-      - name: Resolve pinned Rule Sets and provider
+      - name: Synchronize governance
         run: please sync --yes
       - name: Verify release readiness
         env:
@@ -110,20 +99,23 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.source_sha }}
           persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.15'
       - name: Set up Mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: false
       - run: npm ci --ignore-scripts
       - name: Read pinned governor version
         id: governor
         run: echo "version=$(cat .please-version)" >> "$GITHUB_OUTPUT"
-      - name: Install pinned published governor
+      - name: Install published governor
         uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
         with:
           version: ${{ steps.governor.outputs.version }}
           run: 'false'
-      - name: Resolve pinned Rule Sets and provider
+      - name: Synchronize governance
         run: please sync --yes
       - name: Validate and package native candidate
         uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
@@ -147,6 +139,23 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
+      - name: Record release candidate evidence
+        uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
+        with:
+          version: ${{ steps.governor.outputs.version }}
+          execution-point: release-record
+          checks-only: 'true'
+          summary: 'true'
+        env:
+          EXPECTED_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+          RELEASE_TARGET: macos
+      - name: Upload release candidate evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-evidence-${{ github.run_id }}-${{ github.run_attempt }}-macos
+          path: release-evidence/
+          if-no-files-found: error
+          retention-days: 7
 
   publish:
     name: Publish
@@ -167,8 +176,11 @@ jobs:
           ref: ${{ needs.plan.outputs.source_sha }}
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.15'
       - name: Set up Mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: false
       - run: npm ci --ignore-scripts
@@ -179,6 +191,31 @@ jobs:
           merge-multiple: true
       - name: Verify collected release artifact without rebuilding
         run: python3 Scripts/release-artifacts.py verify
+      - name: Read pinned governor version
+        id: governor
+        run: echo "version=$(cat .please-version)" >> "$GITHUB_OUTPUT"
+      - name: Install published governor
+        uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
+        with:
+          version: ${{ steps.governor.outputs.version }}
+          run: 'false'
+      - name: Synchronize governance
+        run: please sync --yes
+      - name: Download release candidate evidence
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: release-evidence-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: release-evidence
+          merge-multiple: true
+      - name: Verify complete release candidate evidence
+        uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
+        with:
+          version: ${{ steps.governor.outputs.version }}
+          execution-point: release-verify
+          checks-only: 'true'
+          summary: 'true'
+        env:
+          EXPECTED_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
       - name: Publish versioned app and release notes
         env:
           GITHUB_TOKEN: ${{ github.token }}

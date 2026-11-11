@@ -83,7 +83,7 @@ release bundles require the matching `RELEASE_VERSION`.
 
 Run `mise run release` to dispatch Release on main. Plan calculates the version;
 Readiness checks exact-commit CI proof, source security and current advisories;
-Candidate tests, builds and packages the app. Publish verifies and publishes that
+Candidate builds and verifies the versioned app, reusing source tests from CI. Publish verifies and publishes that
 same ZIP without rebuilding. See the [release contract](.please/README.md#release-contract)
 for version semantics and reruns. Passing By remains a native macOS app with one
 release artifact; native UI tests run only locally at pre-push.

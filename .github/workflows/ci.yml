@@ -19,7 +19,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Mise
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: false
       - run: npm ci --ignore-scripts
@@ -35,12 +35,12 @@ jobs:
       - name: Read pinned governor version
         id: governor
         run: echo "version=$(cat .please-version)" >> "$GITHUB_OUTPUT"
-      - name: Install pinned published governor
+      - name: Install published governor
         uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
         with:
           version: ${{ steps.governor.outputs.version }}
           run: 'false'
-      - name: Resolve pinned Rule Sets and provider
+      - name: Synchronize governance
         run: please sync --yes
       - name: Run Please Behave checks
         uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
