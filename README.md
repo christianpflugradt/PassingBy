@@ -52,7 +52,7 @@ mise run test-ui # Native Settings focus and substitution editing tests; require
 
 Use the published governor pinned in [mise.toml](mise.toml). Prepare
 the tools with `mise install` and locked Node release dependencies with
-`mise run setup`, then run `mise exec -- sh Scripts/setup-git-hooks.sh --yes`.
+`mise run ci:prepare`, then run `mise exec -- sh Scripts/setup-git-hooks.sh --yes`.
 Use `mise exec -- please run --at pre-push` for manual checks and
 `mise exec -- git commit` / `mise exec -- git push` to give hooks the same tool PATH.
 Plain commands need mise shell activation; installation alone does not activate tools. See [.please/README.md](.please/README.md)
@@ -90,6 +90,13 @@ Candidate builds and verifies the versioned app, reusing source tests from CI. P
 same ZIP without rebuilding. See the [release contract](.please/README.md#release-contract)
 for version semantics and reruns. Passing By remains a native macOS app with one
 release artifact; native UI tests run only locally at pre-push.
+
+CI and release use mise for portable tools, with Python pinned exactly in
+`mise.toml`. Apple SDKs and Swift remain host prerequisites. Preparation only
+fetches npm dependencies. Native build validation remains in Please Behave;
+Actions owns packaging, artifact verification and publication. Plan and Publish
+never install governance or Git hooks. `setup` and `hooks-install` remain aliases
+for `ci:prepare` and `hooks:install`; release dispatch uses an authenticated host `gh` CLI.
 
 For local packaging, run `RELEASE_VERSION=1.2.3 mise run build` followed by
 `RELEASE_VERSION=1.2.3 mise run package`. The ZIP remains in `build/`; `dist/`

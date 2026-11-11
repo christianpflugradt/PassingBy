@@ -1,4 +1,3 @@
-import { releaseGuardEnvironment } from "./release-guard-fixture.mjs";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -43,7 +42,7 @@ await testPolicy();
   const remote = path.join(root, "remote.git");
   // Never inherit CI credentials or workflow metadata into the offline engine.
   const env = {
-    ...releaseGuardEnvironment, PATH: process.env.PATH,
+    GITHUB_REPOSITORY: "christianpflugradt/PassingBy", GITHUB_REF: "refs/heads/main", PATH: process.env.PATH,
     HOME: root,
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_CONFIG_GLOBAL: path.join(root, "empty-config"),

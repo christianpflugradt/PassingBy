@@ -42,15 +42,15 @@ description = "Run native Settings keyboard and UI tests (macOS desktop)"
 run = "./Scripts/test-settings-navigation.sh"
 
 [tasks.package]
-description = "Build and ZIP a versioned macOS release app (requires RELEASE_VERSION)"
+description = "ZIP the verified versioned macOS release app (requires RELEASE_VERSION)"
 run = "./Scripts/package-release.sh"
 
 [tasks.release]
 description = "Trigger the manual GitHub release workflow"
-tools.gh = "2.101.0"
-run = "gh workflow run release.yml"
+run = "gh workflow run release.yml --ref main"
 
-[tasks.hooks-install]
+[tasks."hooks:install"]
+alias = "hooks-install"
 description = "Synchronize managed Please Behave hooks and imports"
 run = "sh Scripts/setup-git-hooks.sh"
 
@@ -58,6 +58,7 @@ run = "sh Scripts/setup-git-hooks.sh"
 description = "Run the complete local Please Behave gate"
 run = "please run --at pre-push"
 
-[tasks.setup]
+[tasks."ci:prepare"]
+alias = "setup"
 description = "Prepare locked release-tooling dependencies before Git hooks"
 run = "npm ci --ignore-scripts"

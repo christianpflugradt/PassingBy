@@ -2,12 +2,12 @@
 
 The separately installed published CLI in `mise.toml` governs this project.
 Candidate binaries never govern their own validation. Local Rules contain only
-Passing By tooling; the baseline Rule Sets and independent provider import use immutable pins. All four Rule Sets and the provider share one reviewed revision.
+Passing By tooling; the baseline Rule Sets and independent provider import use immutable pins. All three Rule Sets and the provider share one reviewed revision.
 
 ## Setup
 
 Prepare Swift 6+ and Apple Command Line Tools on macOS. Run `mise trust`,
-`mise install` and `mise run setup` to install the exact Node, Python, actionlint
+`mise install` and `mise run ci:prepare` to install the exact Node, Python, actionlint
 and Gitleaks versions in `mise.toml` and fetch locked npm dependencies.
 Use the published Please Behave version in `mise.toml`, then synchronize:
 
@@ -25,9 +25,10 @@ credentials remain external prerequisites.
 If the published governor is unavailable, `python3 Scripts/install-governor.py`
 downloads it with checksum and executable-version verification into the ignored
 repository-local `.tools/please/bin`. Add that directory to PATH before setup or
-Git operations. This does not install a machine-wide tool. CI and release jobs
-install through published Please Behave Action v1.2.0 pinned to
-`722d5967c094e5ac4bfe25e9f82b020ff34e9487`. Hook setup retrieves external sources;
+Git operations. This does not install a machine-wide tool. CI and candidate jobs use mise installation and published Action v1.3.0,
+pinned to `196e1d61f898e0cb77c58ab3dd6667f021321d5e`. One Action step uses
+`install: 'false'` and `sync: 'true'` to synchronize and execute governance.
+Hook setup retrieves external sources;
 runtime uses the immutable cache.
 Managed wrappers live at Git’s effective hook path, preserve compatible custom
 content and are not versioned. Setup retires an old local .githooks setting only
@@ -40,13 +41,11 @@ and requires manual integration. Other configured hook paths are retained.
 | --- | --- |
 | format | pre-commit, pre-push, check |
 | swift-tests | pre-push, check |
-| native-build | pre-push, check, release-candidate |
+| native-build | pre-push, check, release |
 | native-ui | pre-push only; requires a macOS desktop session |
 | workflows | pre-push, check |
 | release-rules | pre-push, check |
 | npm-audit | check |
-| release-package | release-candidate; depends on native-build |
-| release-package-verify | release-candidate; depends on release-package |
 
 `swift run PassingByTests` runs all unit and compatibility tests in one Rule.
 The native build compiles, assembles and verifies the ad hoc signed app bundle.
@@ -57,10 +56,9 @@ files; `mise run format` is the explicit editing command.
 
 The external `rulesets/multi-point/security` and `rulesets/multi-point/open-source-software` sets run filename,
 Gitleaks and byte-for-byte license checks at check and pre-push. Check reads the
-working tree; pre-push reads HEAD. Release Readiness uses the external
-`rulesets/multi-point/releasable-open-source-software` set for successful
-push CI for the exact source SHA, trusted repository, workflow, main branch and
-`Check` job. Partial CI reruns may retain successful jobs from the same run.
+working tree; pre-push reads HEAD. Release Readiness runs `Scripts/check-release-ci.py` directly for successful
+push CI for the exact source, repository, workflow, main branch and `Check` job.
+Partial CI reruns may retain successful jobs from the same run.
 
 Commit-msg uses only the external Conventional Commits Check and advisory wording
 Review. Scopes come from `commit-scopes.txt`. The independent `gemini-flash-lite`
@@ -98,17 +96,18 @@ and `publish` / `Publish`, matching the CLI. Readiness and Candidate depend only
 on Plan and run in parallel; Publish requires both to succeed. Only Plan and
 Publish request repository write permission. CI and Candidate use macos-15;
 Readiness uses Ubuntu. The app remains one native macOS artifact.
-CI, Readiness and Candidate execute through the same published Action with the
-CLI version from `mise.toml`, `checks-only: 'true'` and `summary: 'true'`.
-Install-only mode precedes explicit synchronization; the execution invocation
-produces the Job Summary.
+CI uses `check`; Candidate uses `release` to build and verify the versioned app.
+Both execute one published Action step with checks-only and summaries enabled.
+Mise installs tools from `mise.toml`; `ci:prepare` (alias `setup`) fetches locked
+npm dependencies only. Release jobs install only their required tool subsets.
+Python is exactly pinned; Swift and Apple SDKs remain host prerequisites.
 
 Plan runs Semantic Release without preparation, tagging or publication and binds
 the version to the dispatched source SHA. Candidate builds that version, verifies the app bundle and packages it; source checks and unit tests are reused from CI. Packaging
 records the archive and executable SHA-256, source SHA, version and workflow
 run/attempt. Both Candidate and Publish verify the exact artifact set, safe ZIP
 paths, executable permission, app metadata, icon and code signature. Publish runs
-on macOS to verify the extracted app; it never rebuilds; the published governor verifies common release evidence.
+on macOS to verify the extracted app; it never rebuilds. Plan and Publish never install or invoke Please Behave or hooks.
 Only artifacts from the same workflow run and attempt are accepted. A release
 rerun missing the current attempt’s artifact requires rerunning all jobs.
 
@@ -128,22 +127,13 @@ artifact rejection. Workflow syntax is checked by actionlint.
 
 ## Shared release evidence
 
-The separate external `rulesets/multi-point/releasable-open-source-software` Rule Set shares the reviewed
-immutable revision with the other imports. Its `release-contract` Check uses
-`release-ci.json` and `release-artifacts.json`. Readiness trusts exact-source CI
-without an age limit or repeated source/security checks. Candidate builds and
-artifact-specific tests remain local. After they pass, `release-record` writes
-internal `release-evidence/TARGET.json` manifests. Publish collects every expected
-target and invokes `release-verify` before publication. The shared Check verifies
-repository, workflow, source, version, current run/attempt and artifact hashes.
-Missing or altered evidence blocks publication; partial release reruns require
-rerunning all jobs. Evidence is transferred separately and is not a public asset.
-
-Before tagging, thin local Semantic Release adapters load the cached external
-publication guard exported by `release-verify`. The shared implementation checks
-the recalculated version, checkout, dispatched SHA, repository, main branch and
-current remote main. Custom prerelease/image publication reuses that source guard.
-Offline lifecycle fixtures exercise the actual pinned external module from cache.
+Workflow-owned policies live in `.github/release-ci.json` and
+`.github/release-artifacts.json`. `Scripts/check-release-ci.py` verifies exact-source
+CI without an age limit or repeated source checks. `Scripts/release-evidence.py`
+records and verifies candidate manifests bound to repository, workflow, source,
+version, run/attempt and artifact hashes. Missing or altered evidence blocks publication.
+The local Semantic Release plugin checks version, checkout and current remote main
+before tagging, without depending on an imported cache or governance setup.
 
 ## Published governor updates
 
@@ -160,5 +150,5 @@ pin; candidate binaries never become the governor.
 The exact published governor version is the `github:please-behave/cli` tool entry
 in `mise.toml`. `mise install` installs the released executable through the GitHub
 backend with checksum and available artifact-attestation verification. Run
-`mise exec -- please --version` to inspect it. CI reads this same entry for the
-published Action. Candidate binaries never become the governor.
+`mise exec -- please --version` to inspect it. CI installs it through mise; the published Action reuses it
+without a second installation or workflow version extraction. Candidate binaries never become the governor.

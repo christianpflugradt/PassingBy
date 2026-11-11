@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  MISE_AUTO_INSTALL: 'false'
+
 jobs:
   check:
     name: Check
@@ -18,34 +21,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Set up Mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
-        with:
-          cache: false
-      - run: npm ci --ignore-scripts
-      - name: Prepare validation tools
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: stable
-          cache: false
-      - name: Prepare Gitleaks and actionlint
-        run: |
-          go install github.com/zricethezav/gitleaks/v8@v8.30.1
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-      - name: Read pinned governor version
-        id: governor
-        run: echo "version=$(python3 -c 'import pathlib, tomllib; print("v" + tomllib.loads(pathlib.Path("mise.toml").read_text())["tools"]["github:please-behave/cli"])')" >> "$GITHUB_OUTPUT"
-      - name: Install published governor
-        uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
-        with:
-          version: ${{ steps.governor.outputs.version }}
-          run: 'false'
-      - name: Synchronize governance
-        run: please sync --yes
+      - name: Install project tools
+        uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - name: Fetch locked dependencies
+        run: mise run ci:prepare
       - name: Run Please Behave checks
-        uses: please-behave/action@722d5967c094e5ac4bfe25e9f82b020ff34e9487 # v1.2.0
+        uses: please-behave/action@196e1d61f898e0cb77c58ab3dd6667f021321d5e # v1.3.0
         with:
-          version: ${{ steps.governor.outputs.version }}
+          install: 'false'
+          sync: 'true'
           execution-point: check
           checks-only: 'true'
           summary: 'true'

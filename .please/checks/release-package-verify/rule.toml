@@ -1,8 +1,0 @@
-id = "release-package-verify"
-description = "Verify the release archive and provenance"
-run_at = ["release-candidate"]
-depends_on = ["release-package"]
-
-[check]
-command = "python3 Scripts/release-artifacts.py verify"
-timeout_seconds = 120
