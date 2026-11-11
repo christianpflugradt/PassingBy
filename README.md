@@ -51,8 +51,11 @@ mise run test-ui # Native Settings focus and substitution editing tests; require
 ### Please Behave
 
 Use the published governor pinned in [.please-version](.please-version). Prepare
-Python 3, actionlint, Gitleaks and Node release dependencies, then run
-`sh Scripts/setup-git-hooks.sh --yes`. See [.please/README.md](.please/README.md)
+the tools with `mise install` and locked Node release dependencies with
+`mise run setup`, then run `mise exec -- sh Scripts/setup-git-hooks.sh --yes`.
+Use `mise exec -- please run --at pre-push` for manual checks and
+`mise exec -- git commit` / `mise exec -- git push` to give hooks the same tool PATH.
+Plain commands need mise shell activation; installation alone does not activate tools. See [.please/README.md](.please/README.md)
 for setup, execution points and the release contract.
 
 Pre-commit checks Swift formatting. Pre-push runs all unit tests, the verified app

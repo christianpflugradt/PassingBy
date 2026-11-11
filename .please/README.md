@@ -6,14 +6,21 @@ Passing By tooling; the baseline Rule Sets and independent provider import use i
 
 ## Setup
 
-Prepare Swift 6+, Apple Command Line Tools, Python 3, Node from `mise.toml`,
-actionlint 1.7.12 and Gitleaks 8.30.1. Tools are installed by the developer.
-Prepare release dependencies with `npm ci --ignore-scripts`. Use the published
-Please Behave version in `.please-version`, then synchronize:
+Prepare Swift 6+ and Apple Command Line Tools on macOS. Run `mise trust`,
+`mise install` and `mise run setup` to install the exact Node, Python, actionlint
+and Gitleaks versions in `mise.toml` and fetch locked npm dependencies.
+Use the published Please Behave version in `.please-version`, then synchronize:
 
 ```sh
-sh Scripts/setup-git-hooks.sh --yes
+mise exec -- sh Scripts/setup-git-hooks.sh --yes
 ```
+
+Use `mise exec -- please run --at pre-commit` or `mise exec -- please run --at pre-push`
+for manual checks, and `mise exec -- git commit` / `mise exec -- git push` so hooks
+inherit the same tools without shell activation. Plain commands require mise
+shell activation or equivalent PATH setup; `mise install` alone does not activate
+tools. Apple SDKs, Swift, signing tools, the native UI test desktop session and
+credentials remain external prerequisites.
 
 If the published governor is unavailable, `python3 Scripts/install-governor.py`
 downloads it with checksum and executable-version verification into the ignored

@@ -1,5 +1,8 @@
 [tools]
 node = "24.22.2"
+python = "3.15.2"
+actionlint = "1.7.12"
+gitleaks = "8.30.1"
 
 [tasks.build]
 description = "Build a local macOS app bundle"
@@ -53,3 +56,7 @@ run = "sh Scripts/setup-git-hooks.sh"
 [tasks.check]
 description = "Run the complete local Please Behave gate"
 run = "please run --at pre-push"
+
+[tasks.setup]
+description = "Prepare locked release-tooling dependencies before Git hooks"
+run = "npm ci --ignore-scripts"
