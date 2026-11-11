@@ -1,7 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:best-practices"
+    "config:best-practices",
+    "github>christianpflugradt/please-behave-rulesets:renovate-governor"
   ],
   "packageRules": [
     {
@@ -19,7 +20,10 @@
       "matchUpdateTypes": [
         "major"
       ],
-      "minimumReleaseAge": "14 days"
+      "minimumReleaseAge": "14 days",
+      "matchPackageNames": [
+        "!please-behave/cli"
+      ]
     },
     {
       "matchUpdateTypes": [
@@ -36,7 +40,10 @@
       "groupName": "github-actions",
       "separateMajorMinor": false,
       "minimumReleaseAge": "14 days",
-      "automerge": true
+      "automerge": true,
+      "matchPackageNames": [
+        "!please-behave/cli"
+      ]
     }
   ],
   "minimumReleaseAge": "7 days",
