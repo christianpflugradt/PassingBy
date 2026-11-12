@@ -2,7 +2,7 @@
 
 The separately installed published CLI in `mise.toml` governs this project.
 Candidate binaries never govern their own validation. Local Rules contain only
-Passing By tooling; the baseline Rule Sets and independent provider import use immutable pins. All three Rule Sets and the provider share one reviewed revision.
+Passing By tooling; the baseline Rule Sets and independent provider import use immutable pins. All Rule Sets and the provider share one reviewed revision.
 
 ## Setup
 
@@ -25,8 +25,8 @@ credentials remain external prerequisites.
 If the published governor is unavailable, `python3 Scripts/install-governor.py`
 downloads it with checksum and executable-version verification into the ignored
 repository-local `.tools/please/bin`. Add that directory to PATH before setup or
-Git operations. This does not install a machine-wide tool. CI and candidate jobs use mise installation and published Action v1.3.0,
-pinned to `196e1d61f898e0cb77c58ab3dd6667f021321d5e`. One Action step uses
+Git operations. This does not install a machine-wide tool. CI and candidate jobs use mise installation and the published Action pinned to a full
+commit. One Action step uses
 `install: 'false'` and `sync: 'true'` to synchronize and execute governance.
 Hook setup retrieves external sources;
 runtime uses the immutable cache.
@@ -60,7 +60,8 @@ working tree; pre-push reads HEAD. Release Readiness runs `Scripts/check-release
 push CI for the exact source, repository, workflow, main branch and `Check` job.
 Partial CI reruns may retain successful jobs from the same run.
 
-Commit-msg uses only the external Conventional Commits Check and advisory wording
+The external `rulesets/multi-point/repository-conventions` set limits AGENTS.md to 1500 approximate tokens at
+pre-commit and check. Commit-msg uses its Conventional Commits Check and advisory wording
 Review. Scopes come from `commit-scopes.txt`. The independent `gemini-flash-lite`
 provider package supplies the adapter; no copy lives in this repository. The Review
 uses only the header, without the diff, body or repository files. Export
@@ -71,7 +72,7 @@ No local commit-message, commit-range or PR-title checks are present. The previo
 disabled Hannes reviews are retired; no product or accessibility review is enabled.
 
 Agents receive validation through Git commit/push and inspect saved results with
-`please status --details`. Pre-commit checks formatting; pre-push runs the complete
+`please status --details`. Pre-commit checks formatting and the AGENTS.md size; pre-push runs the complete
 local gate. Do not bypass hooks or manually repeat the full gate before pushing.
 Targeted diagnostics and explicit source formatting are permitted. Tests use
 synthetic data and mocked services, without live model calls. The normal commit
