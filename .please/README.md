@@ -98,7 +98,7 @@ on Plan and run in parallel; Publish requires both to succeed. Only Plan and
 Publish request repository write permission. CI and Candidate use macos-15;
 Readiness uses Ubuntu. The app remains one native macOS artifact.
 CI uses `check`; Candidate uses `release` to build and verify the versioned app.
-Both execute one published Action step with checks-only and summaries enabled.
+Both execute one published Action step with summaries enabled.
 Mise installs tools from `mise.toml`; `ci:prepare` (alias `setup`) fetches locked
 npm dependencies only. Release jobs install only their required tool subsets.
 Python is exactly pinned; Swift and Apple SDKs remain host prerequisites.
