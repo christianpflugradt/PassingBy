@@ -44,7 +44,7 @@ class ArtifactTests(unittest.TestCase):
             artifacts.verify(self.directory)
         verifier.assert_called_once()
         self.assertTrue(verifier.call_args.kwargs["check"])
-        self.assertTrue(verifier.call_args.args[0][0].endswith("Scripts/check-app-bundle.sh"))
+        self.assertTrue(verifier.call_args.args[0][0].endswith("tools/check-app-bundle.sh"))
 
     def test_source_version_and_workflow_attempt_are_bound(self):
         for key in ("source_sha", "version", "run_id", "run_attempt", "platform"):

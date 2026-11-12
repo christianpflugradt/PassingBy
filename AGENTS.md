@@ -55,6 +55,11 @@ Verify the result against the applicable requirements in `Product.md`.
 
 Fix violations and regressions introduced by the task before declaring it complete. Report unrelated pre-existing discrepancies or failing checks separately; do not silently expand the task to repair them. For documentation-only work, verify claims against source, tests, and history, and check links and cross-references; do not change application code or tests unless requested.
 
+## Repository layout
+
+Keep the repository root for the product. Rule scripts live in `.please/checks/<rule>/`, release and workflow
+scripts in `.github/scripts/` and build tools in `tools/`, each with its tests.
+
 ## Testing
 
 Add automated tests where they provide meaningful protection against regressions.

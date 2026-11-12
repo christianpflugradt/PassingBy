@@ -6,7 +6,7 @@ import path from "node:path";
 import { Writable } from "node:stream";
 import { generateNotes } from "@semantic-release/release-notes-generator";
 import semanticRelease from "semantic-release";
-import config from "../release.config.mjs";
+import config from "../../release.config.mjs";
 import { verifyRelease } from "./semantic-release-plugin.mjs";
 import { analyzeCommits } from "@semantic-release/commit-analyzer";
 

@@ -11,7 +11,7 @@ import sys
 import tempfile
 import zipfile
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 APP = "Passing By.app"
 BINARY = f"{APP}/Contents/MacOS/PassingBy"
 
@@ -88,7 +88,7 @@ def verify(directory):
         for item in entries:
             if not item.is_dir():
                 (Path(temporary) / item.filename).chmod(stat.S_IMODE(item.external_attr >> 16) & 0o777)
-        subprocess.run([str(ROOT / "Scripts/check-app-bundle.sh"), str(Path(temporary) / APP)], check=True)
+        subprocess.run([str(ROOT / "tools/check-app-bundle.sh"), str(Path(temporary) / APP)], check=True)
     print(f"Verified {name}: source, workflow attempt, checksums and signed app bundle")
 
 

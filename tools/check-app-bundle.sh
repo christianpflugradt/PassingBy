@@ -1,10 +1,12 @@
-#!/bin/zsh
+#!/bin/bash
 set -euo pipefail
 
-root="${0:A:h:h}"
+version_pattern='^[1-9][0-9]*\.[0-9]+\.[0-9]+$'
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
 app="${1:-$root/build/Passing By.app}"
 plist="$app/Contents/Info.plist"
-fail() { print -u2 "Invalid app bundle: $*"; exit 1; }
+fail() { echo "Invalid app bundle: $*" >&2; exit 1; }
 value() { /usr/libexec/PlistBuddy -c "Print :$1" "$plist"; }
 
 [[ -d "$app" && -f "$plist" ]] || fail "missing app directory or Info.plist"
@@ -23,7 +25,7 @@ trap 'rm -rf "$icon_tmp"' EXIT
 iconutil -c iconset "$icon" -o "$icon_tmp/PassingBy.iconset"
 
 if [[ -n "${RELEASE_VERSION:-}" ]]; then
-  [[ "$RELEASE_VERSION" =~ '^[1-9][0-9]*\.[0-9]+\.[0-9]+$' ]] || fail "invalid RELEASE_VERSION"
+  [[ "$RELEASE_VERSION" =~ $version_pattern ]] || fail "invalid RELEASE_VERSION"
   expected_version="$RELEASE_VERSION"
   expected_identity=local.passingby.app
   expected_name='Passing By'
@@ -37,4 +39,4 @@ fi
 [[ "$(value CFBundleShortVersionString)" == "$expected_version" ]] || fail "wrong display version"
 [[ "$(value CFBundleVersion)" == "$expected_version" ]] || fail "wrong build version"
 codesign --verify --deep --strict --verbose=2 "$app"
-print "App bundle verified: $app"
+echo "App bundle verified: $app"

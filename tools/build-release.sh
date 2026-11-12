@@ -1,7 +1,9 @@
-#!/bin/zsh
+#!/bin/bash
 set -euo pipefail
 
-root="${0:A:h:h}"
+version_pattern='^[1-9][0-9]*\.[0-9]+\.[0-9]+$'
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 swift build -c release --product PassingByApp
 bin_path="$(swift build -c release --show-bin-path)"
@@ -15,8 +17,8 @@ cp "$bin_path/PassingByApp" "$staged_app/Contents/MacOS/PassingBy"
 cp "$root/Resources/Info.plist" "$staged_app/Contents/Info.plist"
 if [[ -n "${RELEASE_VERSION:-}" ]]; then
   # Release builds keep the production identity; local builds use the development identity from Info.plist.
-  if [[ ! "$RELEASE_VERSION" =~ '^[1-9][0-9]*\.[0-9]+\.[0-9]+$' ]]; then
-    print -u2 "RELEASE_VERSION must be a numeric major.minor.patch version"
+  if [[ ! "$RELEASE_VERSION" =~ $version_pattern ]]; then
+    echo "RELEASE_VERSION must be a numeric major.minor.patch version" >&2
     exit 1
   fi
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $RELEASE_VERSION" "$staged_app/Contents/Info.plist"
@@ -42,7 +44,7 @@ done
 iconutil -c icns "$iconset" -o "$staged_app/Contents/Resources/PassingBy.icns"
 
 codesign --force --sign - "$staged_app"
-"$root/Scripts/check-app-bundle.sh" "$staged_app"
+"$root/tools/check-app-bundle.sh" "$staged_app"
 rm -rf "$app"
 mv "$staged_app" "$app"
-print "Built $app"
+echo "Built $app"

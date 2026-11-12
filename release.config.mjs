@@ -42,7 +42,7 @@ export default {
         ],
       },
     }],
-    "./Scripts/semantic-release-plugin.mjs",
+    "./.github/scripts/semantic-release-plugin.mjs",
     ["@semantic-release/github", {
       assets: ["dist/Passing-By-*.zip", "dist/SHA256SUMS", "dist/metadata.json"],
       successComment: false,

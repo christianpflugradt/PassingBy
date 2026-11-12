@@ -62,7 +62,7 @@ jobs:
         with:
           install_args: python
       - name: Verify exact-source CI prerequisites
-        run: python3 Scripts/check-release-ci.py
+        run: python3 .github/scripts/check-release-ci.py
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -93,7 +93,7 @@ jobs:
       - name: Package verified native candidate
         run: mise run package
       - name: Verify candidate archive
-        run: python3 Scripts/release-artifacts.py verify
+        run: python3 .github/scripts/release-artifacts.py verify
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: passing-by-${{ github.run_id }}-${{ github.run_attempt }}-macos
@@ -110,7 +110,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - name: Record release candidate evidence
-        run: python3 Scripts/release-evidence.py record
+        run: python3 .github/scripts/release-evidence.py record
         env:
           EXPECTED_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
           RELEASE_TARGET: macos
@@ -152,7 +152,7 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Verify collected release artifact without rebuilding
-        run: python3 Scripts/release-artifacts.py verify
+        run: python3 .github/scripts/release-artifacts.py verify
       - name: Download release candidate evidence
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -160,7 +160,7 @@ jobs:
           path: release-evidence
           merge-multiple: true
       - name: Verify complete release candidate evidence
-        run: python3 Scripts/release-evidence.py verify
+        run: python3 .github/scripts/release-evidence.py verify
         env:
           EXPECTED_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
       - name: Publish versioned app and release notes

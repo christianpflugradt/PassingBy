@@ -2,7 +2,7 @@
 
 The separately installed published CLI in `mise.toml` governs this project.
 Candidate binaries never govern their own validation. Local Rules contain only
-Passing By tooling; the baseline Rule Sets and independent provider import use immutable pins. All Rule Sets and the provider share one reviewed revision.
+Passing By tooling (rule scripts in `.please/checks/`, release glue in `.github/scripts/`, build tools in `tools/`); the baseline Rule Sets and independent provider import use immutable pins. All Rule Sets and the provider share one reviewed revision.
 
 ## Setup
 
@@ -12,7 +12,7 @@ and Gitleaks versions in `mise.toml` and fetch locked npm dependencies.
 Use the published Please Behave version in `mise.toml`, then synchronize:
 
 ```sh
-mise exec -- sh Scripts/setup-git-hooks.sh --yes
+mise exec -- please sync --yes
 ```
 
 Use `mise exec -- please run --at pre-commit` or `mise exec -- please run --at pre-push`
@@ -22,10 +22,7 @@ shell activation or equivalent PATH setup; `mise install` alone does not activat
 tools. Apple SDKs, Swift, signing tools, the native UI test desktop session and
 credentials remain external prerequisites.
 
-If the published governor is unavailable, `python3 Scripts/install-governor.py`
-downloads it with checksum and executable-version verification into the ignored
-repository-local `.tools/please/bin`. Add that directory to PATH before setup or
-Git operations. This does not install a machine-wide tool. CI and candidate jobs use mise installation and the published Action pinned to a full
+CI and candidate jobs use mise installation and the published Action pinned to a full
 commit. One Action step uses
 `install: 'false'` and `sync: 'true'` to synchronize and execute governance.
 Hook setup retrieves external sources;
@@ -43,9 +40,7 @@ and requires manual integration. Other configured hook paths are retained.
 | swift-tests | pre-push, check |
 | native-build | pre-push, check, release |
 | native-ui | pre-push only; requires a macOS desktop session |
-| workflows | pre-push, check |
 | release-rules | pre-push, check |
-| npm-audit | check |
 
 `swift run PassingByTests` runs all unit and compatibility tests in one Rule.
 The native build compiles, assembles and verifies the ad hoc signed app bundle.
@@ -56,7 +51,7 @@ files; `mise run format` is the explicit editing command.
 
 The external `rulesets/multi-point/security` and `rulesets/multi-point/open-source-software` sets run filename,
 Gitleaks and byte-for-byte license checks at check and pre-push. Check reads the
-working tree; pre-push reads HEAD. Release Readiness runs `Scripts/check-release-ci.py` directly for successful
+working tree; pre-push reads HEAD. Release Readiness runs `.github/scripts/check-release-ci.py` directly for successful
 push CI for the exact source, repository, workflow, main branch and `Check` job.
 Partial CI reruns may retain successful jobs from the same run.
 
@@ -124,13 +119,13 @@ release unless breaking; breaking changes are major because Passing By is alread
 1.x. Scoped reverts cancel unreleased originals in version calculation and notes.
 There is no commit-history or PR-title validation; history analysis for versioning
 remains. Offline release tests cover policy, lifecycle, source/version guards and
-artifact rejection. Workflow syntax is checked by actionlint.
+artifact rejection. Workflow syntax (`workflows`), shell scripts (`shell`) and npm advisories (`npm-audit`) are checked by shared rules from the open-source-software ruleset.
 
 ## Shared release evidence
 
 Workflow-owned policies live in `.github/release-ci.json` and
-`.github/release-artifacts.json`. `Scripts/check-release-ci.py` verifies exact-source
-CI without an age limit or repeated source checks. `Scripts/release-evidence.py`
+`.github/release-artifacts.json`. `.github/scripts/check-release-ci.py` verifies exact-source
+CI without an age limit or repeated source checks. `.github/scripts/release-evidence.py`
 records and verifies candidate manifests bound to repository, workflow, source,
 version, run/attempt and artifact hashes. Missing or altered evidence blocks publication.
 The local Semantic Release plugin checks version, checkout and current remote main

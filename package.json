@@ -11,8 +11,8 @@
   },
   "license": "Apache-2.0",
   "scripts": {
-    "test": "node --test Scripts/test-release.mjs && python3 -B -m unittest discover -s Scripts -p \"test_*.py\"",
-    "release:plan": "node Scripts/release-plan.mjs",
-    "release": "node Scripts/publish-release.mjs"
+    "test": "node --test .github/scripts/test-release.mjs && python3 -B -m unittest discover -s .github/scripts -p \"test_*.py\"",
+    "release:plan": "node .github/scripts/release-plan.mjs",
+    "release": "node .github/scripts/publish-release.mjs"
   }
 }

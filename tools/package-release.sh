@@ -1,13 +1,15 @@
-#!/bin/zsh
+#!/bin/bash
 set -euo pipefail
 
+version_pattern='^[1-9][0-9]*\.[0-9]+\.[0-9]+$'
+
 : "${RELEASE_VERSION:?Set RELEASE_VERSION to the Semantic Release version}"
-if [[ ! "$RELEASE_VERSION" =~ '^[1-9][0-9]*\.[0-9]+\.[0-9]+$' ]]; then
-  print -u2 "RELEASE_VERSION must be a numeric major.minor.patch version"
+if [[ ! "$RELEASE_VERSION" =~ $version_pattern ]]; then
+  echo "RELEASE_VERSION must be a numeric major.minor.patch version" >&2
   exit 1
 fi
 
-root="${0:A:h:h}"
+root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 app="$root/build/Passing By.app"
@@ -19,13 +21,13 @@ archive="$root/build/Passing-By-$RELEASE_VERSION.zip"
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")" == "local.passingby.app" ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$app/Contents/Info.plist")" == "Passing By" ]]
 
-"$root/Scripts/check-app-bundle.sh" "$app"
+"$root/tools/check-app-bundle.sh" "$app"
 rm -f "$archive"
 ditto -c -k --norsrc --keepParent "$app" "$archive"
 unzip -tqq "$archive"
 mkdir -p "$root/dist"
 # Keep the local build/ ZIP and replace only the generated release directory.
-rm -f "$root/dist/Passing-By-"*.zip(N) "$root/dist/metadata.json" "$root/dist/SHA256SUMS"
+rm -f "$root"/dist/Passing-By-*.zip "$root/dist/metadata.json" "$root/dist/SHA256SUMS"
 cp "$archive" "$root/dist/"
-python3 "$root/Scripts/release-artifacts.py" record
-print "Packaged $archive"
+python3 "$root/.github/scripts/release-artifacts.py" record
+echo "Packaged $archive"
