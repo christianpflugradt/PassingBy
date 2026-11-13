@@ -52,8 +52,8 @@ mise run test-ui # Native Settings focus and substitution editing tests; require
 
 Use the published governor pinned in [mise.toml](mise.toml). Prepare
 the tools with `mise install` and locked Node release dependencies with
-`mise run ci:prepare`, then run `mise exec -- please sync --yes`.
-Use `mise exec -- please run --at pre-push` for manual checks and
+`mise prepare`, then run `mise exec -- please sync --yes`.
+Use `mise verify` for a quick fail-fast check, `mise exec -- please run --at pre-push` for the complete gate and
 `mise exec -- git commit` / `mise exec -- git push` to give hooks the same tool PATH.
 Plain commands need mise shell activation; installation alone does not activate tools. See [.please/README.md](.please/README.md)
 for setup, execution points and the release contract.
@@ -95,8 +95,8 @@ CI and release use mise for portable tools, with Python pinned exactly in
 `mise.toml`. Apple SDKs and Swift remain host prerequisites. Preparation only
 fetches npm dependencies. Native build validation remains in Please Behave;
 Actions owns packaging, artifact verification and publication. Plan and Publish
-never install governance or Git hooks. `setup` remains an alias
-for `ci:prepare`; release dispatch uses an authenticated host `gh` CLI.
+never install governance or Git hooks. Release dispatch uses an authenticated
+host `gh` CLI.
 
 For local packaging, run `RELEASE_VERSION=1.2.3 mise run build` followed by
 `RELEASE_VERSION=1.2.3 mise run package`. The ZIP remains in `build/`; `dist/`

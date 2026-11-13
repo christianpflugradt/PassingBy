@@ -7,7 +7,7 @@ Passing By tooling (rule scripts in `.please/checks/`, release glue in `.github/
 ## Setup
 
 Prepare Swift 6+ and Apple Command Line Tools on macOS. Run `mise trust`,
-`mise install` and `mise run ci:prepare` to install the exact Node, Python, actionlint
+`mise install` and `mise prepare` to install the exact Node, Python, actionlint
 and Gitleaks versions in `mise.toml` and fetch locked npm dependencies.
 Use the published Please Behave version in `mise.toml`, then synchronize:
 
@@ -94,7 +94,7 @@ Publish request repository write permission. CI and Candidate use macos-15;
 Readiness uses Ubuntu. The app remains one native macOS artifact.
 CI uses `check`; Candidate uses `release` to build and verify the versioned app.
 Both execute one published Action step with summaries enabled.
-Mise installs tools from `mise.toml`; `ci:prepare` (alias `setup`) fetches locked
+Mise installs tools from `mise.toml`; `prepare` fetches locked
 npm dependencies only. Release jobs install only their required tool subsets.
 Python is exactly pinned; Swift and Apple SDKs remain host prerequisites.
 
