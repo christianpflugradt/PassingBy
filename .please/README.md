@@ -39,12 +39,12 @@ and requires manual integration. Other configured hook paths are retained.
 | format-swift, format-python, format-shell | pre-commit, pre-push, check |
 | swift-tests | pre-push, check |
 | native-build | pre-push, check, release |
-| native-ui | pre-push only; requires a macOS desktop session |
+| ui-tests | pre-push only; requires a macOS desktop session |
 | release-rules | pre-push, check |
 
 `swift run PassingByTests` runs all unit and compatibility tests in one Rule.
 The native build compiles, assembles and verifies the ad hoc signed app bundle.
-Unit tests, build and native UI tests share the `swift` resource lock. Unit/UI
+Unit tests, build and UI tests share the `swift` resource lock. Unit/UI
 commands build their own inputs, so they do not depend on the release app build.
 Native UI tests are excluded from CI and Release Candidate. The three format Rules check one
 tool each (`swift format`, `ruff format --check`, `shfmt -d`) and never edit files; the

@@ -1,4 +1,4 @@
-id = "native-ui"
+id = "ui-tests"
 description = "Test native Settings navigation and substitutions"
 run_at = ["pre-push"]
 

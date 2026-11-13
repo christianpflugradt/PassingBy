@@ -24,7 +24,7 @@ run = [
 
 [tasks.test-ui]
 description = "Run native Settings keyboard and UI tests (macOS desktop)"
-run = "./.please/checks/native-ui/test-settings-navigation.sh"
+run = "./.please/checks/ui-tests/test-settings-navigation.sh"
 
 [tasks.package]
 description = "ZIP the verified versioned macOS release app (requires RELEASE_VERSION)"
