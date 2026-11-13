@@ -40,7 +40,7 @@ and requires manual integration. Other configured hook paths are retained.
 | swift-tests | pre-push, check |
 | native-build | pre-push, check, release |
 | ui-tests | pre-push only; requires a macOS desktop session |
-| release-rules | pre-push, check |
+| python-tests | pre-push, check |
 
 `swift run PassingByTests` runs all unit and compatibility tests in one Rule.
 The native build compiles, assembles and verifies the ad hoc signed app bundle.
