@@ -14,7 +14,7 @@
     "node": ">=24.10.0 <27"
   },
   "scripts": {
-    "test": "node --test .github/scripts/test-release.mjs && python3 -B -m unittest discover -s .github/scripts -p \"test_*.py\"",
+    "test": "node --test .github/scripts/test-release.mjs && python3 -B -m unittest discover -s .github/scripts -p \"test_*.py\" && python3 -B -m unittest discover -s .please/checks/format-shell",
     "release:plan": "node .github/scripts/release-plan.mjs",
     "release": "node .github/scripts/publish-release.mjs"
   }

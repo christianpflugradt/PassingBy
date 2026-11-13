@@ -1,0 +1,7 @@
+id = "format-shell"
+description = "Verify shell script formatting"
+run_at = ["pre-commit", "pre-push", "check"]
+
+[check]
+command = "sh @rule/check.sh"
+timeout_seconds = 60

@@ -58,7 +58,7 @@ Use `mise verify` for a quick fail-fast check, `mise exec -- please run --at pre
 Plain commands need mise shell activation; installation alone does not activate tools. See [.please/README.md](.please/README.md)
 for setup, execution points and the release contract.
 
-Pre-commit checks Swift formatting. Pre-push runs all unit tests, the verified app
+Pre-commit checks Swift, Python and shell formatting. Pre-push runs all unit tests, the verified app
 build, native UI tests, workflow validation and offline release-tooling tests,
 plus shared security/license checks. CI runs the same gate without native UI tests
 and adds the npm audit. `please status --details` shows saved results.
@@ -76,7 +76,7 @@ Examples: `build: assemble local app`, `fix(ui): correct sidebar alignment`,
 Run individual suites with `mise run test-domain`, `mise run test-persistence`,
 or `mise run test-editor`; `mise run test` still runs all of them.
 `mise run lint` checks the four-space, 140-column Swift style;
-`mise run format` applies it. Use the same Swift toolchain locally and in CI
+`mise run format` applies it, together with `ruff` and `shfmt` for Python and shell scripts. Use the same Swift toolchain locally and in CI
 for consistent formatter results. `mise run compile` only compiles;
 `mise run build` also assembles and verifies the signed development app bundle.
 The standalone verifier is `./tools/check-app-bundle.sh [path-to-app]`;

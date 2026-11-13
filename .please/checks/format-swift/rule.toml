@@ -1,4 +1,4 @@
-id = "format"
+id = "format-swift"
 description = "Verify Swift formatting"
 run_at = ["pre-commit", "pre-push", "check"]
 

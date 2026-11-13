@@ -36,7 +36,7 @@ and requires manual integration. Other configured hook paths are retained.
 
 | Local Rule | Execution points |
 | --- | --- |
-| format | pre-commit, pre-push, check |
+| format-swift, format-python, format-shell | pre-commit, pre-push, check |
 | swift-tests | pre-push, check |
 | native-build | pre-push, check, release |
 | native-ui | pre-push only; requires a macOS desktop session |
@@ -46,8 +46,9 @@ and requires manual integration. Other configured hook paths are retained.
 The native build compiles, assembles and verifies the ad hoc signed app bundle.
 Unit tests, build and native UI tests share the `swift` resource lock. Unit/UI
 commands build their own inputs, so they do not depend on the release app build.
-Native UI tests are excluded from CI and Release Candidate. Formatting never edits
-files; `mise run format` is the explicit editing command.
+Native UI tests are excluded from CI and Release Candidate. The three format Rules check one
+tool each (`swift format`, `ruff format --check`, `shfmt -d`) and never edit files; the
+developer and agent command `mise run format` applies all three.
 
 The external `rulesets/security` and `rulesets/open-source-software` sets run filename,
 Gitleaks and byte-for-byte license checks at check and pre-push. Check reads the
