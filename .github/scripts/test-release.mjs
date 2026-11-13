@@ -18,10 +18,10 @@ const analyze = messages => analyzeCommits(analysis, {
 });
 
 async function testPolicy() {
-  for (const type of ["fix", "perf", "revert", "chore", "refactor", "build"]) {
+  for (const type of ["fix", "perf", "revert", "chore", "refactor", "build", "config"]) {
     assert.equal(await analyze([`${type}: maintain app`]), "patch");
   }
-  for (const type of ["ci", "config", "docs", "style", "test"]) {
+  for (const type of ["ci", "docs", "style", "test"]) {
     assert.equal(await analyze([`${type}: maintain app`]), null);
     assert.equal(await analyze([`${type}!: change contract`]), "major");
   }

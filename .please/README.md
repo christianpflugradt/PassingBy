@@ -113,8 +113,8 @@ commit and publishes the ZIP, SHA256SUMS and metadata.json. Release serializatio
 prevents competing workflow publications; it is not an atomic lock against pushes.
 
 Version policy follows the CLI for stable releases: feat is minor; fix, perf,
-chore, refactor, build and effective revert are patch. Historical build(release)
-version commits produce no release. ci, config, docs, style and test produce no
+chore, refactor, build, config and effective revert are patch. Historical build(release)
+version commits produce no release. ci, docs, style and test produce no
 release unless breaking; breaking changes are major because Passing By is already
 1.x. Scoped reverts cancel unreleased originals in version calculation and notes.
 There is no commit-history or PR-title validation; history analysis for versioning
