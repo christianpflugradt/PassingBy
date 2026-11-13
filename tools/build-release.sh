@@ -35,7 +35,7 @@ for size in 16 32 128 256 512; do
   for scale in 1 2; do
     pixels=$((size * scale))
     suffix=""
-    if (( scale == 2 )); then suffix="@2x"; fi
+    if ((scale == 2)); then suffix="@2x"; fi
     sips -s format png -z "$pixels" "$pixels" \
       "$root/passing-by-icon-master.svg" \
       --out "$iconset/icon_${size}x${size}${suffix}.png" >/dev/null

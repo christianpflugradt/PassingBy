@@ -6,7 +6,10 @@ version_pattern='^[1-9][0-9]*\.[0-9]+\.[0-9]+$'
 root="$(cd "$(dirname "$0")/.." && pwd)"
 app="${1:-$root/build/Passing By.app}"
 plist="$app/Contents/Info.plist"
-fail() { echo "Invalid app bundle: $*" >&2; exit 1; }
+fail() {
+  echo "Invalid app bundle: $*" >&2
+  exit 1
+}
 value() { /usr/libexec/PlistBuddy -c "Print :$1" "$plist"; }
 
 [[ -d "$app" && -f "$plist" ]] || fail "missing app directory or Info.plist"

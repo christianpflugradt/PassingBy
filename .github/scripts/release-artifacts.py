@@ -1,4 +1,5 @@
 """Bind the macOS release ZIP to its verified source and workflow attempt."""
+
 import hashlib
 import json
 import os
@@ -27,9 +28,14 @@ def identity():
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     if os.environ.get("GITHUB_SHA", head) != head:
         raise ValueError("Checkout does not match the dispatched source")
-    return dict(schema_version=1, version=version, source_sha=head,
-                run_id=os.environ.get("GITHUB_RUN_ID", "local"),
-                run_attempt=os.environ.get("GITHUB_RUN_ATTEMPT", "local"), platform="macos")
+    return dict(
+        schema_version=1,
+        version=version,
+        source_sha=head,
+        run_id=os.environ.get("GITHUB_RUN_ID", "local"),
+        run_attempt=os.environ.get("GITHUB_RUN_ATTEMPT", "local"),
+        platform="macos",
+    )
 
 
 def record(directory):
@@ -71,8 +77,14 @@ def verify(directory):
             raise ValueError("Archive exceeds the app size limit")
         for item in entries:
             path = PurePosixPath(item.filename)
-            if (path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] != APP
-                    or "\\" in item.filename or stat.S_ISLNK(item.external_attr >> 16)):
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or not path.parts
+                or path.parts[0] != APP
+                or "\\" in item.filename
+                or stat.S_ISLNK(item.external_attr >> 16)
+            ):
                 raise ValueError("Unsafe archive member")
         if zipped.testzip() is not None:
             raise ValueError("Corrupt archive member")
@@ -80,9 +92,11 @@ def verify(directory):
         if not binary.external_attr >> 16 & 0o111 or digest(zipped.read(BINARY)) != metadata["binary_sha256"]:
             raise ValueError("Unverified or nonexecutable app binary")
         plist = plistlib.loads(zipped.read(f"{APP}/Contents/Info.plist"))
-        if (plist.get("CFBundleIdentifier") != "local.passingby.app"
-                or plist.get("CFBundleShortVersionString") != expected["version"]
-                or plist.get("CFBundleVersion") != expected["version"]):
+        if (
+            plist.get("CFBundleIdentifier") != "local.passingby.app"
+            or plist.get("CFBundleShortVersionString") != expected["version"]
+            or plist.get("CFBundleVersion") != expected["version"]
+        ):
             raise ValueError("App identity or version mismatch")
         zipped.extractall(temporary)
         for item in entries:

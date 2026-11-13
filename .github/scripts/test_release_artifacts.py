@@ -1,4 +1,5 @@
 """Offline archive provenance and rejection tests; native validation runs separately."""
+
 import importlib.util
 import json
 import os
@@ -33,8 +34,10 @@ class ArtifactTests(unittest.TestCase):
             binary = zipfile.ZipInfo(artifacts.BINARY)
             binary.external_attr = (0o100755 if executable else 0o100644) << 16
             archive.writestr(binary, b"synthetic executable")
-            archive.writestr(f"{artifacts.APP}/Contents/Info.plist", plistlib.dumps(dict(
-                CFBundleIdentifier="local.passingby.app", CFBundleShortVersionString=version, CFBundleVersion=version)))
+            archive.writestr(
+                f"{artifacts.APP}/Contents/Info.plist",
+                plistlib.dumps(dict(CFBundleIdentifier="local.passingby.app", CFBundleShortVersionString=version, CFBundleVersion=version)),
+            )
             if extra:
                 archive.writestr(extra, b"unexpected")
         artifacts.record(self.directory)

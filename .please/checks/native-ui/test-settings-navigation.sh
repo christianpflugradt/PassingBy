@@ -6,12 +6,12 @@ settings_test_dir=$(mktemp -d)
 trap 'rm -rf "$settings_test_dir"' EXIT
 settings_bin_path=$(swift build --show-bin-path)
 if [ -d "$settings_bin_path/Modules" ]; then
-    swiftc -swift-version 6 -D SETTINGS_NAVIGATION_TESTS -I "$settings_bin_path/Modules" \
-        Sources/PassingByApp/*.swift .please/checks/native-ui/test-settings-navigation.swift .please/checks/native-ui/test-smart-substitutions.swift \
-        "$settings_bin_path"/PassingByCore.build/*.o -o "$settings_test_dir/settings-navigation-tests"
+  swiftc -swift-version 6 -D SETTINGS_NAVIGATION_TESTS -I "$settings_bin_path/Modules" \
+    Sources/PassingByApp/*.swift .please/checks/native-ui/test-settings-navigation.swift .please/checks/native-ui/test-smart-substitutions.swift \
+    "$settings_bin_path"/PassingByCore.build/*.o -o "$settings_test_dir/settings-navigation-tests"
 else
-    swiftc -swift-version 6 -D SETTINGS_NAVIGATION_TESTS -I "$settings_bin_path" \
-        Sources/PassingByApp/*.swift .please/checks/native-ui/test-settings-navigation.swift .please/checks/native-ui/test-smart-substitutions.swift \
-        "$settings_bin_path/PassingByCore.o" -o "$settings_test_dir/settings-navigation-tests"
+  swiftc -swift-version 6 -D SETTINGS_NAVIGATION_TESTS -I "$settings_bin_path" \
+    Sources/PassingByApp/*.swift .please/checks/native-ui/test-settings-navigation.swift .please/checks/native-ui/test-smart-substitutions.swift \
+    "$settings_bin_path/PassingByCore.o" -o "$settings_test_dir/settings-navigation-tests"
 fi
 "$settings_test_dir/settings-navigation-tests"
