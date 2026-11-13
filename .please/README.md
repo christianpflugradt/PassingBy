@@ -49,13 +49,13 @@ commands build their own inputs, so they do not depend on the release app build.
 Native UI tests are excluded from CI and Release Candidate. Formatting never edits
 files; `mise run format` is the explicit editing command.
 
-The external `rulesets/multi-point/security` and `rulesets/multi-point/open-source-software` sets run filename,
+The external `rulesets/security` and `rulesets/open-source-software` sets run filename,
 Gitleaks and byte-for-byte license checks at check and pre-push. Check reads the
 working tree; pre-push reads HEAD. Release Readiness runs `.github/scripts/check-release-ci.py` directly for successful
 push CI for the exact source, repository, workflow, main branch and `Check` job.
 Partial CI reruns may retain successful jobs from the same run.
 
-The external `rulesets/multi-point/repository-conventions` set limits AGENTS.md to 1500 approximate tokens at
+The external `rulesets/repository-conventions` set limits AGENTS.md to 1500 approximate tokens at
 pre-commit and check. Commit-msg uses its Conventional Commits Check and advisory wording
 Review. Scopes come from `commit-scopes.txt`. The independent `gemini-flash-lite`
 provider package supplies the adapter; no copy lives in this repository. The Review
