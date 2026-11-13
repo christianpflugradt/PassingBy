@@ -1,5 +1,6 @@
 id = "swift-tests"
-description = "Run all Swift unit and compatibility tests"
+name = "Swift tests"
+description = "All Swift unit and compatibility tests pass"
 run_at = ["pre-push", "check"]
 
 [check]

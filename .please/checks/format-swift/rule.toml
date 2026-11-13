@@ -1,5 +1,6 @@
 id = "format-swift"
-description = "Verify Swift formatting"
+name = "Swift formatting"
+description = "Swift sources pass swift-format's strict lint"
 run_at = ["pre-commit", "pre-push", "check"]
 
 [check]
