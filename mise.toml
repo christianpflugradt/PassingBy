@@ -14,14 +14,6 @@ shfmt = "3.14.1"
 description = "Build a local macOS app bundle"
 run = "./tools/build-release.sh"
 
-[tasks.compile]
-description = "Compile the release application without assembling the bundle"
-run = "swift build -c release --product PassingByApp"
-
-[tasks.lint]
-description = "Check Swift formatting and style without changing files"
-run = "swift format lint --strict --recursive Sources .please Package.swift"
-
 [tasks.format]
 description = "Format Swift, Python and shell sources"
 run = [
@@ -29,22 +21,6 @@ run = [
   "ruff format",
   "git ls-files '*.sh' | xargs grep -L '^#!.*zsh' | xargs shfmt -w",
 ]
-
-[tasks.test-domain]
-description = "Test filtering, retention and domain rules"
-run = "swift run PassingByTests --suite domain"
-
-[tasks.test-persistence]
-description = "Test persistence, compatibility and data safety"
-run = "swift run PassingByTests --suite persistence"
-
-[tasks.test-editor]
-description = "Test Markdown and smart substitutions"
-run = "swift run PassingByTests --suite editor"
-
-[tasks.test]
-description = "Run the Swift unit tests"
-run = "swift run PassingByTests"
 
 [tasks.test-ui]
 description = "Run native Settings keyboard and UI tests (macOS desktop)"

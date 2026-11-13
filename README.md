@@ -42,7 +42,6 @@ From the repository root:
 ```sh
 mise install
 mise run build
-mise run test # All three unit-test suites.
 mise run test-ui # Native Settings focus and substitution editing tests; requires a macOS desktop session.
 ```
 
@@ -73,12 +72,9 @@ blocking commits. CI does not validate commit ranges or PR titles.
 Examples: `build: assemble local app`, `fix(ui): correct sidebar alignment`,
 `docs: clarify setup`.
 
-Run individual suites with `mise run test-domain`, `mise run test-persistence`,
-or `mise run test-editor`; `mise run test` still runs all of them.
-`mise run lint` checks the four-space, 140-column Swift style;
-`mise run format` applies it, together with `ruff` and `shfmt` for Python and shell scripts. Use the same Swift toolchain locally and in CI
-for consistent formatter results. `mise run compile` only compiles;
-`mise run build` also assembles and verifies the signed development app bundle.
+`mise run format` applies the four-space, 140-column Swift style, together with `ruff` and `shfmt` for Python and
+shell scripts; the hooks only check it. Use the same Swift toolchain locally and in CI for consistent formatter results.
+`mise run build` assembles and verifies the signed development app bundle.
 The standalone verifier is `./tools/check-app-bundle.sh [path-to-app]`;
 release bundles require the matching `RELEASE_VERSION`.
 
