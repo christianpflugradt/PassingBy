@@ -7,7 +7,7 @@ Passing By tooling (rule scripts in `.please/checks/`, release glue in `.github/
 ## Setup
 
 Prepare Swift 6+ and Apple Command Line Tools on macOS. Run `mise trust`,
-`mise install` and `mise prepare` to install the exact Node, Python, actionlint
+`mise install` and `mise setup` to install the exact Node, Python, actionlint
 and Gitleaks versions in `mise.toml` and fetch locked npm dependencies.
 Use the published Please Behave version in `mise.toml`, then synchronize:
 

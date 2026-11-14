@@ -25,7 +25,7 @@ jobs:
       - name: Install project tools
         uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       - name: Fetch locked dependencies
-        run: mise run prepare
+        run: mise run setup
       - name: Run Please Behave checks and applicable reviews
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

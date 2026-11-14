@@ -51,7 +51,7 @@ mise run test-ui # Native Settings focus and substitution editing tests; require
 
 Use the published governor pinned in [mise.toml](mise.toml). Prepare
 the tools with `mise install` and locked Node release dependencies with
-`mise prepare`, then run `mise exec -- please sync --yes`.
+`mise setup`, then run `mise exec -- please sync --yes`.
 Use `mise verify` for a quick fail-fast check, `mise exec -- please run --at pre-push` for the complete gate and
 `mise exec -- git commit` / `mise exec -- git push` to give hooks the same tool PATH.
 Plain commands need mise shell activation; installation alone does not activate tools. See [.please/README.md](.please/README.md)
