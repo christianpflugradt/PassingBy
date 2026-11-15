@@ -76,6 +76,15 @@ hook may call its advisory provider. Dependency preparation is separate from che
 Builds reuse ignored `.build/` and `build/` outputs and never install the app.
 The npm audit needs advisory access in CI; release reuses its result.
 
+## Statistics
+
+`.github/workflows/statistics.yml` runs on pushes to main and manually. Job `collect` runs the unit tests with
+coverage instrumentation, measures the line coverage of `PassingByCore` with llvm-cov, counts production Swift lines
+in `Sources/PassingByApp` and `Sources/PassingByCore` with the scc version pinned in `mise.toml` and takes the test
+count from the `PassingByTests` summary. `.github/scripts/write-*-metrics.py` write the metric files. Job `publish`
+alone uses `STATISTICS_TOKEN` to dispatch them to badges-and-stuff. Structure is checked by the shared
+`statistics-workflow` rule.
+
 ## Dependency updates
 
 Renovate uses the best-practices preset and groups the Semantic Release toolchain.

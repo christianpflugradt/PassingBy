@@ -1,5 +1,9 @@
 # Passing By
 
+[![build](https://github.com/christianpflugradt/PassingBy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/christianpflugradt/PassingBy/actions/workflows/ci.yml) [![release](https://img.shields.io/github/v/release/christianpflugradt/PassingBy?display_name=tag&sort=semver)](https://github.com/christianpflugradt/PassingBy/releases) [![license](https://img.shields.io/badge/license-Apache%202.0-3949ab.svg)](LICENSE)
+
+[![tests](https://christianpflugradt.github.io/badges-and-stuff/passingby/tests.svg)](https://christianpflugradt.github.io/badges-and-stuff/) [![coverage](https://christianpflugradt.github.io/badges-and-stuff/passingby/coverage.svg)](https://christianpflugradt.github.io/badges-and-stuff/) [![LOC](https://christianpflugradt.github.io/badges-and-stuff/passingby/loc.svg)](https://christianpflugradt.github.io/badges-and-stuff/)
+
 Passing By is a small native macOS workspace for information that matters now: to-dos, appointments, and Markdown notes. It keeps your information on your Mac and is designed to stay calm and low-distraction.
 
 ## Features
@@ -77,6 +81,12 @@ shell scripts; the hooks only check it. Use the same Swift toolchain locally and
 `mise run build` assembles and verifies the signed development app bundle.
 The standalone verifier is `./tools/check-app-bundle.sh [path-to-app]`;
 release bundles require the matching `RELEASE_VERSION`.
+
+### Statistics
+
+On every push to main, the Statistics workflow runs the unit tests with line coverage of `PassingByCore`, counts
+production Swift lines with scc and sends tests, coverage and LOC to
+[badges-and-stuff](https://github.com/christianpflugradt/badges-and-stuff), which renders the badges above.
 
 ### Releases
 
