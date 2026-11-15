@@ -197,6 +197,7 @@ public struct AppSettings: Codable, Hashable {
         didSet { if !(1...365).contains(upcomingHorizonDays) { upcomingHorizonDays = 14 } }
     }
     public var defaultLabelID: UUID?
+    public var tsvImportLabelID: UUID?
     public var scheduledDefaultEnabled = false
     public var scheduledCategoryConfigured = false
     public var scheduledLabelID: UUID?
@@ -229,7 +230,7 @@ public struct AppSettings: Codable, Hashable {
     private enum CodingKeys: String, CodingKey {
         case labelContext, dateDisplayMode, taskRetention, dateRetention, maximumUpcomingDatesPerLabel, upcomingHorizonDays
         case maximumDashboardTasks, maximumDashboardAppointments, todoCompletionConfirmation
-        case defaultLabelID, scheduledDefaultEnabled, scheduledCategoryConfigured, scheduledLabelID, scheduledWeekdays,
+        case defaultLabelID, tsvImportLabelID, scheduledDefaultEnabled, scheduledCategoryConfigured, scheduledLabelID, scheduledWeekdays,
             scheduledStartMinute, scheduledEndMinute
         case showLineNumbers, indentWidth, checkSpelling, automaticCorrection, smartQuotes, smartDashes, screenZoom
         case smartSubstitutions
@@ -251,6 +252,7 @@ public struct AppSettings: Codable, Hashable {
         let horizon = try values.decodeIfPresent(Int.self, forKey: .upcomingHorizonDays) ?? 14
         upcomingHorizonDays = (1...365).contains(horizon) ? horizon : 14
         defaultLabelID = try values.decodeIfPresent(UUID.self, forKey: .defaultLabelID)
+        tsvImportLabelID = try values.decodeIfPresent(UUID.self, forKey: .tsvImportLabelID)
         scheduledDefaultEnabled = try values.decodeIfPresent(Bool.self, forKey: .scheduledDefaultEnabled) ?? false
         scheduledCategoryConfigured = try values.decodeIfPresent(Bool.self, forKey: .scheduledCategoryConfigured) ?? false
         scheduledLabelID = try values.decodeIfPresent(UUID.self, forKey: .scheduledLabelID)
@@ -354,6 +356,7 @@ public struct Workspace: Codable, Equatable {
         dates.indices.forEach { if dates[$0].labelID == id { dates[$0].labelID = nil } }
         if settings.labelContext == .label(id) { settings.labelContext = .all }
         if settings.defaultLabelID == id { settings.defaultLabelID = nil }
+        if settings.tsvImportLabelID == id { settings.tsvImportLabelID = nil }
         if settings.scheduledLabelID == id {
             settings.scheduledLabelID = nil; settings.scheduledCategoryConfigured = false; settings.scheduledDefaultEnabled = false
         }

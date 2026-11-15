@@ -898,7 +898,7 @@ When a schedule is due, the app creates one ordinary To-do with its saved title 
 
 Users can configure passed Appointment retention, the global maximum upcoming Appointments per Category, and the future time horizon. This section also provides a simple TSV bulk import.
 
-Each non-empty TSV line contains `DD.MM.YYYY`, a required title, and an optional description, separated by tabs. An empty description may be omitted or represented by a trailing tab. The user selects one existing Category or Uncategorized for the whole import. The app previews all parsed Appointments and reports invalid rows before confirmation; invalid or empty files cannot be imported. Confirmed imports append ordinary Appointments, with no automatic duplicate detection or merging. Import is one-time ingestion, without synchronization with the TSV file.
+Each non-empty TSV line contains `DD.MM.YYYY`, a required title, and an optional description, separated by tabs. An empty description may be omitted or represented by a trailing tab. The user selects one existing Category or Uncategorized for the whole import. A separate optional TSV import default Category, unrelated to the Default Category and Scheduled Default Category, is preselected when the import preview opens; it is Uncategorized initially, may be any configured Category or Uncategorized, and is cleared when its Category is deleted. The app previews all parsed Appointments and reports invalid rows before confirmation; invalid or empty files cannot be imported. Confirmed imports append ordinary Appointments, with no automatic duplicate detection or merging. Import is one-time ingestion, without synchronization with the TSV file.
 
 ## 21.5 Notes
 
@@ -1353,6 +1353,7 @@ A reviewer should verify the items relevant to the change and its regression ris
 - [ ] Maximum upcoming Appointments per category is configurable.
 - [ ] Upcoming presentation respects the configurable future horizon (default 14 days) without hiding stored Appointments from chronological mode.
 - [ ] Settings preview and validate TSV bulk imports before appending ordinary Appointments to one chosen Category or Uncategorized.
+- [ ] The TSV import default Category is preselected in the import preview, can still be changed there, and does not affect other defaults.
 
 ## Global filter
 

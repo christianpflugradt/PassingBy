@@ -648,7 +648,9 @@ func testDefaultCategoryAndScheduleAtCreation() {
     expect(
         workspace.settings.resolvedDefaultLabelID(at: date(29, 23), calendar: calendar, validLabels: workspace.labels) == personal.id,
         "overnight schedule is inactive")
+    workspace.settings.tsvImportLabelID = personal.id
     workspace.deleteLabel(personal.id)
+    expect(workspace.settings.tsvImportLabelID == nil, "deleting TSV import Category clears its default")
     expect(
         workspace.settings.defaultLabelID == nil && workspace.dates[0].labelID == nil,
         "deleting fallback clears reference and uncategorizes item")
@@ -685,7 +687,8 @@ func testSettingsPersistenceAndLegacyDefaults() throws {
     var legacy = try JSONSerialization.jsonObject(with: Data(contentsOf: persistence.url)) as! [String: Any]
     var oldSettings = legacy["settings"] as! [String: Any]
     for key in [
-        "defaultLabelID", "scheduledDefaultEnabled", "scheduledCategoryConfigured", "scheduledLabelID", "scheduledWeekdays",
+        "defaultLabelID", "tsvImportLabelID", "scheduledDefaultEnabled", "scheduledCategoryConfigured", "scheduledLabelID",
+        "scheduledWeekdays",
         "scheduledStartMinute", "scheduledEndMinute", "showLineNumbers", "indentWidth", "checkSpelling", "automaticCorrection",
         "smartQuotes", "smartDashes", "appLockEnabled", "lockWhenInactive", "inactivityMinutes", "maximumDashboardTasks",
         "maximumDashboardAppointments",
@@ -696,7 +699,8 @@ func testSettingsPersistenceAndLegacyDefaults() throws {
     let defaults = loaded.settings
     expect(loaded.labels == [label], "legacy migration preserves existing Categories")
     expect(
-        defaults.defaultLabelID == nil && !defaults.scheduledDefaultEnabled && !defaults.scheduledCategoryConfigured
+        defaults.defaultLabelID == nil && defaults.tsvImportLabelID == nil && !defaults.scheduledDefaultEnabled
+            && !defaults.scheduledCategoryConfigured
             && defaults.scheduledLabelID == nil, "old workspace has safe Category defaults")
     expect(
         defaults.scheduledWeekdays == [2, 3, 4, 5, 6] && defaults.scheduledStartMinute == 480 && defaults.scheduledEndMinute == 1020,

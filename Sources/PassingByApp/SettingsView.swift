@@ -292,6 +292,7 @@ struct SettingsView: View {
             numberRow(
                 "Show upcoming within", id: "settings-420-horizon", value: setting(\.upcomingHorizonDays), range: 1...365, suffix: "days")
             subheading("Import")
+            categoryPicker("TSV import Category", id: "settings-425-import-default", keyPath: \.tsvImportLabelID)
             SettingsButton(title: "Import TSV…", id: "settings-430-import") { importFlow.selectingFile = true }
         }
     }
@@ -650,7 +651,10 @@ private struct AppointmentImportPreviewView: View {
         .padding(24)
         .frame(width: 520)
         .background(SettingsKeyLoop(request: focus.request, requestedID: focus.requestedID))
-        .onAppear { focus.focus("settings-010-import-category") }
+        .onAppear {
+            importFlow.categoryID = state.workspace.settings.tsvImportLabelID
+            focus.focus("settings-010-import-category")
+        }
         .onExitCommand { dismiss() }
         .alert(
             "Could Not Import Appointments",
