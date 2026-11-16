@@ -34,13 +34,17 @@
       "automerge": true
     },
     {
+      "description": "Non-major GitHub Actions updates are grouped and use a 14-day cooldown.",
       "matchManagers": [
         "github-actions"
       ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
       "groupName": "github-actions",
-      "separateMajorMinor": false,
       "minimumReleaseAge": "14 days",
-      "automerge": true,
       "matchPackageNames": [
         "!please-behave/cli"
       ]
