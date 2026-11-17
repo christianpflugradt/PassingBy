@@ -2,7 +2,8 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:best-practices",
-    "github>christianpflugradt/please-behave-governance:renovate-governor"
+    "github>christianpflugradt/please-behave-governance:renovate-governor",
+    "github>christianpflugradt/please-behave-governance:renovate-content-aware"
   ],
   "packageRules": [
     {
