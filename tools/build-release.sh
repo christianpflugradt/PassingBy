@@ -1,7 +1,8 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 version_pattern='^[1-9][0-9]*\.[0-9]+\.[0-9]+$'
+is_version() { printf '%s\n' "$1" | grep -Eq "$version_pattern"; }
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
@@ -15,9 +16,9 @@ staged_app="$staging/Passing By.app"
 mkdir -p "$staged_app/Contents/MacOS" "$staged_app/Contents/Resources"
 cp "$bin_path/PassingByApp" "$staged_app/Contents/MacOS/PassingBy"
 cp "$root/Resources/Info.plist" "$staged_app/Contents/Info.plist"
-if [[ -n "${RELEASE_VERSION:-}" ]]; then
+if [ -n "${RELEASE_VERSION:-}" ]; then
   # Release builds keep the production identity; local builds use the development identity from Info.plist.
-  if [[ ! "$RELEASE_VERSION" =~ $version_pattern ]]; then
+  if ! is_version "$RELEASE_VERSION"; then
     echo "RELEASE_VERSION must be a numeric major.minor.patch version" >&2
     exit 1
   fi
@@ -35,7 +36,7 @@ for size in 16 32 128 256 512; do
   for scale in 1 2; do
     pixels=$((size * scale))
     suffix=""
-    if ((scale == 2)); then suffix="@2x"; fi
+    if [ "$scale" -eq 2 ]; then suffix="@2x"; fi
     sips -s format png -z "$pixels" "$pixels" \
       "$root/passing-by-icon-master.svg" \
       --out "$iconset/icon_${size}x${size}${suffix}.png" >/dev/null
