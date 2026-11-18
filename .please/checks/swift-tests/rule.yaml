@@ -1,0 +1,18 @@
+purpose: >-
+  Keep the Swift unit and compatibility tests passing.
+problem: >-
+  Regressions in domain rules, persistence and data invariants stay unnoticed until the application misbehaves for a user.
+value: >-
+  A change that breaks tested behavior is stopped before it is pushed.
+conditions:
+  - statement: The test runner executable PassingByTests finishes without a failing test.
+    rationale: It runs all unit and compatibility tests of the application in one place.
+  - statement: The rule shares the swift resource lock with the build and the UI tests.
+    rationale: The Swift toolchain builds into one shared output directory, so these rules must not run at the same time.
+success_criteria:
+  - A failing test fails the rule and a passing suite passes it.
+out_of_scope:
+  - description: Native UI behavior, which the ui-tests rule covers.
+  - description: Tests of release scripts and rule scripts, which python-tests covers.
+placement: >-
+  Local, because the tests belong to this application and its technology stack.

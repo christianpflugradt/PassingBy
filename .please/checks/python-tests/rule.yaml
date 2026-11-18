@@ -1,0 +1,21 @@
+purpose: >-
+  Keep the unit tests of the release scripts and of the local rules passing.
+problem: >-
+  Scripts that decide releases and verdicts of checks can break silently, and a defect in them would only show up in the release workflow or as a wrong check result.
+value: >-
+  Release and rule scripts are protected against regressions before they run for real.
+conditions:
+  - statement: Every test_*.py file in .github/scripts and in each directory under .please/checks passes.
+    rationale: New tests are picked up without configuration, so a new script with a test is covered automatically.
+  - statement: A crash of the runner is an ERROR, never a FAIL.
+    rationale: A failing verdict must mean a failing test and not a broken runner.
+success_criteria:
+  - A failing test fails the rule and a passing suite passes it.
+  - A crash of the runner is an ERROR.
+out_of_scope:
+  - description: Tests of the Swift application, which swift-tests and ui-tests cover.
+  - description: Scripts under tools, which have no Python tests.
+limitations:
+  - Tests run offline with synthetic data and mocked services.
+placement: >-
+  Local, because the tested scripts exist only in this repository.

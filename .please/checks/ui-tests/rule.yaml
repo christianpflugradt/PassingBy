@@ -1,0 +1,22 @@
+purpose: >-
+  Verify Settings keyboard navigation and smart text substitutions in the native application.
+problem: >-
+  This behavior depends on the real AppKit controls and cannot be tested effectively at a lower level, so regressions would only be found by trying the application by hand.
+value: >-
+  Important user-visible interactions are protected against regressions before they are pushed.
+conditions:
+  - statement: The test binary built from the production application sources and the two native test files runs to completion.
+    rationale: Testing the shipped Settings controls instead of copies keeps the tests honest, and a failed expectation aborts the run.
+  - statement: The rule runs only at pre-push and needs a macOS desktop session.
+    rationale: The tests drive real windows and cannot run in CI or in the Release Candidate.
+  - statement: The rule shares the swift resource lock with the build and the unit tests.
+    rationale: The Swift toolchain builds into one shared output directory, so these rules must not run at the same time.
+success_criteria:
+  - A failed expectation fails the rule and a completed run passes it.
+out_of_scope:
+  - description: Screens and editor interactions beyond Settings navigation and smart substitutions.
+  - description: Logic that unit tests cover, which swift-tests covers.
+limitations:
+  - It is not part of check, so it is skipped by the CI workflow and the Release Candidate.
+placement: >-
+  Local, because the tests belong to this application and its technology stack.

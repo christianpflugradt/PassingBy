@@ -1,0 +1,28 @@
+purpose: >-
+  Verify that the native application builds into a valid, signed app bundle.
+problem: >-
+  A broken bundle, with a wrong identity, version, icon or signature, would otherwise only be discovered when a release is built.
+value: >-
+  The bundle that would be released is built and inspected at every push, not only at release time.
+conditions:
+  - statement: The release build of the application succeeds and is assembled into a bundle with the application icon and an ad hoc signature.
+    rationale: This is the same procedure the release uses, so a problem shows up before the release does.
+  - statement: The bundle verification passes for package type, executable name, Mach-O executable, minimum system version, icon, identity, name, version and code signature.
+    rationale: These are the properties a user or the system notices when the bundle is wrong.
+  - statement: Identity, name and version differ between local builds and release builds and are verified for the build that was made.
+    rationale: Local builds must not be mistaken for the released application.
+  - statement: An invalid release version stops the build.
+    rationale: A malformed version must not reach a published artifact.
+  - statement: The rule shares the swift resource lock with the unit and UI tests.
+    rationale: The Swift toolchain builds into one shared output directory, so these rules must not run at the same time.
+success_criteria:
+  - A failing build or a bundle that violates a verified property fails the rule.
+  - A valid bundle passes.
+out_of_scope:
+  - description: Notarization and signing with a developer identity.
+  - description: Packaging into an archive, which a separate release script does.
+  - description: Starting or testing the application.
+limitations:
+  - It runs at pre-push, check and release, but not at pre-commit.
+placement: >-
+  Local, because the bundle layout and the build belong to this application and its technology stack.

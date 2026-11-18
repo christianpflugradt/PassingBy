@@ -1,0 +1,16 @@
+purpose: >-
+  Keep Swift sources formatted according to swift-format.
+problem: >-
+  Unformatted code fills diffs with noise and causes style discussions.
+value: >-
+  Formatting is uniform and no longer reviewed by hand.
+conditions:
+  - statement: swift format lint in strict mode reports no findings for the application sources, the Swift files under .please and Package.swift.
+    rationale: swift-format ships with the Swift toolchain, and strict mode turns warnings into failures so that style findings cannot be ignored.
+success_criteria:
+  - Unformatted code fails and formatted code passes.
+out_of_scope:
+  - description: Formatting of other languages.
+  - description: Rewriting files; mise run format applies the format.
+placement: >-
+  Local, because the formatter belongs to this repository's technology stack.
