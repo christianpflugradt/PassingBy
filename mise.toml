@@ -20,7 +20,7 @@ description = "Format Swift, Python and shell sources"
 run = [
   "swift format format --in-place --recursive Sources .please Package.swift",
   "ruff format",
-  "git ls-files '*.sh' | xargs grep -L '^#!.*zsh' | xargs shfmt -w",
+  "git ls-files -z '*.sh' | xargs -0 -r shfmt -w",
 ]
 
 [tasks.test-ui]
