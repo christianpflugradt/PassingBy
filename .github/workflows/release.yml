@@ -85,18 +85,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - name: Record release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@c37eb9268f0c159f35e2301712269d77c94ad300 # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@bebfa9c1b717c64c49f677c0a2d2e4730d86515d # updates/actions/release
         with:
           operation: record
           version: ${{ needs.plan.outputs.version }}
           target: macos
-      - name: Upload release candidate evidence
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: release-evidence-${{ github.run_id }}-${{ github.run_attempt }}-macos
-          path: release-evidence/
-          if-no-files-found: error
-          retention-days: 7
 
   publish:
     name: Publish
@@ -128,19 +121,13 @@ jobs:
           merge-multiple: true
       - name: Verify collected release artifact without rebuilding
         run: python3 .github/scripts/release-artifacts.py verify
-      - name: Download release candidate evidence
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          pattern: release-evidence-${{ github.run_id }}-${{ github.run_attempt }}-*
-          path: release-evidence
-          merge-multiple: true
       - name: Verify complete release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@c37eb9268f0c159f35e2301712269d77c94ad300 # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@bebfa9c1b717c64c49f677c0a2d2e4730d86515d # updates/actions/release
         with:
           operation: verify
           version: ${{ needs.plan.outputs.version }}
       - name: Publish versioned app and release notes
-        uses: christianpflugradt/please-behave-governance/actions/release/publish@c37eb9268f0c159f35e2301712269d77c94ad300 # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/publish@bebfa9c1b717c64c49f677c0a2d2e4730d86515d # updates/actions/release
         with:
           version: ${{ needs.plan.outputs.version }}
           force: ${{ inputs.force }}
