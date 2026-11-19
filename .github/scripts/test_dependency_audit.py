@@ -99,6 +99,14 @@ class ScanAndGateTests(unittest.TestCase):
             with open(path) as handle:
                 return code, json.load(handle), calls
 
+    def test_an_explicit_empty_scan_records_an_empty_report(self):
+        code, written, calls = self.scan({}, npm=(), cargo=())
+        self.assertEqual((code, written, calls), (0, {"scans": []}, []))
+        with self.assertRaises(SystemExit):
+            mod.main(["scan", "--report", "unused.json"])
+        with self.assertRaises(SystemExit):
+            mod.main(["scan", "--report", "unused.json", "--none", "--npm", "."])
+
     def test_findings_do_not_fail_the_scan_but_tool_failures_do(self):
         code, written, _ = self.scan({"cargo": self.completed(json.dumps(CARGO)), "npm": self.completed("not json")})
         self.assertEqual(code, 2)

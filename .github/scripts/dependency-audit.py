@@ -200,13 +200,16 @@ def main(argv):
     scanning.add_argument("--report", required=True)
     scanning.add_argument("--npm", action="append", default=[], metavar="DIR", help="directory with a package-lock.json")
     scanning.add_argument("--cargo", action="append", default=[], metavar="DIR", help="directory with a Cargo.lock")
+    scanning.add_argument(
+        "--none", action="store_true", help="state that no directory has dependencies to audit and record an empty report"
+    )
     evaluate = commands.add_parser("report")
     evaluate.add_argument("--report", required=True)
     evaluate.add_argument("--fail-on", required=True, choices=SEVERITIES)
     args = parser.parse_args(argv)
     if args.command == "scan":
-        if not (args.npm or args.cargo):
-            parser.error("scan needs at least one --npm or --cargo directory")
+        if args.none == bool(args.npm or args.cargo):
+            parser.error("scan needs at least one --npm or --cargo directory, or --none alone")
         return scan(args.report, args.npm, args.cargo)
     return report(args.report, args.fail_on)
 

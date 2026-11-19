@@ -20,9 +20,9 @@ jobs:
       - name: Install audit tools
         uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          install_args: node python
-      - name: Scan npm dependencies
-        run: python3 .github/scripts/dependency-audit.py scan --report dependency-audit.json --npm .
+          install_args: python
+      - name: Scan dependencies
+        run: python3 .github/scripts/dependency-audit.py scan --report dependency-audit.json --none # Package.swift declares no external dependencies.
       - name: Report findings
         if: ${{ !cancelled() && hashFiles('dependency-audit.json') != '' }}
         run: python3 .github/scripts/dependency-audit.py report --report dependency-audit.json --fail-on "$AUDIT_FAIL_ON"

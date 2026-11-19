@@ -98,8 +98,8 @@ for version semantics and reruns. Passing By remains a native macOS app with one
 release artifact; native UI tests run only locally at pre-push.
 
 CI and release use mise for portable tools, with Python pinned exactly in
-`mise.toml`. Apple SDKs and Swift remain host prerequisites. Preparation only
-fetches npm dependencies. Native build validation remains in Please Behave;
+`mise.toml`. Apple SDKs and Swift remain host prerequisites. Preparation has nothing to
+fetch. Native build validation remains in Please Behave;
 Actions owns packaging, artifact verification and publication. Plan and Publish
 never install governance or Git hooks. Release dispatch uses an authenticated
 host `gh` CLI.

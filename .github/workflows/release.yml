@@ -2,6 +2,11 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: Release a patch version even if no commit would raise the version, to test the release process
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,7 +29,7 @@ jobs:
     outputs:
       release: ${{ steps.plan.outputs.release }}
       version: ${{ steps.plan.outputs.version }}
-      source_sha: ${{ steps.plan.outputs.source_sha }}
+      source_sha: ${{ steps.plan.outputs.source-sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -35,12 +40,11 @@ jobs:
         uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: node
-      - run: npm ci --ignore-scripts
       - name: Plan next semantic release without publishing
         id: plan
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: npm run release:plan
+        uses: christianpflugradt/please-behave-governance/actions/release/plan@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        with:
+          force: ${{ inputs.force }}
 
   release-readiness:
     name: Release Readiness
@@ -62,9 +66,9 @@ jobs:
         with:
           install_args: python
       - name: Verify exact-source CI prerequisites
-        run: python3 .github/scripts/check-release-ci.py
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        uses: christianpflugradt/please-behave-governance/actions/release/check-ci@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        with:
+          required-jobs: Check
 
   release-candidate:
     name: Release Candidate
@@ -110,10 +114,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - name: Record release candidate evidence
-        run: python3 .github/scripts/release-evidence.py record
-        env:
-          EXPECTED_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
-          RELEASE_TARGET: macos
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        with:
+          operation: record
+          version: ${{ needs.plan.outputs.version }}
+          target: macos
       - name: Upload release candidate evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -145,7 +150,6 @@ jobs:
         uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: python node
-      - run: npm ci --ignore-scripts
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: passing-by-${{ github.run_id }}-${{ github.run_attempt }}-macos
@@ -160,12 +164,16 @@ jobs:
           path: release-evidence
           merge-multiple: true
       - name: Verify complete release candidate evidence
-        run: python3 .github/scripts/release-evidence.py verify
-        env:
-          EXPECTED_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        with:
+          operation: verify
+          version: ${{ needs.plan.outputs.version }}
       - name: Publish versioned app and release notes
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          EXPECTED_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
-        run: npm run release
-
+        uses: christianpflugradt/please-behave-governance/actions/release/publish@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        with:
+          version: ${{ needs.plan.outputs.version }}
+          force: ${{ inputs.force }}
+          assets: |
+            dist/Passing-By-*.zip
+            dist/SHA256SUMS
+            dist/metadata.json
