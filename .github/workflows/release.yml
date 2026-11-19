@@ -58,34 +58,16 @@ jobs:
         uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: python github:please-behave/cli
-      - name: Validate native candidate
-        uses: please-behave/action@8b4f3e3d0dc1aec1cd12661abbcc10a666506b96 # v1.5.1
+      - name: Verify the candidate at the release point
+        uses: christianpflugradt/please-behave-governance/actions/release/governance@e0d645d4cf3d5e462540eb184ee55b5ad7227889 # updates/actions/release
         with:
-          install: 'false'
-          sync: 'true'
-          execution-point: release
-          summary: 'true'
+          target: macos
       - name: Package verified native candidate
         run: mise run package
       - name: Verify candidate archive
         run: python3 .github/scripts/release-artifacts.py verify
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: passing-by-${{ github.run_id }}-${{ github.run_attempt }}-macos
-          path: dist/
-          if-no-files-found: error
-          retention-days: 7
-      - name: Upload candidate report
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-candidate-report-${{ github.run_id }}-${{ github.run_attempt }}-macos
-          path: .please/reports/last.json
-          include-hidden-files: true
-          if-no-files-found: warn
-          retention-days: 7
       - name: Record release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@bebfa9c1b717c64c49f677c0a2d2e4730d86515d # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@e0d645d4cf3d5e462540eb184ee55b5ad7227889 # updates/actions/release
         with:
           operation: record
           version: ${{ needs.plan.outputs.version }}
@@ -114,20 +96,15 @@ jobs:
         uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           install_args: python node
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: passing-by-${{ github.run_id }}-${{ github.run_attempt }}-macos
-          path: dist
-          merge-multiple: true
-      - name: Verify collected release artifact without rebuilding
-        run: python3 .github/scripts/release-artifacts.py verify
       - name: Verify complete release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@bebfa9c1b717c64c49f677c0a2d2e4730d86515d # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@e0d645d4cf3d5e462540eb184ee55b5ad7227889 # updates/actions/release
         with:
           operation: verify
           version: ${{ needs.plan.outputs.version }}
+      - name: Verify collected release artifact without rebuilding
+        run: python3 .github/scripts/release-artifacts.py verify
       - name: Publish versioned app and release notes
-        uses: christianpflugradt/please-behave-governance/actions/release/publish@bebfa9c1b717c64c49f677c0a2d2e4730d86515d # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/publish@e0d645d4cf3d5e462540eb184ee55b5ad7227889 # updates/actions/release
         with:
           version: ${{ needs.plan.outputs.version }}
           force: ${{ inputs.force }}
