@@ -58,13 +58,13 @@ jobs:
         with:
           install_args: python github:please-behave/cli
       - name: Verify the candidate at the release point
-        uses: christianpflugradt/please-behave-governance/actions/release/governance@f214b49bd33bf21fbea5c4a9a3214fa83df6fa1d # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/governance@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
       - name: Package verified native candidate
         run: mise run package
       - name: Verify candidate archive
         run: python3 .github/scripts/release-artifacts.py verify
       - name: Record release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@f214b49bd33bf21fbea5c4a9a3214fa83df6fa1d # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
         with:
           operation: record
           version: ${{ needs.plan.outputs.version }}
@@ -94,14 +94,14 @@ jobs:
         with:
           install_args: python node
       - name: Verify complete release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@f214b49bd33bf21fbea5c4a9a3214fa83df6fa1d # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
         with:
           operation: verify
           version: ${{ needs.plan.outputs.version }}
       - name: Verify collected release artifact without rebuilding
         run: python3 .github/scripts/release-artifacts.py verify
       - name: Publish versioned app and release notes
-        uses: christianpflugradt/please-behave-governance/actions/release/publish-release@f214b49bd33bf21fbea5c4a9a3214fa83df6fa1d # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/publish-release@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
         with:
           version: ${{ needs.plan.outputs.version }}
           force: ${{ inputs.force }}
