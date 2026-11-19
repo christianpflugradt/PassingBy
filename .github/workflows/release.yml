@@ -42,7 +42,7 @@ jobs:
           install_args: node
       - name: Plan next semantic release without publishing
         id: plan
-        uses: christianpflugradt/please-behave-governance/actions/release/plan@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/plan@b228387979f8dbdc65a0c809a390ccaa3bfbae5c # updates/actions/release
         with:
           force: ${{ inputs.force }}
 
@@ -66,7 +66,7 @@ jobs:
         with:
           install_args: python
       - name: Verify exact-source CI prerequisites
-        uses: christianpflugradt/please-behave-governance/actions/release/check-ci@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/check-ci@b228387979f8dbdc65a0c809a390ccaa3bfbae5c # updates/actions/release
         with:
           required-jobs: Check
 
@@ -114,7 +114,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
       - name: Record release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@b228387979f8dbdc65a0c809a390ccaa3bfbae5c # updates/actions/release
         with:
           operation: record
           version: ${{ needs.plan.outputs.version }}
@@ -164,12 +164,12 @@ jobs:
           path: release-evidence
           merge-multiple: true
       - name: Verify complete release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@b228387979f8dbdc65a0c809a390ccaa3bfbae5c # updates/actions/release
         with:
           operation: verify
           version: ${{ needs.plan.outputs.version }}
       - name: Publish versioned app and release notes
-        uses: christianpflugradt/please-behave-governance/actions/release/publish@3c19f37b0021f174d15022e9a463f1d0b913294a # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/publish@b228387979f8dbdc65a0c809a390ccaa3bfbae5c # updates/actions/release
         with:
           version: ${{ needs.plan.outputs.version }}
           force: ${{ inputs.force }}
