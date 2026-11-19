@@ -90,7 +90,7 @@ production Swift lines with scc and sends tests, coverage and LOC to
 
 ### Releases
 
-Run `mise run release` to dispatch Release on main. Plan calculates the version;
+Run `mise release` to wait for CI on main to finish and then dispatch Release; add `--follow` to watch the run. Plan calculates the version;
 Readiness checks exact-commit CI proof, source security and current advisories;
 Candidate builds and verifies the versioned app, reusing source tests from CI. Publish verifies and publishes that
 same ZIP without rebuilding. See the [release contract](.please/README.md#release-contract)

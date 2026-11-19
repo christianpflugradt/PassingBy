@@ -32,8 +32,9 @@ description = "ZIP the verified versioned macOS release app (requires RELEASE_VE
 run = "./tools/package-release.sh"
 
 [tasks.release]
-description = "Trigger the manual GitHub release workflow"
-run = "gh workflow run release.yml --ref main"
+description = "Wait for CI on main, then dispatch the release workflow (--follow to watch it)"
+usage = 'flag "--follow" help="Watch the dispatched release run until it finishes"'
+run = 'python3 .github/scripts/dispatch-release.py ${usage_follow:+--follow}'
 
 [tasks.verify]
 description = "Run the deterministic Please Behave checks and stop at the first blocker"
