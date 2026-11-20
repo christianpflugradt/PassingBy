@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   check:
-    uses: christianpflugradt/please-behave-governance/.github/workflows/ci-check.yml@7550c9f42d82ec2a0119b8db8a176544939ffd3f # updates/workflows/ci
+    uses: christianpflugradt/please-behave-governance/.github/workflows/ci-check.yml@8572daf10c4f05dfbded34301187e00134259864 # updates/workflows/ci
     with:
       runner: macos-26
     secrets:
