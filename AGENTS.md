@@ -1,135 +1,23 @@
 # Agent Instructions
 
-## Sources of Truth
+## Product specification
 
-- `Product.md` is the authoritative product specification.
-- Read `Product.md` before making product, UX, domain, or scope decisions.
-- Keep product requirements in `Product.md`; link to them rather than maintaining competing definitions elsewhere.
-- Explicit non-goals in `Product.md` are deliberate constraints, not missing features.
+- `Product.md` is the authoritative product specification. Read it before product, UX, domain or scope decisions; link to it instead of keeping competing definitions elsewhere. Explicit non-goals are deliberate.
+- Follow its sections 33–34 for interpretation and reviewer decisions. For unspecified minor details, preserve established behaviour and choose the simplest consistent solution. For missing, conflicting or evolving requirements that materially affect behaviour, data safety or scope, inspect tests and relevant Git history, report the uncertainty and leave the product decision to the user. Neither the implementation nor passing tests override the specification.
+- Do not modify `Product.md` merely to make the implementation conform. If the specification should change, report the issue and trade-off and propose the smallest concrete change. An explicitly requested feature or documentation review authorizes updating the affected specification: record well-supported decisions in the relevant sections, keep unresolved material questions for review and do not turn incidental implementation details into constraints.
+- For substantial product work, review the result against the relevant `Product.md` verification criteria and report remaining deviations.
 
-Use the interpretation and reviewer decision rules in `Product.md` sections 33–34. For unspecified minor details, preserve established behaviour and choose the simplest consistent solution. For missing, conflicting, or evolving requirements that materially affect behaviour, data safety, or scope, inspect tests and relevant Git history, report the uncertainty, and leave the product decision to the user. Neither the implementation nor passing tests automatically overrides the specification.
+## Engineering
 
-## Engineering Principles
+- Use native macOS conventions and platform capabilities where practical. A small amount of duplication beats premature abstraction.
+- Prioritise tests for domain rules, state transitions, persistence, filtering, retention and data invariants. Use UI tests only for important user-visible behaviour that lower-level tests cannot cover.
+- Do not create planning documents, ADRs, progress logs or other process artifacts unless the task requires them. Keep README focused on building, running and testing.
 
-Keep the implementation simple, native, and maintainable.
+## Persistence and data safety
 
-- Prefer straightforward solutions over speculative abstractions.
-- Do not design for hypothetical future requirements.
-- Avoid unnecessary frameworks, generic infrastructure, plugin systems, or abstraction layers.
-- A small amount of duplication is preferable to premature abstraction.
-- Follow established project patterns once they exist.
-- Use native macOS conventions and platform capabilities where practical.
-- Do not add dependencies without a clear benefit.
+- User-created content must not be silently lost. Changes to persistence, deletion, retention or migrations need particular care and tests. Never change or discard persisted data merely because it simplifies the implementation.
 
-Functional correctness alone is insufficient. Implementation and UX decisions must also respect the product principles defined in `Product.md`.
+## UI state
 
-## Scope Discipline
-
-Implement only what is required by `Product.md` and the current task.
-
-Do not add adjacent features merely because they are common in similar applications.
-
-Do not perform unrelated refactoring while completing a task unless it is necessary for correctness or materially reduces implementation risk.
-
-## Working Method
-
-Before changing code:
-
-1. inspect the relevant existing implementation,
-2. read the applicable sections of `Product.md`,
-3. understand existing tests and conventions.
-
-Then make the smallest coherent change that fully satisfies the task.
-
-Work incrementally and keep the project in a valid state.
-
-After changes, use the published Please Behave governor pinned in `mise.toml`.
-Git hooks are the authoritative validation gates: pre-commit checks formatting;
-pre-push builds the app and runs the complete local suite, including native UI tests.
-Do not manually repeat the full gate before Git operations. Targeted diagnostic
-checks and source formatting are permitted. Inspect captured failures with
-`please status --details`, fix regressions and retry the Git operation. Never bypass
-hooks. Prepare dependencies explicitly; checks do not install tools. See
-[repository governance](.please/README.md) for setup and execution points.
-Verify the result against the applicable requirements in `Product.md`.
-
-Fix violations and regressions introduced by the task before declaring it complete. Report unrelated pre-existing discrepancies or failing checks separately; do not silently expand the task to repair them. For documentation-only work, verify claims against source, tests, and history, and check links and cross-references; do not change application code or tests unless requested.
-
-## Repository layout
-
-Keep the repository root for the product. Rule scripts live in `.please/checks/<rule>/`, release and workflow
-scripts in `.github/scripts/` and build tools in `tools/`, each with its tests.
-
-## Testing
-
-Add automated tests where they provide meaningful protection against regressions.
-
-Prioritise:
-
-- domain rules,
-- state transitions,
-- persistence behaviour,
-- filtering,
-- retention behaviour,
-- data invariants.
-
-Do not create low-value tests merely to increase coverage.
-
-Use UI tests when they protect important user-visible behaviour that cannot be tested effectively at a lower level.
-
-## Persistence and Data Safety
-
-User-created content must not be silently lost.
-
-Changes that affect persistence, deletion, retention, or migrations require particular care and appropriate tests.
-
-Never change or discard existing persisted data merely because doing so simplifies implementation.
-
-## Product Specification Changes
-
-Do not modify `Product.md` merely to make the current implementation conform.
-
-If implementation work reveals that the specification should change:
-
-1. report the issue,
-2. explain the trade-off,
-3. propose the smallest concrete specification change,
-4. leave the product decision to the user unless explicitly instructed otherwise.
-
-An explicitly requested feature or documentation review can authorize updating the affected specification. Record well-supported product decisions in the existing relevant sections, update corresponding verification criteria where useful, and preserve unresolved material questions for human review. Do not turn incidental implementation details into new product constraints.
-
-## UI State and Native Interaction
-
-Do not rebuild major view hierarchies for routine interactions such as selection, filtering, editing, or toggling state.
-
-Preserve screen and editor state during incremental updates and when switching screens or Notes, following `Product.md` sections 12.3 and 25. Keep Undo/Redo history in memory across navigation; never persist it across application restarts. Persist other restorable UI state, including caret positions, as part of application state. Intentional transitions such as creation, deletion, filtering out an item, or closing a dialog may move focus as specified in `Product.md`; choose an appropriate surviving control when the original target is unavailable.
-
-Prefer stable native view hierarchies with incremental state updates over reconstructing controls after each interaction.
-
-## Documentation
-
-Keep documentation concise and useful.
-
-Do not create planning documents, architecture documents, ADRs, progress logs, or other process artifacts unless the task requires them or they provide clear lasting value.
-
-Keep `README.md` focused on practical repository usage such as building, running, and testing the application.
-
-## Git Workflow
-
-- Never use `git stash` in any form.
-- Work only on `main`. Do not create, check out, or commit on another branch.
-- Commit completed work on `main` and push `main` to `origin`.
-
-## Completion
-
-Before considering a task complete:
-
-- the project builds,
-- relevant tests pass,
-- the requested behaviour works,
-- applicable `Product.md` requirements are satisfied, with unrelated pre-existing deviations reported,
-- no unrelated product behaviour has been introduced.
-
-For substantial product work, perform a final review against the relevant `Product.md` verification criteria and report any remaining deviations explicitly.
-
-After completing a task, commit its changes using the repository's commit-message convention and push `main` to `origin`. Report the commit and push result; if the push fails, report the failure without discarding the commit.
+- Do not rebuild major view hierarchies for routine interactions such as selection, filtering, editing or toggling; prefer stable native hierarchies with incremental updates.
+- Preserve screen and editor state when switching screens or Notes (`Product.md` sections 12.3 and 25). Keep Undo/Redo history in memory across navigation and never persist it across restarts; persist other restorable UI state, including caret positions. Intentional transitions such as creation, deletion, filtering out an item or closing a dialog may move focus as specified; pick an appropriate surviving control when the original target is unavailable.
