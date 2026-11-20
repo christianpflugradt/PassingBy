@@ -2,9 +2,7 @@
   "root": "dist",
   "targets": {
     "macos": [
-      "Passing-By-{version}.zip",
-      "metadata.json",
-      "SHA256SUMS"
+      "Passing-By-{version}.zip"
     ]
   }
 }

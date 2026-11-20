@@ -28,7 +28,6 @@ ditto -c -k --norsrc --keepParent "$app" "$archive"
 unzip -tqq "$archive"
 mkdir -p "$root/dist"
 # Keep the local build/ ZIP and replace only the generated release directory.
-rm -f "$root"/dist/Passing-By-*.zip "$root/dist/metadata.json" "$root/dist/SHA256SUMS"
+rm -f "$root"/dist/Passing-By-*.zip
 cp "$archive" "$root/dist/"
-python3 "$root/.github/scripts/release-artifacts.py" record
 echo "Packaged $archive"

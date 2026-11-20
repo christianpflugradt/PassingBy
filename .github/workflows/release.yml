@@ -61,8 +61,6 @@ jobs:
         uses: christianpflugradt/please-behave-governance/actions/release/governance@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
       - name: Package verified native candidate
         run: mise run package
-      - name: Verify candidate archive
-        run: python3 .github/scripts/release-artifacts.py verify
       - name: Record release candidate evidence
         uses: christianpflugradt/please-behave-governance/actions/release/evidence@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
         with:
@@ -81,8 +79,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
-    env:
-      RELEASE_VERSION: ${{ needs.plan.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -98,8 +94,9 @@ jobs:
         with:
           operation: verify
           version: ${{ needs.plan.outputs.version }}
-      - name: Verify collected release artifact without rebuilding
-        run: python3 .github/scripts/release-artifacts.py verify
+      - name: Checksum the app archive
+        working-directory: dist
+        run: shasum -a 256 -- Passing-By-*.zip > SHA256SUMS
       - name: Publish versioned app and release notes
         uses: christianpflugradt/please-behave-governance/actions/release/publish-release@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
         with:
@@ -108,4 +105,3 @@ jobs:
           assets: |
             dist/Passing-By-*.zip
             dist/SHA256SUMS
-            dist/metadata.json

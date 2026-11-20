@@ -106,7 +106,7 @@ host `gh` CLI.
 
 For local packaging, run `RELEASE_VERSION=1.2.3 mise run build` followed by
 `RELEASE_VERSION=1.2.3 mise run package`. The ZIP remains in `build/`; `dist/`
-contains the ZIP, SHA256SUMS and source-bound metadata for release verification.
+contains the release ZIP.
 
 ## License
 
