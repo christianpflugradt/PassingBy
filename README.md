@@ -64,7 +64,7 @@ for setup, execution points and the release contract.
 Pre-commit checks Swift, Python and shell formatting. Pre-push runs all unit tests, the verified app
 build, native UI tests, workflow validation and offline release-tooling tests,
 plus shared security/license checks. CI runs the same gate without native UI tests.
-Dependencies are audited separately by the daily `dependency-audit.yml` workflow. `please status --details` shows saved results.
+The package has no external dependencies, so there is no dependency audit; a security check fails once a dependency lockfile appears. `please status --details` shows saved results.
 
 Commit subjects use Conventional Commits with optional scopes from
 [.please/commit-scopes.txt](.please/commit-scopes.txt). Types and syntax are checked
