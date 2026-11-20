@@ -58,11 +58,11 @@ jobs:
         with:
           install_args: python github:please-behave/cli
       - name: Verify the candidate at the release point
-        uses: christianpflugradt/please-behave-governance/actions/release/governance@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/governance@c13b67c59b7ab4224fb2544a2de6fa2f49d36e2f # updates/actions/release
       - name: Package verified native candidate
         run: mise run package
       - name: Record release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@c13b67c59b7ab4224fb2544a2de6fa2f49d36e2f # updates/actions/release
         with:
           operation: record
           version: ${{ needs.plan.outputs.version }}
@@ -90,7 +90,7 @@ jobs:
         with:
           install_args: python node
       - name: Verify complete release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@c13b67c59b7ab4224fb2544a2de6fa2f49d36e2f # updates/actions/release
         with:
           operation: verify
           version: ${{ needs.plan.outputs.version }}
@@ -98,7 +98,7 @@ jobs:
         working-directory: dist
         run: shasum -a 256 -- Passing-By-*.zip > SHA256SUMS
       - name: Publish versioned app and release notes
-        uses: christianpflugradt/please-behave-governance/actions/release/publish-release@ddb176f80831329b2328b9cf0c976f4e6f634c31 # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/publish-release@c13b67c59b7ab4224fb2544a2de6fa2f49d36e2f # updates/actions/release
         with:
           version: ${{ needs.plan.outputs.version }}
           force: ${{ inputs.force }}
