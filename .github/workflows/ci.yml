@@ -12,3 +12,5 @@ jobs:
       runner: macos-26
     secrets:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GATEWAY_URL: ${{ secrets.GATEWAY_URL }}
+      GATEWAY_KEY: ${{ secrets.GATEWAY_KEY }}
