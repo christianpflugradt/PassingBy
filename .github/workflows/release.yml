@@ -60,11 +60,11 @@ jobs:
           experimental: true
           version: 2026.11.11
       - name: Verify the candidate at the release point
-        uses: christianpflugradt/please-behave-governance/actions/release/governance@c85286b88d8fe1da760ba222c7d787a96c65019b # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/governance@afcf276e729e20b014b25b713a52b577f9224ccf # updates/actions/release
       - name: Package verified native candidate
         run: mise run package
       - name: Record release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@c85286b88d8fe1da760ba222c7d787a96c65019b # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@afcf276e729e20b014b25b713a52b577f9224ccf # updates/actions/release
         with:
           operation: record
           version: ${{ needs.plan.outputs.version }}
@@ -94,7 +94,7 @@ jobs:
           experimental: true
           version: 2026.11.11
       - name: Verify complete release candidate evidence
-        uses: christianpflugradt/please-behave-governance/actions/release/evidence@c85286b88d8fe1da760ba222c7d787a96c65019b # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/evidence@afcf276e729e20b014b25b713a52b577f9224ccf # updates/actions/release
         with:
           operation: verify
           version: ${{ needs.plan.outputs.version }}
@@ -102,7 +102,7 @@ jobs:
         working-directory: dist
         run: shasum -a 256 -- Passing-By-*.zip > SHA256SUMS
       - name: Publish versioned app and release notes
-        uses: christianpflugradt/please-behave-governance/actions/release/publish-release@c85286b88d8fe1da760ba222c7d787a96c65019b # updates/actions/release
+        uses: christianpflugradt/please-behave-governance/actions/release/publish-release@afcf276e729e20b014b25b713a52b577f9224ccf # updates/actions/release
         with:
           version: ${{ needs.plan.outputs.version }}
           force: ${{ inputs.force }}
