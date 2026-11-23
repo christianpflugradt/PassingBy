@@ -1,4 +1,5 @@
 id = "swift-tests"
+version = "1.0"
 name = "Swift tests"
 description = "All Swift unit and compatibility tests pass"
 run_at = ["pre-push", "check"]

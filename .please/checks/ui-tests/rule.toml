@@ -1,4 +1,5 @@
 id = "ui-tests"
+version = "1.0"
 name = "UI tests"
 description = "Settings navigation and smart substitutions work in the native app"
 run_at = ["pre-push"]
