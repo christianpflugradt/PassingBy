@@ -60,11 +60,11 @@ jobs:
           experimental: true
           version: 2026.11.11
       - name: Verify the candidate at the release point
-        uses: christianpflugradt/repository-catalog/actions/release/governance@247434c51b05ace2163a53887595dd1eaa701fdf # updates/actions/release
+        uses: christianpflugradt/repository-catalog/actions/release/governance@74c1911d36c4f967b43040c5179e4ca5f6b0080b # updates/actions/release
       - name: Package verified native candidate
         run: mise run package
       - name: Record release candidate evidence
-        uses: christianpflugradt/repository-catalog/actions/release/evidence@247434c51b05ace2163a53887595dd1eaa701fdf # updates/actions/release
+        uses: christianpflugradt/repository-catalog/actions/release/evidence@74c1911d36c4f967b43040c5179e4ca5f6b0080b # updates/actions/release
         with:
           operation: record
           version: ${{ needs.plan.outputs.version }}
@@ -95,7 +95,7 @@ jobs:
           experimental: true
           version: 2026.11.11
       - name: Verify complete release candidate evidence
-        uses: christianpflugradt/repository-catalog/actions/release/evidence@247434c51b05ace2163a53887595dd1eaa701fdf # updates/actions/release
+        uses: christianpflugradt/repository-catalog/actions/release/evidence@74c1911d36c4f967b43040c5179e4ca5f6b0080b # updates/actions/release
         with:
           operation: verify
           version: ${{ needs.plan.outputs.version }}
@@ -103,7 +103,7 @@ jobs:
         working-directory: dist
         run: shasum -a 256 -- Passing-By-*.zip > SHA256SUMS
       - name: Publish versioned app and release notes
-        uses: christianpflugradt/repository-catalog/actions/release/publish-release@247434c51b05ace2163a53887595dd1eaa701fdf # updates/actions/release
+        uses: christianpflugradt/repository-catalog/actions/release/publish-release@74c1911d36c4f967b43040c5179e4ca5f6b0080b # updates/actions/release
         with:
           version: ${{ needs.plan.outputs.version }}
           source-sha: ${{ needs.plan.outputs.source_sha }}
