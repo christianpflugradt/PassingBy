@@ -21,7 +21,7 @@ jobs:
         with:
           install_args: python aqua:boyter/scc
           experimental: true
-          version: 2026.11.11
+          version: 2026.11.12
       - name: Run tests with coverage instrumentation
         run: |
           set -euo pipefail
