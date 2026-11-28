@@ -58,7 +58,7 @@ jobs:
         with:
           install_args: python github:please-behave/cli
           experimental: true
-          version: 2026.11.11
+          version: 2026.11.12
       - name: Verify the candidate at the release point
         uses: christianpflugradt/repository-catalog/actions/release/governance@74c1911d36c4f967b43040c5179e4ca5f6b0080b # updates/actions/release
       - name: Package verified native candidate
@@ -93,7 +93,7 @@ jobs:
         with:
           install_args: python node
           experimental: true
-          version: 2026.11.11
+          version: 2026.11.12
       - name: Verify complete release candidate evidence
         uses: christianpflugradt/repository-catalog/actions/release/evidence@74c1911d36c4f967b43040c5179e4ca5f6b0080b # updates/actions/release
         with:
